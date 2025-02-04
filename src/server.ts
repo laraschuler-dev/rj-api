@@ -19,7 +19,6 @@ app.use(express.json());
 // Usa as rotas definidas no arquivo src/routes/index.ts
 app.use('/api', routes);
 
-
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });

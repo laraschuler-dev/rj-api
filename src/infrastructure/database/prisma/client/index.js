@@ -182,7 +182,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "C:\\rj-api\\src\\generated\\prisma",
+      "value": "C:\\rj-api\\src\\infrastructure\\database\\prisma\\client",
       "fromEnvVar": null
     },
     "config": {
@@ -200,10 +200,10 @@ const config = {
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
-    "rootEnvPath": "../../../.env",
-    "schemaEnvPath": "../../../.env"
+    "rootEnvPath": null,
+    "schemaEnvPath": "../../../../../.env"
   },
-  "relativePath": "../../../prisma",
+  "relativePath": "../../../../../prisma",
   "clientVersion": "6.6.0",
   "engineVersion": "f676762280b54cd07c770017ed3711ddde35f37a",
   "datasourceNames": [
@@ -219,8 +219,8 @@ const config = {
       }
     }
   },
-  "inlineSchema": "generator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"mysql\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel category {\n  idcategory Int    @id\n  nome       String @db.VarChar(45)\n  post       post[]\n}\n\nmodel comment {\n  user_iduser Int       @db.UnsignedInt\n  post_idpost Int       @db.UnsignedInt\n  comment     String    @db.TinyText\n  time        DateTime? @db.DateTime(0)\n  post        post      @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: \"fk_user_has_post_post2\")\n  user        user      @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: \"fk_user_has_post_user2\")\n\n  @@id([user_iduser, post_idpost])\n  @@index([post_idpost], map: \"fk_user_has_post_post2_idx\")\n  @@index([user_iduser], map: \"fk_user_has_post_user2_idx\")\n}\n\nmodel image {\n  idimage     Int    @id @unique(map: \"idimage_UNIQUE\") @default(autoincrement()) @db.UnsignedInt\n  image       String @db.VarChar(45)\n  post_idpost Int    @db.UnsignedInt\n  post        post   @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: \"fk_image_post1\")\n\n  @@index([post_idpost], map: \"fk_image_post1_idx\")\n}\n\nmodel post {\n  idpost                Int         @id @unique(map: \"idpost_UNIQUE\") @default(autoincrement()) @db.UnsignedInt\n  content               String      @db.TinyText\n  user_iduser           Int         @db.UnsignedInt\n  categoria_idcategoria Int\n  time                  DateTime    @db.DateTime(0)\n  comment               comment[]\n  image                 image[]\n  category              category    @relation(fields: [categoria_idcategoria], references: [idcategory], onDelete: NoAction, onUpdate: NoAction, map: \"fk_post_categoria1\")\n  user                  user        @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: \"fk_post_user\")\n  user_like             user_like[]\n\n  @@index([categoria_idcategoria], map: \"fk_post_categoria1_idx\")\n  @@index([user_iduser], map: \"fk_post_user_idx\")\n}\n\nmodel user {\n  iduser    Int         @id @unique(map: \"iduser_UNIQUE\") @default(autoincrement()) @db.UnsignedInt\n  name      String      @db.VarChar(45)\n  e_mail    String      @map(\"e-mail\") @db.VarChar(60)\n  pass      String      @db.VarChar(40)\n  fone      String?     @db.VarChar(12)\n  comment   comment[]\n  post      post[]\n  user_like user_like[]\n}\n\nmodel user_like {\n  user_iduser Int  @db.UnsignedInt\n  post_idpost Int  @db.UnsignedInt\n  post        post @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: \"fk_user_has_post_post1\")\n  user        user @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: \"fk_user_has_post_user1\")\n\n  @@id([user_iduser, post_idpost])\n  @@index([post_idpost], map: \"fk_user_has_post_post1_idx\")\n  @@index([user_iduser], map: \"fk_user_has_post_user1_idx\")\n}\n",
-  "inlineSchemaHash": "b6417501b43a5a82f05eeb427a08679df15810f324f981a3f4a0b006ab82e61c",
+  "inlineSchema": "generator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/infrastructure/database/prisma/client\"\n}\n\ndatasource db {\n  provider = \"mysql\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel category {\n  idcategory Int    @id\n  nome       String @db.VarChar(45)\n  post       post[]\n}\n\nmodel comment {\n  user_iduser Int       @db.UnsignedInt\n  post_idpost Int       @db.UnsignedInt\n  comment     String    @db.TinyText\n  time        DateTime? @db.DateTime(0)\n  post        post      @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: \"fk_user_has_post_post2\")\n  user        user      @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: \"fk_user_has_post_user2\")\n\n  @@id([user_iduser, post_idpost])\n  @@index([post_idpost], map: \"fk_user_has_post_post2_idx\")\n  @@index([user_iduser], map: \"fk_user_has_post_user2_idx\")\n}\n\nmodel image {\n  idimage     Int    @id @unique(map: \"idimage_UNIQUE\") @default(autoincrement()) @db.UnsignedInt\n  image       String @db.VarChar(45)\n  post_idpost Int    @db.UnsignedInt\n  post        post   @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: \"fk_image_post1\")\n\n  @@index([post_idpost], map: \"fk_image_post1_idx\")\n}\n\nmodel post {\n  idpost                Int         @id @unique(map: \"idpost_UNIQUE\") @default(autoincrement()) @db.UnsignedInt\n  content               String      @db.TinyText\n  user_iduser           Int         @db.UnsignedInt\n  categoria_idcategoria Int\n  time                  DateTime    @db.DateTime(0)\n  comment               comment[]\n  image                 image[]\n  category              category    @relation(fields: [categoria_idcategoria], references: [idcategory], onDelete: NoAction, onUpdate: NoAction, map: \"fk_post_categoria1\")\n  user                  user        @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: \"fk_post_user\")\n  user_like             user_like[]\n\n  @@index([categoria_idcategoria], map: \"fk_post_categoria1_idx\")\n  @@index([user_iduser], map: \"fk_post_user_idx\")\n}\n\nmodel user {\n  iduser    Int         @id @unique(map: \"iduser_UNIQUE\") @default(autoincrement()) @db.UnsignedInt\n  name      String      @db.VarChar(45)\n  e_mail    String      @map(\"e-mail\") @db.VarChar(60)\n  pass      String      @db.VarChar(40)\n  fone      String?     @db.VarChar(12)\n  comment   comment[]\n  post      post[]\n  user_like user_like[]\n}\n\nmodel user_like {\n  user_iduser Int  @db.UnsignedInt\n  post_idpost Int  @db.UnsignedInt\n  post        post @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: \"fk_user_has_post_post1\")\n  user        user @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: \"fk_user_has_post_user1\")\n\n  @@id([user_iduser, post_idpost])\n  @@index([post_idpost], map: \"fk_user_has_post_post1_idx\")\n  @@index([user_iduser], map: \"fk_user_has_post_user1_idx\")\n}\n",
+  "inlineSchemaHash": "48636e53910f36eaa4123ea26e89343959a5a67edd956011cfae6faf9171f2f2",
   "copyEngine": true
 }
 
@@ -229,8 +229,8 @@ const fs = require('fs')
 config.dirname = __dirname
 if (!fs.existsSync(path.join(__dirname, 'schema.prisma'))) {
   const alternativePaths = [
-    "src/generated/prisma",
-    "generated/prisma",
+    "src/infrastructure/database/prisma/client",
+    "infrastructure/database/prisma/client",
   ]
   
   const alternativePath = alternativePaths.find((altPath) => {
@@ -260,7 +260,7 @@ Object.assign(exports, Prisma)
 
 // file annotations for bundling tools to include these files
 path.join(__dirname, "query_engine-windows.dll.node");
-path.join(process.cwd(), "src/generated/prisma/query_engine-windows.dll.node")
+path.join(process.cwd(), "src/infrastructure/database/prisma/client/query_engine-windows.dll.node")
 // file annotations for bundling tools to include these files
 path.join(__dirname, "schema.prisma");
-path.join(process.cwd(), "src/generated/prisma/schema.prisma")
+path.join(process.cwd(), "src/infrastructure/database/prisma/client/schema.prisma")

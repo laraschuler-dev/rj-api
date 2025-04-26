@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import { PrismaClient } from '@prisma/client';
-import routes from './routes'; // Importa o arquivo principal de rotas
+import routes from './interfaces/http/routes'; // Importa o arquivo principal de rotas
 
 dotenv.config();
 

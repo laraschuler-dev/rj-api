@@ -13,6 +13,6 @@
     "isolatedModules": true,
     "types": ["node"] // Adicione isso para incluir tipos globais do Node.js
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/application/services"],
   "exclude": ["node_modules"]
 }

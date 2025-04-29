@@ -1,4 +1,4 @@
-import prisma from '../../infrastructure/database/prisma/prisma';
+import { prisma } from '../../infrastructure/database/prisma/prisma';
 
 class BaseService<T extends keyof typeof prisma> {
   protected prisma = prisma;

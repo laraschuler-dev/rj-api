@@ -2,16 +2,17 @@ import express from 'express';
 import { AuthUseCases } from '../../../application/use-cases/AuthUseCases';
 import { AuthService } from '../../../application/services/AuthService';
 import { UserRepositoryPrisma } from '../../../infrastructure/database/repositories/UserRepositoryPrisma';
-import { RegisterRequestDTO } from '../../../core/dtos/RegisterRequestDTO';
-import { LoginRequestDTO } from '../../../core/dtos/LoginRequestDTO';
 import { PasswordRecoveryService } from '../../../application/services/PasswordRecoveryService';
+import { AuthController } from '../controllers/AuthController';
 
 // Instanciar dependências
 const userRepository = new UserRepositoryPrisma();
-const passwordRecoveryService = new PasswordRecoveryService(userRepository); // Instanciar o PasswordRecoveryService
+const passwordRecoveryService = new PasswordRecoveryService(userRepository);
 const jwtSecret = process.env.JWT_SECRET || 'defaultSecret';
-const authService = new AuthService(userRepository, passwordRecoveryService, jwtSecret); // Passar o PasswordRecoveryService
+const authService = new AuthService(userRepository, passwordRecoveryService, jwtSecret);
 const authUseCases = new AuthUseCases(authService);
+const authController = new AuthController(authUseCases); // Instanciar o AuthController
+
 const router = express.Router();
 
 /**
@@ -45,16 +46,7 @@ const router = express.Router();
  *       400:
  *         description: Erro ao criar o usuário
  */
-router.post('/users', async (req, res) => {
-  try {
-    const data: RegisterRequestDTO = req.body;
-    const user = await authUseCases.register(data);
-    res.status(201).json(user); // Retorna o recurso criado
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-    res.status(400).json({ error: errorMessage });
-  }
-});
+router.post('/users', authController.register.bind(authController));
 
 /**
  * @swagger
@@ -100,16 +92,7 @@ router.post('/users', async (req, res) => {
  *       400:
  *         description: Erro ao realizar login
  */
-router.post('/session', async (req, res) => {
-  try {
-    const data: LoginRequestDTO = req.body;
-    const { token, user } = await authUseCases.login(data);
-    res.status(200).json({ token, user }); // Retorna o token e o usuário autenticado
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-    res.status(400).json({ error: errorMessage });
-  }
-});
+router.post('/session', authController.login.bind(authController));
 
 /**
  * @swagger
@@ -133,17 +116,7 @@ router.post('/session', async (req, res) => {
  *       400:
  *         description: Erro na solicitação
  */
-router.post('/forgot', async (req, res) => {
-  try {
-    const { email } = req.body;
-    await authUseCases.requestPasswordReset(email);
-    console.log('Forgot password route called with email:', email);
-    res.status(200).json({ message: 'Password reset link sent if the email exists.' });
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-    res.status(400).json({ error: errorMessage });
-  }
-});
+router.post('/forgot', authController.requestPasswordReset.bind(authController));
 
 /**
  * @swagger
@@ -170,16 +143,6 @@ router.post('/forgot', async (req, res) => {
  *       400:
  *         description: Erro na redefinição
  */
-router.post('/reset', async (req, res) => {
-  try {
-    const { token, newPassword } = req.body;
-    await authUseCases.resetPassword({ token, newPassword }); // Passar como um único objeto
-    console.log('Reset password route called with token:', token);
-    res.status(200).json({ message: 'Password reset successfully.' });
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-    res.status(400).json({ error: errorMessage });
-  }
-});
+router.post('/reset', authController.resetPassword.bind(authController));
 
 export default router;

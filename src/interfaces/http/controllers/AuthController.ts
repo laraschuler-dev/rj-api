@@ -1,58 +1,50 @@
-// src/interfaces/http/controllers/AuthController.ts
 import { Request, Response } from 'express';
 import { AuthUseCases } from '../../../application/use-cases/AuthUseCases';
 
 export class AuthController {
   constructor(private authUseCases: AuthUseCases) {}
 
-  async login(req: Request, res: Response) {
-    const { emailOrPhone, password } = req.body;
-
+  async register(req: Request, res: Response): Promise<void> {
     try {
-      const result = await this.authUseCases.login({ emailOrPhone, password });
-      return res.json(result);
-    } catch (error: any) {
-      return res.status(400).json({ message: error.message });
+      const data = req.body;
+      const user = await this.authUseCases.register(data);
+      res.status(201).json(user); // Manipula o objeto Response diretamente
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      res.status(400).json({ error: errorMessage });
     }
   }
 
-  async register(req: Request, res: Response) {
-    const { name, email, password, phone } = req.body;
-
+  async login(req: Request, res: Response): Promise<void> {
     try {
-      const result = await this.authUseCases.register({
-        name,
-        email,
-        password,
-        phone,
-      });
-      return res.status(201).json(result);
-    } catch (error: any) {
-      return res.status(400).json({ message: error.message });
+      const data = req.body;
+      const { token, user } = await this.authUseCases.login(data);
+      res.status(200).json({ token, user }); // Manipula o objeto Response diretamente
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      res.status(400).json({ error: errorMessage });
     }
   }
 
-  async requestPasswordReset(req: Request, res: Response) {
-    const { email } = req.body;
-
+  async requestPasswordReset(req: Request, res: Response): Promise<void> {
     try {
+      const { email } = req.body;
       await this.authUseCases.requestPasswordReset(email);
-      return res
-        .status(200)
-        .json({ message: 'Password reset link sent if the email exists.' });
-    } catch (error: any) {
-      return res.status(400).json({ message: error.message });
+      res.status(200).json({ message: 'Password reset link sent if the email exists.' });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      res.status(400).json({ error: errorMessage });
     }
   }
 
-  async resetPassword(req: Request, res: Response) {
-    const { token, newPassword } = req.body;
-
+  async resetPassword(req: Request, res: Response): Promise<void> {
     try {
-      await this.authUseCases.resetPassword(token, newPassword);
-      return res.status(200).json({ message: 'Password reset successfully.' });
-    } catch (error: any) {
-      return res.status(400).json({ message: error.message });
+      const { token, newPassword } = req.body;
+      await this.authUseCases.resetPassword({ token, newPassword });
+      res.status(200).json({ message: 'Password reset successfully.' });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      res.status(400).json({ error: errorMessage });
     }
   }
 }

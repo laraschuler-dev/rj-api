@@ -1,8 +1,7 @@
-// src/app.ts
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { setupSwagger } from './swagger'; 
+import { setupSwagger } from './swagger'; // Certifique-se de que está importando corretamente
 import authRoutes from './interfaces/http/routes/authRoutes';
 
 const app = express();
@@ -14,6 +13,7 @@ app.use(express.json());
 
 // Configurar Swagger
 setupSwagger(app);
+
 // Rotas
 app.use('/auth', authRoutes);
 

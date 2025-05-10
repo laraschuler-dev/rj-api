@@ -31,4 +31,28 @@ export class AuthController {
       return res.status(400).json({ message: error.message });
     }
   }
+
+  async requestPasswordReset(req: Request, res: Response) {
+    const { email } = req.body;
+
+    try {
+      await this.authUseCases.requestPasswordReset(email);
+      return res
+        .status(200)
+        .json({ message: 'Password reset link sent if the email exists.' });
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
+
+  async resetPassword(req: Request, res: Response) {
+    const { token, newPassword } = req.body;
+
+    try {
+      await this.authUseCases.resetPassword(token, newPassword);
+      return res.status(200).json({ message: 'Password reset successfully.' });
+    } catch (error: any) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
 }

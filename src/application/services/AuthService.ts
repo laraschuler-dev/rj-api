@@ -1,39 +1,40 @@
 import { UserRepository } from '../../core/repositories/UserRepository';
 import { User } from '../../core/entities/User';
+import { RegisterRequestDTO } from '../../core/dtos/RegisterRequestDTO';
+import { LoginRequestDTO } from '../../core/dtos/LoginRequestDTO';
+import { ForgotPasswordRequestDTO } from '../../core/dtos/ForgotPasswordRequestDTO';
+import { ResetPasswordRequestDTO } from '../../core/dtos/ResetPasswordRequestDTO';
+import { PasswordRecoveryService } from './PasswordRecoveryService';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import validator from 'validator';
+import { LoginResponseDTO } from '../../core/dtos/LoginResponseDTO';
+import { RegisterResponseDTO } from '../../core/dtos/RegisterResponseDTO';
 
 export class AuthService {
   private jwtSecret: string;
 
   constructor(
     private userRepository: UserRepository,
+    private passwordRecoveryService: PasswordRecoveryService, // Adicione este argumento
     jwtSecret: string
   ) {
     this.jwtSecret = jwtSecret;
   }
 
-  async register(data: {
-    name: string;
-    email: string;
-    password: string;
-    phone: string;
-  }): Promise<Omit<User, 'password'>> {
-    // Validação de email
+  async register(data: RegisterRequestDTO): Promise<RegisterResponseDTO> {
     if (!validator.isEmail(data.email)) {
       throw new Error('Email inválido');
     }
 
-    // Limpa o telefone (remove máscara, espaços etc.)
     const cleanedPhone = data.phone.replace(/\D/g, '');
-
-    // Validação de telefone
-    if (!/^\d{10,11}$/.test(cleanedPhone)) {
-      throw new Error('Telefone inválido. Deve conter entre 10 e 11 dígitos.');
+    const phoneRegex = /^\d{2}\d{8,9}$/; // 2 dígitos para o DDD + 8 ou 9 dígitos para o número
+    if (!phoneRegex.test(cleanedPhone)) {
+      throw new Error(
+        'Telefone inválido. Deve conter o DDD seguido de 8 ou 9 dígitos.'
+      );
     }
 
-    // Validação de senha
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
     if (!passwordRegex.test(data.password)) {
       throw new Error(
@@ -41,7 +42,6 @@ export class AuthService {
       );
     }
 
-    // Verifica se email ou telefone já estão cadastrados
     const [existingEmail, existingPhone] = await Promise.all([
       this.userRepository.findByEmailOrPhone(data.email),
       this.userRepository.findByEmailOrPhone(cleanedPhone),
@@ -55,22 +55,25 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
-    const newUser = new User(0, data.name, data.email, hashedPassword, cleanedPhone);
+    const newUser = new User(
+      0,
+      data.name,
+      data.email,
+      hashedPassword,
+      cleanedPhone
+    );
     const createdUser = await this.userRepository.create(newUser);
 
-    // Retorna o usuário sem a senha
-    const { password, ...safeUser } = createdUser;
-    return safeUser;
+    return {
+      id: createdUser.id,
+      name: createdUser.name,
+      email: createdUser.email,
+      phone: createdUser.phone,
+    };
   }
 
-  async login({
-    emailOrPhone,
-    password,
-  }: {
-    emailOrPhone: string;
-    password: string;
-  }): Promise<{ token: string; user: Omit<User, 'password'> }> {
-    // Remove espaços e símbolos do telefone se for o caso
+  async login(data: LoginRequestDTO): Promise<LoginResponseDTO> {
+    const { emailOrPhone, password } = data;
     const sanitizedInput = emailOrPhone.trim().replace(/\D/g, '');
 
     const user =
@@ -87,9 +90,26 @@ export class AuthService {
     }
 
     const token = this.generateToken(user);
-    const { password: _, ...safeUser } = user;
 
-    return { token, user: safeUser };
+    return {
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+      },
+    };
+  }
+
+  async forgotPassword(data: ForgotPasswordRequestDTO): Promise<void> {
+    // Delegar a lógica para o PasswordRecoveryService
+    await this.passwordRecoveryService.sendRecoveryEmail(data.email);
+  }
+
+  async resetPassword(data: ResetPasswordRequestDTO): Promise<void> {
+    // Delegar a lógica para o PasswordRecoveryService
+    await this.passwordRecoveryService.resetPassword(data);
   }
 
   private async verifyPassword(

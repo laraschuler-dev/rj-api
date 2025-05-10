@@ -11,7 +11,11 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "types": ["node"] // Adicione isso para incluir tipos globais do Node.js
+    "types": ["node"],
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "include": ["src/**/*", "src/application/services"],
   "exclude": ["node_modules"]

@@ -20,7 +20,7 @@ export class UserRepositoryPrisma implements UserRepository {
       createdUser.name,
       createdUser.e_mail, // Corrigido para e_mail
       createdUser.passwordHash, // Corrigido para passwordHash
-      createdUser.fone, // Corrigido para fone
+      createdUser.fone // Corrigido para fone
     );
   }
 
@@ -43,7 +43,7 @@ export class UserRepositoryPrisma implements UserRepository {
       foundUser.name,
       foundUser.e_mail, // Corrigido para e_mail
       foundUser.passwordHash, // Corrigido para passwordHash
-      foundUser.fone, // Corrigido para fone
+      foundUser.fone // Corrigido para fone
     );
   }
 
@@ -61,7 +61,7 @@ export class UserRepositoryPrisma implements UserRepository {
       foundUser.name,
       foundUser.e_mail, // Corrigido para e_mail
       foundUser.passwordHash, // Corrigido para passwordHash
-      foundUser.fone, // Corrigido para fone
+      foundUser.fone // Corrigido para fone
     );
   }
 
@@ -79,7 +79,61 @@ export class UserRepositoryPrisma implements UserRepository {
       foundUser.name,
       foundUser.e_mail, // Corrigido para e_mail
       foundUser.passwordHash, // Corrigido para passwordHash
-      foundUser.fone, // Corrigido para fone
+      foundUser.fone // Corrigido para fone
     );
+  }
+
+  async savePasswordResetToken(
+    userId: number,
+    token: string,
+    expiresAt: Date
+  ): Promise<void> {
+    await prisma.user.update({
+      where: { iduser: userId },
+      data: {
+        passwordResetToken: token,
+        passwordResetTokenExpiresAt: expiresAt,
+      },
+    });
+  }
+
+  async findByPasswordResetToken(token: string): Promise<User | null> {
+    const user = await prisma.user.findFirst({
+      where: {
+        passwordResetToken: token,
+        passwordResetTokenExpiresAt: {
+          gte: new Date(),
+        },
+      },
+    });
+
+    console.log('Usuário encontrado no findByPasswordResetToken:', user);
+    if (!user) return null;
+
+    // Inclua o campo passwordResetTokenExpiresAt no retorno
+    return {
+      ...new User(
+        user.iduser,
+        user.name,
+        user.e_mail,
+        user.passwordHash,
+        user.fone
+      ),
+      passwordResetTokenExpiresAt: user.passwordResetTokenExpiresAt, // Adicione este campo
+    };
+  }
+
+  async updatePasswordAndClearResetToken(
+    userId: number,
+    newPasswordHash: string
+  ): Promise<void> {
+    await prisma.user.update({
+      where: { iduser: userId },
+      data: {
+        passwordHash: newPasswordHash,
+        passwordResetToken: null,
+        passwordResetTokenExpiresAt: null,
+      },
+    });
   }
 }

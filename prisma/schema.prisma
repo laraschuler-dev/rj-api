@@ -52,16 +52,18 @@ model post {
 }
 
 model user {
-  iduser       Int         @id @unique(map: "iduser_UNIQUE") @default(autoincrement()) @db.UnsignedInt
-  name         String      @db.VarChar(45)
-  e_mail       String      @unique(map: "e_mail") @db.VarChar(60)
-  passwordHash String      @db.VarChar(255)
-  fone         String?     @unique(map: "unique_fone") @db.VarChar(12)
-  createdAt    DateTime    @default(now()) @db.DateTime(0)
-  updatedAt    DateTime    @default(now()) @db.DateTime(0)
-  comment      comment[]
-  post         post[]
-  user_like    user_like[]
+  iduser                      Int         @id @unique(map: "iduser_UNIQUE") @default(autoincrement()) @db.UnsignedInt
+  name                        String      @db.VarChar(45)
+  e_mail                      String      @unique(map: "e_mail") @db.VarChar(60)
+  passwordHash                String      @db.VarChar(255)
+  fone                        String?     @unique(map: "unique_fone") @db.VarChar(12)
+  createdAt                   DateTime    @default(now()) @db.DateTime(0)
+  updatedAt                   DateTime    @default(now()) @db.DateTime(0)
+  passwordResetToken          String?     @db.VarChar(255)
+  passwordResetTokenExpiresAt DateTime?   @db.DateTime(0)
+  comment                     comment[]
+  post                        post[]
+  user_like                   user_like[]
 }
 
 model user_like {

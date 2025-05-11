@@ -1,12 +1,14 @@
-// src/server.ts
 import dotenv from 'dotenv';
-//dotenv.config(); // Carregar variáveis de ambiente o mais cedo possível
 dotenv.config({
-  path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env'
+  path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env',
 });
 
 import { app } from './app';
 
+/**
+ * Arquivo principal para inicializar o servidor.
+ * Configura a porta e inicia o servidor Express.
+ */
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {

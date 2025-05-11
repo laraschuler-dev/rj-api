@@ -1,8 +1,8 @@
 import express from 'express';
-import { AuthUseCases } from '../../../application/use-cases/AuthUseCases';
-import { AuthService } from '../../../application/services/AuthService';
 import { UserRepositoryPrisma } from '../../../infrastructure/database/repositories/UserRepositoryPrisma';
 import { PasswordRecoveryService } from '../../../application/services/PasswordRecoveryService';
+import { AuthService } from '../../../application/services/AuthService';
+import { AuthUseCases } from '../../../application/use-cases/AuthUseCases';
 import { AuthController } from '../controllers/AuthController';
 
 // Instanciar dependências
@@ -11,11 +11,12 @@ const passwordRecoveryService = new PasswordRecoveryService(userRepository);
 const jwtSecret = process.env.JWT_SECRET || 'defaultSecret';
 const authService = new AuthService(userRepository, passwordRecoveryService, jwtSecret);
 const authUseCases = new AuthUseCases(authService);
-const authController = new AuthController(authUseCases); // Instanciar o AuthController
+const authController = new AuthController(authUseCases);
 
 const router = express.Router();
 
 /**
+ * Rota para criar um novo usuário.
  * @swagger
  * /auth/users:
  *   post:
@@ -46,9 +47,10 @@ const router = express.Router();
  *       400:
  *         description: Erro ao criar o usuário
  */
-router.post('/users', authController.register.bind(authController));
+router.post('/users', authController.register);
 
 /**
+ * Rota para realizar login.
  * @swagger
  * /auth/session:
  *   post:
@@ -92,9 +94,10 @@ router.post('/users', authController.register.bind(authController));
  *       400:
  *         description: Erro ao realizar login
  */
-router.post('/session', authController.login.bind(authController));
+router.post('/session', authController.login);
 
 /**
+ * Rota para solicitar recuperação de senha.
  * @swagger
  * /auth/forgot:
  *   post:
@@ -116,9 +119,10 @@ router.post('/session', authController.login.bind(authController));
  *       400:
  *         description: Erro na solicitação
  */
-router.post('/forgot', authController.requestPasswordReset.bind(authController));
+router.post('/forgot', authController.requestPasswordReset);
 
 /**
+ * Rota para redefinir a senha.
  * @swagger
  * /auth/reset:
  *   post:
@@ -143,6 +147,6 @@ router.post('/forgot', authController.requestPasswordReset.bind(authController))
  *       400:
  *         description: Erro na redefinição
  */
-router.post('/reset', authController.resetPassword.bind(authController));
+router.post('/reset', authController.resetPassword);
 
 export default router;

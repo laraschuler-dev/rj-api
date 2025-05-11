@@ -1,6 +1,15 @@
-// src/application/dto/LoginRequestDTO.ts
+/**
+ * DTO para a solicitação de login.
+ * Contém os dados necessários para autenticar um usuário.
+ */
 export interface LoginRequestDTO {
-    emailOrPhone: string; // Altere de 'email' para 'emailOrPhone'
-    password: string;
-  }
-  
+  /**
+   * E-mail ou telefone do usuário.
+   */
+  emailOrPhone: string;
+
+  /**
+   * Senha do usuário.
+   */
+  password: string;
+}

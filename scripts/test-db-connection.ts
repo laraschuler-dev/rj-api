@@ -1,5 +1,5 @@
 import 'dotenv/config'; // Adicione esta linha no topo
-import { prisma } from './prisma/prisma';
+import { prisma } from '../src/infrastructure/database/prisma/prisma';
 
 async function testConnection() {
   try {

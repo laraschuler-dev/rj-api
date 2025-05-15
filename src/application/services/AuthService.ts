@@ -136,6 +136,18 @@ export class AuthService {
    * @throws Erro caso o e-mail não seja válido ou o envio falhe.
    */
   async forgotPassword(data: ForgotPasswordRequestDTO): Promise<void> {
+    // Valida o formato do e-mail
+    if (!validator.isEmail(data.email)) {
+      throw new Error('E-mail inválido');
+    }
+
+    // Verifica se o e-mail existe no sistema
+    const user = await this.userRepository.findByEmail(data.email);
+    if (!user) {
+      throw new Error('E-mail não encontrado');
+    }
+
+    // Envia o e-mail de recuperação de senha
     await this.passwordRecoveryService.sendRecoveryEmail(data.email);
   }
 

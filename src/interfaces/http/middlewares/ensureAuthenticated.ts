@@ -8,29 +8,26 @@ import jwt from 'jsonwebtoken';
  * @param req - Objeto da requisição HTTP.
  * @param res - Objeto da resposta HTTP.
  * @param next - Função para passar o controle para o próximo middleware.
- * 
- * @throws Retorna um erro 401 caso o token não seja fornecido ou seja inválido.
  */
-export function ensureAuthenticated(req: Request, res: Response, next: NextFunction) {
+export function ensureAuthenticated(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
 
   // Verifica se o cabeçalho de autorização está presente
   if (!authHeader) {
-    return res.status(401).json({ message: 'Token não fornecido' });
+    res.status(401).json({ message: 'Token não fornecido' });
+    return;
   }
 
-  // Extrai o token do cabeçalho
   const [, token] = authHeader.split(' ');
 
   try {
     // Verifica a validade do token JWT
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { id: number };
 
     // Adiciona as informações do token ao objeto da requisição
-    req.user = decoded; // Você pode tipar melhor depois, se necessário
+    req.user = { id: decoded.id }; // pode tipar req.user com interface se quiser
     next();
   } catch (error) {
-    // Retorna erro caso o token seja inválido
-    return res.status(401).json({ message: 'Token inválido' });
+    res.status(401).json({ message: 'Token inválido' });
   }
 }

@@ -15,6 +15,7 @@ export class AuthController {
     this.login = this.login.bind(this);
     this.requestPasswordReset = this.requestPasswordReset.bind(this);
     this.resetPassword = this.resetPassword.bind(this);
+    this.getSession = this.getSession.bind(this);
   }
 
   /**
@@ -29,7 +30,8 @@ export class AuthController {
       const user = await this.authUseCases.register(data);
       res.status(201).json(user);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      const errorMessage =
+        err instanceof Error ? err.message : 'An unknown error occurred';
       res.status(400).json({ error: errorMessage });
     }
   }
@@ -46,7 +48,8 @@ export class AuthController {
       const { token, user } = await this.authUseCases.login(data);
       res.status(200).json({ token, user });
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      const errorMessage =
+        err instanceof Error ? err.message : 'An unknown error occurred';
       res.status(400).json({ error: errorMessage });
     }
   }
@@ -61,9 +64,12 @@ export class AuthController {
     try {
       const { email } = req.body;
       await this.authUseCases.requestPasswordReset(email);
-      res.status(200).json({ message: 'Password reset link sent if the email exists.' });
+      res
+        .status(200)
+        .json({ message: 'Password reset link sent if the email exists.' });
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      const errorMessage =
+        err instanceof Error ? err.message : 'An unknown error occurred';
       res.status(400).json({ error: errorMessage });
     }
   }
@@ -80,8 +86,27 @@ export class AuthController {
       await this.authUseCases.resetPassword({ token, newPassword });
       res.status(200).json({ message: 'Password reset successfully.' });
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      const errorMessage =
+        err instanceof Error ? err.message : 'An unknown error occurred';
       res.status(400).json({ error: errorMessage });
+    }
+  }
+  
+  async getSession(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+
+      if (userId === undefined) {
+        res
+          .status(401)
+          .json({ message: 'Unauthorized: user ID not found in request' });
+        return;
+      }
+
+      const user = await this.authUseCases.getSessionUser(userId);
+      res.status(200).json(user);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
     }
   }
 }

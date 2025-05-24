@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "typeRoots": ["./node_modules/@types", "./src"],
     // Define a versão do JavaScript alvo para a transpilação
     "target": "ES6",
 
@@ -46,11 +47,7 @@
   },
 
   // Inclui os arquivos e diretórios a serem considerados pelo compilador
-  "include": [
-    "src/**/*",
-    "src/application/services",
-    "scripts/test-db-connection.ts"
-  ],
+  "include": ["src/**/*", "scripts/test-db-connection.ts"],
 
   // Exclui os arquivos e diretórios a serem ignorados pelo compilador
   "exclude": ["node_modules"]

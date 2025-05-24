@@ -187,4 +187,13 @@ export class AuthService {
 
     return jwt.sign(payload, this.jwtSecret, { expiresIn: '1h' });
   }
+
+  async getAuthenticatedUser(userId: number): Promise<Omit<User, 'password'>> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) throw new Error('Usuário não encontrado');
+
+    // Remove o campo de senha antes de retornar
+    const { password, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  }
 }

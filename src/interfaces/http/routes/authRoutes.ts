@@ -4,12 +4,17 @@ import { PasswordRecoveryService } from '../../../application/services/PasswordR
 import { AuthService } from '../../../application/services/AuthService';
 import { AuthUseCases } from '../../../application/use-cases/AuthUseCases';
 import { AuthController } from '../controllers/AuthController';
+import { ensureAuthenticated } from '../middlewares/ensureAuthenticated';
 
 // Instanciar dependências
 const userRepository = new UserRepositoryPrisma();
 const passwordRecoveryService = new PasswordRecoveryService(userRepository);
 const jwtSecret = process.env.JWT_SECRET || 'defaultSecret';
-const authService = new AuthService(userRepository, passwordRecoveryService, jwtSecret);
+const authService = new AuthService(
+  userRepository,
+  passwordRecoveryService,
+  jwtSecret
+);
 const authUseCases = new AuthUseCases(authService);
 const authController = new AuthController(authUseCases);
 
@@ -148,5 +153,35 @@ router.post('/forgot', authController.requestPasswordReset);
  *         description: Erro na redefinição
  */
 router.post('/reset', authController.resetPassword);
+
+/**
+ * Rota para obter os dados da sessão do usuário autenticado.
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Retorna os dados do usuário autenticado
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dados do usuário retornados com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                 name:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *       401:
+ *         description: Token inválido ou ausente
+ */
+router.get('/me', ensureAuthenticated, authController.getSession);
 
 export default router;

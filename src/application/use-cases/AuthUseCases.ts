@@ -59,4 +59,8 @@ export class AuthUseCases {
   async resetPassword(data: ResetPasswordRequestDTO): Promise<void> {
     await this.authService.resetPassword(data);
   }
+
+  async getSessionUser(userId: number) {
+    return this.authService.getAuthenticatedUser(userId);
+  }
 }

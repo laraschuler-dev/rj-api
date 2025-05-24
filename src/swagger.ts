@@ -10,19 +10,33 @@ import express from 'express';
 // Definir as opções de configuração do Swagger
 const options = {
   definition: {
-    openapi: '3.0.0', // Versão da especificação OpenAPI
+    openapi: '3.0.0',
     info: {
-      title: 'API de Autenticação', // Título da API
-      version: '1.0.0', // Versão da API
-      description: 'Documentação da API de autenticação', // Descrição da API
+      title: 'API de Autenticação',
+      version: '1.0.0',
+      description: 'Documentação da API de autenticação',
     },
     servers: [
       {
-        url: 'http://localhost:3000', // URL do servidor
+        url: 'http://localhost:3000',
+      },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
+    security: [
+      {
+        bearerAuth: [],
       },
     ],
   },
-  apis: ['./src/interfaces/http/routes/*.ts'], // Caminho para os arquivos de rota onde a documentação será extraída
+  apis: ['./src/interfaces/http/routes/*.ts'],
 };
 
 // Gerar a especificação Swagger
@@ -30,7 +44,7 @@ const swaggerSpec = swaggerJSDoc(options);
 
 /**
  * Configura o Swagger UI na aplicação Express.
- * 
+ *
  * @param app - Instância da aplicação Express.
  */
 export function setupSwagger(app: express.Application) {

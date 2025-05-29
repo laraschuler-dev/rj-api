@@ -1,12 +1,9 @@
-/**
- * Entidade que representa um usuário no domínio da aplicação.
- * Contém os atributos e comportamentos relacionados a um usuário.
- */
 export class User {
   /**
    * Data de expiração do token de recuperação de senha (opcional).
    */
-  passwordResetTokenExpiresAt: any;
+  passwordResetTokenExpiresAt?: Date | null;
+    avatarUrl: string | undefined;
 
   /**
    * Construtor da entidade User.
@@ -15,12 +12,17 @@ export class User {
    * @param email - E-mail do usuário.
    * @param password - Senha do usuário (criptografada).
    * @param phone - Telefone do usuário (opcional).
+   * @param passwordResetToken - Token de reset de senha (opcional).
    */
   constructor(
-    public id: number,
-    public name: string,
-    public email: string,
-    public password: string,
-    public phone: string | null
-  ) {}
+    public readonly id: number,
+    public readonly name: string,
+    public readonly email: string,
+    public readonly password: string,
+    public readonly phone: string | null,
+    public readonly passwordResetToken?: string,
+    passwordResetTokenExpiresAt?: Date | null
+  ) {
+    this.passwordResetTokenExpiresAt = passwordResetTokenExpiresAt;
+  }
 }

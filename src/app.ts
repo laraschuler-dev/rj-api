@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { setupSwagger } from './swagger'; // Certifique-se de que está importando corretamente
 import authRoutes from './interfaces/http/routes/authRoutes';
+import postRoutes from './interfaces/http/routes/postRoutes';
 
 /**
  * Arquivo principal de configuração da aplicação.
@@ -19,6 +20,7 @@ app.use(express.json()); // Habilita o parsing de JSON no corpo das requisiçõe
 setupSwagger(app); 
 
 // Rotas
-app.use('/auth', authRoutes); // Define as rotas relacionadas à autenticação
+app.use('/auth', authRoutes);
+app.use('/posts', postRoutes);
 
 export { app };

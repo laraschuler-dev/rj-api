@@ -13,14 +13,14 @@ const postRoutes = Router();
 
 // Instâncias dos repositórios
 const postRepository = new PostRepositoryPrisma();
-const userRepository = new UserRepositoryPrisma(); // <<-- Já existe no seu código
+const userRepository = new UserRepositoryPrisma();
 
 // Serviços e use cases
 const postService = new PostService(postRepository);
-const postUseCases = new PostUseCases(postService); // <<-- Passe userRepository aqui se necessário
+const postUseCases = new PostUseCases(postService);
 
 // Controller (agora com 2 argumentos)
-const postController = new PostController(postUseCases, userRepository); // <<-- Corrigido!
+const postController = new PostController(postUseCases, userRepository);
 
 /**
  * @swagger
@@ -31,7 +31,7 @@ const postController = new PostController(postUseCases, userRepository); // <<--
 
 /**
  * @swagger
- * /posts/posts:
+ * /posts:
  *   post:
  *     summary: Cria um novo post com imagens
  *     description: Cria um novo post com possíveis anexos de imagens (até 5 arquivos, 5MB cada)
@@ -127,7 +127,7 @@ const postController = new PostController(postUseCases, userRepository); // <<--
  *                 example: "uploads/123456789-imagem.jpg"
  */
 postRoutes.post(
-  '/posts',
+  '/',
   ensureAuthenticated,
   upload.array('images', 5), // Aceita até 5 imagens
   postController.create

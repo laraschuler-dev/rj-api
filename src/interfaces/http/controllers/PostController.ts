@@ -5,6 +5,12 @@ import { PostUseCases } from '../../../application/use-cases/PostUseCases';
 import { UserRepository } from '../../../core/repositories/UserRepository';
 
 export class PostController {
+  /**
+   * Inicializa o controlador de posts.
+   * @param postUseCases Inst ncia dos casos de uso de posts.
+   * @param userRepository Inst ncia do reposit rio de usu rios.
+   */
+
   constructor(
     private readonly postUseCases: PostUseCases,
     private readonly userRepository: UserRepository // 3. Injete o UserRepository
@@ -12,6 +18,12 @@ export class PostController {
     this.create = this.create.bind(this);
   }
 
+  /**
+   * Cria um novo post.
+   * @param req Requisi o Express.
+   * @param res Resposta Express.
+   * @returns Uma promessa que, quando resolvida, retorna a resposta HTTP.
+   */
   async create(req: Request, res: Response): Promise<void> {
     try {
       const categoriaId = Number(req.body.categoria_idcategoria);

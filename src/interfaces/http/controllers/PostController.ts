@@ -4,11 +4,16 @@ import { PostResponseDTO } from '../../../core/dtos/PostResponseDTO';
 import { PostUseCases } from '../../../application/use-cases/PostUseCases';
 import { UserRepository } from '../../../core/repositories/UserRepository';
 
+/**
+ * Controlador responsável por lidar com requisições relacionadas a posts.
+ * Atua como intermediário entre as rotas HTTP e os casos de uso de post.
+ */
+
 export class PostController {
   /**
    * Inicializa o controlador de posts.
-   * @param postUseCases Inst ncia dos casos de uso de posts.
-   * @param userRepository Inst ncia do reposit rio de usu rios.
+   * @param postUseCases - Instância dos casos de uso de posts.
+   * @param userRepository - Instância do repositório de usuários.
    */
 
   constructor(
@@ -20,8 +25,9 @@ export class PostController {
 
   /**
    * Cria um novo post.
-   * @param req Requisi o Express.
-   * @param res Resposta Express.
+   * Recebe os dados do post via requisição HTTP, valida e delega a criação ao caso de uso.
+   * @param req - Objeto da requisição Express.
+   * @param res - Objeto da resposta Express.
    * @returns Uma promessa que, quando resolvida, retorna a resposta HTTP.
    */
   async create(req: Request, res: Response): Promise<void> {

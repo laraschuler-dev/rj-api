@@ -1,26 +1,16 @@
-// interfaces/http/routes/postRoutes.ts
 import { Router } from 'express';
-import { prisma } from '../../../infrastructure/database/prisma/prisma';
-import { PostRepositoryPrisma } from '../../../infrastructure/database/repositories/PostRepositoryPrisma';
-import { UserRepositoryPrisma } from '../../../infrastructure/database/repositories/UserRepositoryPrisma';
-import { PostService } from '../../../application/services/PostService';
-import { PostUseCases } from '../../../application/use-cases/PostUseCases';
-import { PostController } from '../controllers/PostController';
-import { ensureAuthenticated } from '../middlewares/ensureAuthenticated';
+import { makePostController } from '../factories/makePostController';
 import upload from '../../../config/multer';
+import { ensureAuthenticated } from '../middlewares/ensureAuthenticated';
 
+const postController = makePostController();
 const postRoutes = Router();
 
-// Instâncias dos repositórios
-const postRepository = new PostRepositoryPrisma();
-const userRepository = new UserRepositoryPrisma();
-
-// Serviços e use cases
-const postService = new PostService(postRepository);
-const postUseCases = new PostUseCases(postService);
-
-// Controller (agora com 2 argumentos)
-const postController = new PostController(postUseCases, userRepository);
+/**
+ * Rotas de posts.
+ * 
+ * Esse arquivo define as rotas de posts para o aplicativo.
+ */
 
 /**
  * @swagger

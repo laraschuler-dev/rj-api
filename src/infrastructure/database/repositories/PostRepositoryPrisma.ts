@@ -1,13 +1,19 @@
-// src/infrastructure/database/repositories/PostRepositoryPrisma.ts
-import { prisma } from '../../../infrastructure/database/prisma/prisma'; // Usando sua instância existente do Prisma
+import { prisma } from '../../../infrastructure/database/prisma/prisma';
 import { Post, PostMetadata } from '../../../core/entities/Post';
 import { PostRepository } from '../../../core/repositories/PostRepository';
-
+/**
+ * Implementação do repositório de Post utilizando Prisma ORM.
+ * Responsável por persistir e recuperar posts do banco de dados.
+ */
 export class PostRepositoryPrisma implements PostRepository {
+  /**
+   * Salva um novo post no banco de dados, incluindo imagens se existirem.
+   * @param post - Instância de Post a ser salva.
+   * @returns O post salvo, como instância de Post.
+   */
   async save(post: Post): Promise<Post> {
     const metadataString = post.metadata ? JSON.stringify(post.metadata) : null;
 
-    // 1. Cria o post
     const saved = await prisma.post.create({
       data: {
         content: post.content,
@@ -47,6 +53,11 @@ export class PostRepositoryPrisma implements PostRepository {
     );
   }
 
+  /**
+   * Busca um post pelo seu ID.
+   * @param id - Identificador do post.
+   * @returns O post encontrado ou null se não existir.
+   */
   async findById(id: number): Promise<Post | null> {
     const post = await prisma.post.findUnique({
       where: { idpost: id },

@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { setupSwagger } from './swagger'; // Certifique-se de que está importando corretamente
 import authRoutes from './interfaces/http/routes/authRoutes';
 import postRoutes from './interfaces/http/routes/postRoutes';
+import contactRoutes from './interfaces/http/routes/contactRoutes';
 
 /**
  * Arquivo principal de configuração da aplicação.
@@ -22,5 +23,6 @@ setupSwagger(app);
 // Rotas
 app.use('/auth', authRoutes);
 app.use('/posts', postRoutes);
+app.use('/contact', contactRoutes);
 
 export { app };

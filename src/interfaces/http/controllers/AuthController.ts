@@ -92,6 +92,12 @@ export class AuthController {
     }
   }
   
+  /**
+   * Retorna as informações do usuário autenticado.
+   * @param req - Objeto da requisição HTTP.
+   * @param res - Objeto da resposta HTTP.
+   * @returns Retorna as informações do usuário autenticado ou um erro caso a operação falhe.
+   */
   async getSession(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user?.id;

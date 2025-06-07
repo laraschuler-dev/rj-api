@@ -1,24 +1,15 @@
 import express from 'express';
-import { UserRepositoryPrisma } from '../../../infrastructure/database/repositories/UserRepositoryPrisma';
-import { PasswordRecoveryService } from '../../../application/services/PasswordRecoveryService';
-import { AuthService } from '../../../application/services/AuthService';
-import { AuthUseCases } from '../../../application/use-cases/AuthUseCases';
-import { AuthController } from '../controllers/AuthController';
+import { makeAuthController } from '../factories/makeAuthController';
 import { ensureAuthenticated } from '../middlewares/ensureAuthenticated';
 
-// Instanciar dependências
-const userRepository = new UserRepositoryPrisma();
-const passwordRecoveryService = new PasswordRecoveryService(userRepository);
-const jwtSecret = process.env.JWT_SECRET || 'defaultSecret';
-const authService = new AuthService(
-  userRepository,
-  passwordRecoveryService,
-  jwtSecret
-);
-const authUseCases = new AuthUseCases(authService);
-const authController = new AuthController(authUseCases);
-
+const authController = makeAuthController();
 const router = express.Router();
+
+/**
+ * Rotas de autenticação.
+ * 
+ * Esse arquivo define as rotas de autenticação para o aplicativo.
+ */
 
 /**
  * Rota para criar um novo usuário.

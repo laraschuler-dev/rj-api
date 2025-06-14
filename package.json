@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node dist/server.js",
+    "start": "node dist/src/server.js",
     "build": "tsc",
     "dev": "nodemon --exec \"ts-node --files src/server.ts\"",
     "dev:test": "cross-env NODE_ENV=test nodemon src/server.ts",

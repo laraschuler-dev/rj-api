@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -9,15 +8,16 @@ datasource db {
 }
 
 model category {
-  idcategory Int    @id
-  nome       String @db.VarChar(45)
-  post       post[]
+  idcategory      Int     @id @default(autoincrement())
+  nome            String  @unique(map: "nome_UNIQUE") @db.VarChar(45)
+  required_fields String? @db.LongText
+  post            post[]
 }
 
 model comment {
   user_iduser Int       @db.UnsignedInt
   post_idpost Int       @db.UnsignedInt
-  comment     String    @db.TinyText
+  comment     String    @db.Text
   time        DateTime? @db.DateTime(0)
   post        post      @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_post2")
   user        user      @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_user2")
@@ -37,15 +37,18 @@ model image {
 }
 
 model post {
-  idpost                Int         @id @unique(map: "idpost_UNIQUE") @default(autoincrement()) @db.UnsignedInt
-  content               String      @db.TinyText
-  user_iduser           Int         @db.UnsignedInt
+  idpost                Int                @id @unique(map: "idpost_UNIQUE") @default(autoincrement()) @db.UnsignedInt
+  content               String             @db.Text
+  user_iduser           Int                @db.UnsignedInt
   categoria_idcategoria Int
-  time                  DateTime    @db.DateTime(0)
+  time                  DateTime           @db.DateTime(0)
+  metadata              String?            @db.LongText
   comment               comment[]
+  event_attendance      event_attendance[]
   image                 image[]
-  category              category    @relation(fields: [categoria_idcategoria], references: [idcategory], onDelete: NoAction, onUpdate: NoAction, map: "fk_post_categoria1")
-  user                  user        @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: "fk_post_user")
+  category              category           @relation(fields: [categoria_idcategoria], references: [idcategory], onDelete: NoAction, onUpdate: NoAction, map: "fk_post_categoria1")
+  user                  user               @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: "fk_post_user")
+  post_share            post_share[]
   user_like             user_like[]
 
   @@index([categoria_idcategoria], map: "fk_post_categoria1_idx")
@@ -53,14 +56,20 @@ model post {
 }
 
 model user {
-  iduser    Int         @id @unique(map: "iduser_UNIQUE") @default(autoincrement()) @db.UnsignedInt
-  name      String      @db.VarChar(45)
-  e_mail    String      @map("e-mail") @db.VarChar(60)
-  pass      String      @db.VarChar(40)
-  fone      String?     @db.VarChar(12)
-  comment   comment[]
-  post      post[]
-  user_like user_like[]
+  iduser                      Int                @id @unique(map: "iduser_UNIQUE") @default(autoincrement()) @db.UnsignedInt
+  name                        String             @db.VarChar(45)
+  e_mail                      String             @unique(map: "e_mail") @db.VarChar(60)
+  passwordHash                String             @db.VarChar(255)
+  fone                        String?            @unique(map: "unique_fone") @db.VarChar(12)
+  createdAt                   DateTime           @default(now()) @db.DateTime(0)
+  updatedAt                   DateTime           @default(now()) @db.DateTime(0)
+  passwordResetToken          String?            @db.VarChar(255)
+  passwordResetTokenExpiresAt DateTime?          @db.DateTime(0)
+  comment                     comment[]
+  event_attendance            event_attendance[]
+  post                        post[]
+  post_share                  post_share[]
+  user_like                   user_like[]
 }
 
 model user_like {
@@ -72,4 +81,32 @@ model user_like {
   @@id([user_iduser, post_idpost])
   @@index([post_idpost], map: "fk_user_has_post_post1_idx")
   @@index([user_iduser], map: "fk_user_has_post_user1_idx")
+}
+
+model event_attendance {
+  user_iduser Int                     @db.UnsignedInt
+  post_idpost Int                     @db.UnsignedInt
+  status      event_attendance_status @default(interested)
+  created_at  DateTime                @default(now()) @db.DateTime(0)
+  post        post                    @relation(fields: [post_idpost], references: [idpost], onUpdate: Restrict, map: "fk_event_post")
+  user        user                    @relation(fields: [user_iduser], references: [iduser], onUpdate: Restrict, map: "fk_event_user")
+
+  @@id([user_iduser, post_idpost])
+  @@index([post_idpost], map: "fk_event_post_idx")
+}
+
+model post_share {
+  user_iduser Int      @db.UnsignedInt
+  post_idpost Int      @db.UnsignedInt
+  shared_at   DateTime @default(now()) @db.DateTime(0)
+  post        post     @relation(fields: [post_idpost], references: [idpost], onUpdate: Restrict, map: "fk_share_post")
+  user        user     @relation(fields: [user_iduser], references: [iduser], onUpdate: Restrict, map: "fk_share_user")
+
+  @@id([user_iduser, post_idpost])
+  @@index([post_idpost], map: "fk_share_post_idx")
+}
+
+enum event_attendance_status {
+  interested
+  confirmed
 }

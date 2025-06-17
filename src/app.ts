@@ -5,8 +5,6 @@ import { setupSwagger } from './swagger'; // Certifique-se de que está importan
 import authRoutes from './interfaces/http/routes/authRoutes';
 import postRoutes from './interfaces/http/routes/postRoutes';
 import contactRoutes from './interfaces/http/routes/contactRoutes';
-import fs from 'fs';
-import path from 'path';
 
 /**
  * Arquivo principal de configuração da aplicação.
@@ -25,12 +23,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-
-// Garante que a pasta uploads exista
-const uploadPath = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadPath)) {
-  fs.mkdirSync(uploadPath, { recursive: true });
-}
 
 app.use(helmet()); // Adiciona cabeçalhos de segurança HTTP
 app.use(express.json()); // Habilita o parsing de JSON no corpo das requisições

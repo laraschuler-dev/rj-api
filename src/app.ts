@@ -13,7 +13,17 @@ import contactRoutes from './interfaces/http/routes/contactRoutes';
 const app = express();
 
 // Middlewares
-app.use(cors()); // Habilita o CORS para permitir requisições de diferentes origens
+const allowedOrigins = [
+  'https://redefinindojornadas.infocimol.com.br',
+  'http://localhost:3000',
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
 app.use(helmet()); // Adiciona cabeçalhos de segurança HTTP
 app.use(express.json()); // Habilita o parsing de JSON no corpo das requisições
 

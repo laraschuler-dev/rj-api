@@ -40,7 +40,11 @@ export interface UserRepository {
    * @param expiresAt - Data de expiração do token.
    * @returns Uma promessa resolvida quando o token for salvo.
    */
-  savePasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void>;
+  savePasswordResetToken(
+    userId: number,
+    token: string,
+    expiresAt: Date
+  ): Promise<void>;
 
   /**
    * Busca um usuário pelo token de recuperação de senha.
@@ -55,5 +59,15 @@ export interface UserRepository {
    * @param newPasswordHash - Nova senha criptografada.
    * @returns Uma promessa resolvida quando a operação for concluída.
    */
-  updatePasswordAndClearResetToken(userId: number, newPasswordHash: string): Promise<void>;
+  updatePasswordAndClearResetToken(
+    userId: number,
+    newPasswordHash: string
+  ): Promise<void>;
+
+  updateUserData(
+    userId: number,
+    data: { name?: string; email?: string; phone?: string }
+  ): Promise<User>;
+
+  updatePassword(userId: number, newPasswordHash: string): Promise<void>;
 }

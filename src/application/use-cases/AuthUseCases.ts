@@ -3,6 +3,8 @@ import { LoginRequestDTO } from '../../core/dtos/LoginRequestDTO';
 import { RegisterRequestDTO } from '../../core/dtos/RegisterRequestDTO';
 import { ForgotPasswordRequestDTO } from '../../core/dtos/ForgotPasswordRequestDTO';
 import { ResetPasswordRequestDTO } from '../../core/dtos/ResetPasswordRequestDTO';
+import { UpdatePasswordDTO } from '@/core/dtos/UpdatePasswordDTO';
+import { UpdateAccountDTO } from '@/core/dtos/UpdateAccountDTO';
 
 /**
  * Casos de uso relacionados à autenticação e gerenciamento de usuários.
@@ -62,5 +64,13 @@ export class AuthUseCases {
 
   async getSessionUser(userId: number) {
     return this.authService.getAuthenticatedUser(userId);
+  }
+
+  async updateAccount(userId: number, data: UpdateAccountDTO) {
+    return this.authService.updateAccount(userId, data);
+  }
+
+  async updatePassword(userId: number, data: UpdatePasswordDTO) {
+    return this.authService.updatePassword(userId, data);
   }
 }

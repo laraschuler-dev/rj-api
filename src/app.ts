@@ -5,6 +5,8 @@ import { setupSwagger } from './swagger'; // Certifique-se de que está importan
 import authRoutes from './interfaces/http/routes/authRoutes';
 import postRoutes from './interfaces/http/routes/postRoutes';
 import contactRoutes from './interfaces/http/routes/contactRoutes';
+import userProfileRoutes from './interfaces/http/routes/userProfileRoutes';
+import path from 'path';
 
 /**
  * Arquivo principal de configuração da aplicação.
@@ -26,6 +28,7 @@ app.use(cors({
 
 app.use(helmet()); // Adiciona cabeçalhos de segurança HTTP
 app.use(express.json()); // Habilita o parsing de JSON no corpo das requisições
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Configurar Swagger
 setupSwagger(app); 
@@ -34,5 +37,6 @@ setupSwagger(app);
 app.use('/auth', authRoutes);
 app.use('/posts', postRoutes);
 app.use('/contact', contactRoutes);
+app.use('/profile', userProfileRoutes);
 
 export { app };

@@ -8,6 +8,20 @@ export class UserProfileService {
     private userRepository: UserRepository
   ) {}
 
+  private translateProfileType(type: string | undefined): string {
+    if (!type) return 'Não informado';
+
+    const map: Record<string, string> = {
+      psr: 'Pessoa em situação de rua',
+      volunteer: 'Voluntário(a)',
+      ong: 'ONG',
+      company: 'Empresa',
+      public_institution: 'Instituição Pública',
+    };
+
+    return map[type] || 'Tipo não reconhecido';
+  }
+
   async getProfile(userId: number): Promise<any | null> {
     const user = await this.userRepository.findById(userId);
     if (!user) return null;
@@ -18,8 +32,11 @@ export class UserProfileService {
       id: user.iduser,
       name: user.name,
       email: user.email,
-      phone: user.fone,
-      profile: userProfile // pode ser null ou um objeto
+      fone: user.phone,
+      profile: {
+        ...userProfile,
+        translated_type: this.translateProfileType(userProfile?.profile_type)
+      }
     };
   }
 

@@ -16,6 +16,8 @@ export class AuthController {
     this.requestPasswordReset = this.requestPasswordReset.bind(this);
     this.resetPassword = this.resetPassword.bind(this);
     this.getSession = this.getSession.bind(this);
+    this.updateAccount = this.updateAccount.bind(this);
+    this.updatePassword = this.updatePassword.bind(this);
   }
 
   /**
@@ -91,7 +93,7 @@ export class AuthController {
       res.status(400).json({ error: errorMessage });
     }
   }
-  
+
   /**
    * Retorna as informações do usuário autenticado.
    * @param req - Objeto da requisição HTTP.
@@ -113,6 +115,37 @@ export class AuthController {
       res.status(200).json(user);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
+    }
+  }
+
+  async updateAccount(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user || !req.user.id) {
+        res.status(401).json({ error: 'Unauthorized: user not found in request' });
+        return;
+      }
+      const userId = req.user.id;
+      const updatedUser = await this.authUseCases.updateAccount(
+        userId,
+        req.body
+      );
+      res.json(updatedUser);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  async updatePassword(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user || !req.user.id) {
+        res.status(401).json({ error: 'Unauthorized: user not found in request' });
+        return;
+      }
+      const userId = req.user.id;
+      await this.authUseCases.updatePassword(userId, req.body);
+      res.json({ message: 'Senha atualizada com sucesso.' });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
     }
   }
 }

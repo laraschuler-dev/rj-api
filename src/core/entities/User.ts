@@ -4,6 +4,8 @@ export class User {
    */
   passwordResetTokenExpiresAt?: Date | null;
     avatarUrl: string | undefined;
+  fone: any;
+  iduser: any;
 
   /**
    * Construtor da entidade User.

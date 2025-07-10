@@ -9,6 +9,7 @@ const prisma = new PrismaClient();
  * Este repositório realiza operações no banco de dados relacionadas à entidade User.
  */
 export class UserRepositoryPrisma implements UserRepository {
+  
   /**
    * Cria um novo usuário no banco de dados.
    * @param user - Dados do usuário a ser criado.
@@ -174,6 +175,35 @@ export class UserRepositoryPrisma implements UserRepository {
         passwordResetToken: null,
         passwordResetTokenExpiresAt: null,
       },
+    });
+  }
+  
+  async updateUserData(
+    userId: number,
+    data: { name?: string; email?: string; phone?: string }
+  ): Promise<User> {
+    const updatedUser = await prisma.user.update({
+      where: { iduser: userId },
+      data: {
+        name: data.name,
+        e_mail: data.email,
+        fone: data.phone,
+      },
+    });
+
+    return new User(
+      updatedUser.iduser,
+      updatedUser.name,
+      updatedUser.e_mail,
+      updatedUser.passwordHash,
+      updatedUser.fone
+    );
+  }
+  
+  async updatePassword(userId: number, newPasswordHash: string): Promise<void> {
+    await prisma.user.update({
+      where: { iduser: userId },
+      data: { passwordHash: newPasswordHash },
     });
   }
 }

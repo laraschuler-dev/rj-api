@@ -19,10 +19,11 @@ export class PostController {
 
   constructor(
     private readonly postUseCases: PostUseCases,
-    private readonly userRepository: UserRepository // 3. Injete o UserRepository
+    private readonly userRepository: UserRepository
   ) {
     this.create = this.create.bind(this);
     this.list = this.list.bind(this);
+    this.getById = this.getById.bind(this);
   }
 
   /**
@@ -77,6 +78,19 @@ export class PostController {
     }
   }
 
+  /**
+   * Retorna uma lista paginada de posts, com os seguintes campos:
+   *
+   * - `data`: Array de objetos com os campos do post, incluindo o autor e as imagens
+   * - `page`: Número da p gina atual
+   * - `limit`: Número de posts por p gina
+   * - `total`: Número total de posts
+   * - `totalPages`: Número total de p ginas
+   *
+   * Os parâmetros `page` e `limit` são opcionais e defaultam para 1 e 10, respectivamente.
+   *
+   * @cath {Error} Caso ocorra um erro ao buscar os posts
+   */
   async list(req: Request, res: Response): Promise<void> {
     try {
       const page = parseInt(req.query.page as string) || 1;
@@ -106,6 +120,36 @@ export class PostController {
       });
     } catch (err) {
       res.status(500).json({ error: 'Erro ao buscar posts.' });
+    }
+  }
+
+  async getById(req: Request, res: Response): Promise<void> {
+    try {
+      const postId = Number(req.params.id);
+      const userId = req.user?.id;
+
+      if (isNaN(postId)) {
+        res.status(400).json({ error: 'ID de post inválido.' });
+        return;
+      }
+
+      if (typeof userId !== 'number') {
+        res.status(400).json({ error: 'ID de usuário inválido.' });
+        return;
+      }
+
+      const postDetails = await this.postUseCases.getPostById(postId, userId);
+
+      if (!postDetails) {
+        res.status(404).json({ error: 'Post não encontrado.' });
+        return;
+      }
+
+      res.status(200).json(postDetails);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Erro desconhecido';
+      res.status(500).json({ error: errorMessage });
     }
   }
 }

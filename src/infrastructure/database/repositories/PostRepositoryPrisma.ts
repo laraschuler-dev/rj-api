@@ -111,4 +111,17 @@ export class PostRepositoryPrisma implements PostRepository {
       total,
     };
   }
+
+  async getPostByIdWithDetails(postId: number) {
+    return prisma.post.findUnique({
+      where: { idpost: postId },
+      include: {
+        user: true,
+        image: true,
+        user_like: true,
+        comment: true,
+        event_attendance: true,
+      },
+    });
+  }
 }

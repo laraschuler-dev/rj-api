@@ -221,4 +221,77 @@ postRoutes.post(
  */
 postRoutes.get('/', ensureAuthenticated, postController.list);
 
+/**
+ * @swagger
+ * /posts/{id}:
+ *   get:
+ *     summary: Obtém os detalhes completos de um post
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID do post a ser consultado
+ *         schema:
+ *           type: integer
+ *           example: 34
+ *     responses:
+ *       200:
+ *         description: Detalhes do post retornados com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PostDetails'
+ *       401:
+ *         description: Token inválido ou ausente
+ *       404:
+ *         description: Post não encontrado
+ */
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     PostDetails:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           example: 34
+ *         content:
+ *           type: string
+ *           example: "Preciso de ajuda com doações de roupas"
+ *         categoria_idcategoria:
+ *           type: integer
+ *           example: 1
+ *         user_iduser:
+ *           type: object
+ *           properties:
+ *             id:
+ *               type: integer
+ *               example: 14
+ *             name:
+ *               type: string
+ *               example: "Lara das Graças Schüler"
+ *             avatarUrl:
+ *               type: string
+ *               example: "uploads/123456789-avatar.jpg"
+ *         metadata:
+ *           type: object
+ *           example:
+ *             title: "Doação de Roupas"
+ *             itemType: "Roupas"
+ *         images:
+ *           type: array
+ *           items:
+ *             type: string
+ *             example: "uploads/123456789-imagem.jpg"
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2025-07-10T20:21:56.000Z"
+ */
+postRoutes.get('/:id', ensureAuthenticated, postController.getById);
+
 export default postRoutes;

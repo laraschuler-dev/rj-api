@@ -1,3 +1,4 @@
+import { PostDetailsDTO } from '../../core/dtos/PostDetailsDTO';
 import { Post, PostMetadata } from '../../core/entities/Post';
 import { PostService } from '../services/PostService';
 
@@ -8,6 +9,7 @@ import { PostService } from '../services/PostService';
  */
 
 export class PostUseCases {
+  postRepository: any;
   /**
    * Construtor da classe PostUseCases.
    *
@@ -53,5 +55,15 @@ export class PostUseCases {
    */
   async listPaginated(page: number, limit: number) {
     return this.postService.getPaginatedPosts(page, limit);
+  }
+
+  async getPostById(postId: number, userId: number) {
+    const post = await this.postService.getPostByIdWithDetails(postId);
+    if (!post) return null;
+    return PostDetailsDTO.fromPrisma(post, userId);
+  }
+
+  getPostByIdWithDetails(id: number) {
+    return this.postService.getPostByIdWithDetails(id);
   }
 }

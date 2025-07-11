@@ -66,5 +66,8 @@ export class PostService {
   async getPaginatedPosts(page: number, limit: number) {
     return this.repository.findManyPaginated(page, limit);
   }
-  
+
+  async getPostByIdWithDetails(id: number) {
+    return this.repository.getPostByIdWithDetails(id);
+  }
 }

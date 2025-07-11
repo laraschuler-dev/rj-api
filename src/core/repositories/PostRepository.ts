@@ -1,4 +1,16 @@
 import { Post } from '../entities/Post';
+import { Prisma } from '@prisma/client';
+
+export type PostWithAllDetails = Prisma.postGetPayload<{
+  include: {
+    user: true;
+    image: true;
+    user_like: true;
+    comment: true;
+    event_attendance: true;
+  };
+}>;
+
 /**
  * Interface para o repositório de posts.
  *
@@ -31,4 +43,6 @@ export interface PostRepository {
     page: number,
     limit: number
   ): Promise<{ posts: Post[]; total: number }>;
+
+  getPostByIdWithDetails(postId: number): Promise<PostWithAllDetails | null>;
 }

@@ -43,4 +43,15 @@ export class PostUseCases {
     (post as any).images = imageFilenames; // temporário para passar dados ao repositório
     return this.postService.createPost(post);
   }
+
+  /**
+   * Executa o caso de uso para buscar posts de forma paginada.
+   *
+   * @param page - Número da página a ser buscada.
+   * @param limit - Número de posts por página.
+   * @returns Um objeto contendo um array de posts e o número total de posts.
+   */
+  async listPaginated(page: number, limit: number) {
+    return this.postService.getPaginatedPosts(page, limit);
+  }
 }

@@ -101,6 +101,7 @@ export type PostMetadata = {
  * Essa entidade contém as propriedades e métodos necessários para representar um post.
  */
 export class Post {
+  images: string[];
   /**
    * Construtor da classe Post.
    * 
@@ -117,6 +118,9 @@ export class Post {
     public readonly categoria_idcategoria: number,
     public readonly user_iduser: number,
     public readonly metadata: PostMetadata,
-    public readonly createdAt: Date = new Date()
-  ) {}
+    public readonly createdAt: Date = new Date(),
+    images: string[] = [] 
+  ) {
+    this.images = images;
+  }
 }

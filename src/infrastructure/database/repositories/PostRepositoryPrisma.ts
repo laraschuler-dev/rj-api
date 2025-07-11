@@ -79,4 +79,36 @@ export class PostRepositoryPrisma implements PostRepository {
       post.time
     );
   }
+
+  async findManyPaginated(page: number, limit: number) {
+    const skip = (page - 1) * limit;
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({
+        skip,
+        take: limit,
+        orderBy: { time: 'desc' },
+        include: {
+          user: true,
+          image: true,
+          category: true,
+        },
+      }),
+      prisma.post.count(),
+    ]);
+
+    return {
+      posts: posts.map(
+        (post) =>
+          new Post(
+            post.idpost,
+            post.content,
+            post.categoria_idcategoria,
+            post.user_iduser,
+            post.metadata ? JSON.parse(post.metadata) : {},
+            post.time
+          )
+      ),
+      total,
+    };
+  }
 }

@@ -1,23 +1,23 @@
 import { Post } from '../../core/entities/Post';
 import { PostRepository } from '../../core/repositories/PostRepository';
-import { prisma } from '../../infrastructure/database/prisma/prisma'; 
+import { prisma } from '../../infrastructure/database/prisma/prisma';
 
 /**
  * Serviço responsável por gerenciar posts.
- * 
+ *
  * Esse serviço fornece métodos para criar e gerenciar posts.
  */
 export class PostService {
   /**
    * Construtor da classe PostService.
-   * 
+   *
    * @param repository - Instância do repositório de posts.
    */
   constructor(private readonly repository: PostRepository) {}
 
   /**
    * Cria um novo post.
-   * 
+   *
    * @param post - Objeto post que será criado.
    * @returns O post criado.
    * @throws Erro caso os campos sejam inválidos ou campos obrigatórios faltando.
@@ -55,4 +55,16 @@ export class PostService {
 
     return this.repository.save(post);
   }
+
+  /**
+   * Busca posts de forma paginada.
+   *
+   * @param page - Número da página a ser buscada.
+   * @param limit - Número de posts por página.
+   * @returns Um objeto contendo um array de posts e o número total de posts.
+   */
+  async getPaginatedPosts(page: number, limit: number) {
+    return this.repository.findManyPaginated(page, limit);
+  }
+  
 }

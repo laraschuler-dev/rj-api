@@ -3,6 +3,7 @@ import { CreatePostDTO } from '../../../core/dtos/CreatePostDTO';
 import { PostResponseDTO } from '../../../core/dtos/PostResponseDTO';
 import { PostUseCases } from '../../../application/use-cases/PostUseCases';
 import { UserRepository } from '../../../core/repositories/UserRepository';
+import { PostListItemDTO } from '../../../core/dtos/PostListItemDTO';
 
 /**
  * Controlador responsável por lidar com requisições relacionadas a posts.
@@ -21,6 +22,7 @@ export class PostController {
     private readonly userRepository: UserRepository // 3. Injete o UserRepository
   ) {
     this.create = this.create.bind(this);
+    this.list = this.list.bind(this);
   }
 
   /**
@@ -72,6 +74,38 @@ export class PostController {
       const errorMessage =
         err instanceof Error ? err.message : 'Erro desconhecido';
       res.status(500).json({ error: errorMessage });
+    }
+  }
+
+  async list(req: Request, res: Response): Promise<void> {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const { posts, total } = await this.postUseCases.listPaginated(
+        page,
+        limit
+      );
+
+      // Para cada post, busca o autor e monta o DTO
+      const data = await Promise.all(
+        posts.map(async (post) => {
+          const author = await this.userRepository.findById(post.user_iduser);
+          if (!author) return null;
+          // Supondo que post.images seja um array de strings (ajuste se necessário)
+          const images = post.images || [];
+          return PostListItemDTO.fromDomain(post, author, images);
+        })
+      );
+
+      res.json({
+        data: data.filter(Boolean), // Remove nulos caso algum autor não seja encontrado
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      });
+    } catch (err) {
+      res.status(500).json({ error: 'Erro ao buscar posts.' });
     }
   }
 }

@@ -119,8 +119,106 @@ const postRoutes = Router();
 postRoutes.post(
   '/',
   ensureAuthenticated,
-  upload.array('images', 5), // Aceita até 5 imagens
+  upload.array('images', 5),
   postController.create
 );
+
+/**
+ * @swagger
+ * /posts:
+ *   get:
+ *     summary: Lista os posts públicos paginados e ordenados por data de criação (mais recentes primeiro)
+ *     tags:
+ *       - Posts
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Página da listagem
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Quantidade de posts por página
+ *     responses:
+ *       200:
+ *         description: Lista de posts paginada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/PostListItem'
+ *                 page:
+ *                   type: integer
+ *                   example: 1
+ *                 limit:
+ *                   type: integer
+ *                   example: 10
+ *                 total:
+ *                   type: integer
+ *                   example: 100
+ *                 totalPages:
+ *                   type: integer
+ *                   example: 10
+ *       500:
+ *         description: Erro ao buscar posts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: Erro ao buscar posts.
+ *
+ * components:
+ *   schemas:
+ *     PostListItem:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           example: 1
+ *         content:
+ *           type: string
+ *           example: "Preciso de ajuda com doações de roupas"
+ *         categoria_idcategoria:
+ *           type: integer
+ *           example: 2
+ *         user_iduser:
+ *           type: object
+ *           properties:
+ *             id:
+ *               type: integer
+ *               example: 5
+ *             name:
+ *               type: string
+ *               example: "Maria"
+ *             avatarUrl:
+ *               type: string
+ *               example: "uploads/123456789-avatar.jpg"
+ *         metadata:
+ *           type: object
+ *           example:
+ *             title: "Doação de Roupas"
+ *             itemType: "Roupas"
+ *         images:
+ *           type: array
+ *           items:
+ *             type: string
+ *             example: "uploads/123456789-imagem.jpg"
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2023-05-15T10:00:00Z"
+ */
+postRoutes.get('/', ensureAuthenticated, postController.list);
 
 export default postRoutes;

@@ -45,4 +45,11 @@ export interface PostRepository {
   ): Promise<{ posts: Post[]; total: number }>;
 
   getPostByIdWithDetails(postId: number): Promise<PostWithAllDetails | null>;
+
+  likePost(postId: number, userId: number): Promise<void>;
+
+  unlikePost(postId: number, userId: number): Promise<void>;
+
+  isPostLikedByUser(postId: number, userId: number): Promise<boolean>;
+  
 }

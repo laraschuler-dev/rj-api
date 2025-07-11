@@ -294,4 +294,37 @@ postRoutes.get('/', ensureAuthenticated, postController.list);
  */
 postRoutes.get('/:id', ensureAuthenticated, postController.getById);
 
+/**
+ * @swagger
+ * /posts/{id}/like:
+ *   post:
+ *     summary: Curtir ou descurtir um post
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do post
+ *     responses:
+ *       200:
+ *         description: Retorna se o post foi curtido ou descurtido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 liked:
+ *                   type: boolean
+ *                   example: true
+ *       401:
+ *         description: Usuário não autenticado
+ *       404:
+ *         description: Post não encontrado
+ */
+postRoutes.post('/:id/like', ensureAuthenticated, postController.like);
+
 export default postRoutes;

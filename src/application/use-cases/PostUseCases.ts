@@ -66,4 +66,8 @@ export class PostUseCases {
   getPostByIdWithDetails(id: number) {
     return this.postService.getPostByIdWithDetails(id);
   }
+
+  async toggleLike(postId: number, userId: number) {
+    return this.postService.toggleLike(postId, userId);
+  }
 }

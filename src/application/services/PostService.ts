@@ -70,4 +70,21 @@ export class PostService {
   async getPostByIdWithDetails(id: number) {
     return this.repository.getPostByIdWithDetails(id);
   }
+
+  async toggleLike(
+    postId: number,
+    userId: number
+  ): Promise<{ liked: boolean }> {
+    const alreadyLiked = await this.repository.isPostLikedByUser(
+      postId,
+      userId
+    );
+    if (alreadyLiked) {
+      await this.repository.unlikePost(postId, userId);
+      return { liked: false };
+    } else {
+      await this.repository.likePost(postId, userId);
+      return { liked: true };
+    }
+  }
 }

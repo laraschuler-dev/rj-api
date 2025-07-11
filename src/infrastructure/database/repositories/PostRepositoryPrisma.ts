@@ -124,4 +124,32 @@ export class PostRepositoryPrisma implements PostRepository {
       },
     });
   }
+
+  async likePost(postId: number, userId: number): Promise<void> {
+    await prisma.user_like.create({
+      data: {
+        post_idpost: postId,
+        user_iduser: userId,
+      },
+    });
+  }
+
+  async unlikePost(postId: number, userId: number): Promise<void> {
+    await prisma.user_like.deleteMany({
+      where: {
+        post_idpost: postId,
+        user_iduser: userId,
+      },
+    });
+  }
+
+  async isPostLikedByUser(postId: number, userId: number): Promise<boolean> {
+    const like = await prisma.user_like.findFirst({
+      where: {
+        post_idpost: postId,
+        user_iduser: userId,
+      },
+    });
+    return !!like;
+  }
 }

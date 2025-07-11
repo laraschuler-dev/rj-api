@@ -4,6 +4,7 @@ import { PostResponseDTO } from '../../../core/dtos/PostResponseDTO';
 import { PostUseCases } from '../../../application/use-cases/PostUseCases';
 import { UserRepository } from '../../../core/repositories/UserRepository';
 import { PostListItemDTO } from '../../../core/dtos/PostListItemDTO';
+import { LikePostResponseDTO } from '../../../core/dtos/LikePostResponseDTO';
 
 /**
  * Controlador responsável por lidar com requisições relacionadas a posts.
@@ -24,6 +25,8 @@ export class PostController {
     this.create = this.create.bind(this);
     this.list = this.list.bind(this);
     this.getById = this.getById.bind(this);
+    this.like = this.like.bind(this);
+
   }
 
   /**
@@ -150,6 +153,21 @@ export class PostController {
       const errorMessage =
         err instanceof Error ? err.message : 'Erro desconhecido';
       res.status(500).json({ error: errorMessage });
+    }
+  }
+
+  async like(req: Request, res: Response): Promise<void> {
+    try {
+      const postId = Number(req.params.id);
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ error: 'Usuário não autenticado.' });
+        return;
+      }
+      const result = await this.postUseCases.toggleLike(postId, userId);
+      res.status(200).json(LikePostResponseDTO.fromResult(result.liked));
+    } catch (err) {
+      res.status(500).json({ error: 'Erro ao curtir/descurtir o post.' });
     }
   }
 }

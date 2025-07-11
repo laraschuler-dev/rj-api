@@ -389,4 +389,45 @@ postRoutes.post('/:id/share', ensureAuthenticated, postController.sharePost);
  */
 postRoutes.post('/:id/comment', ensureAuthenticated, postController.commentPost);
 
+/**
+ * @swagger
+ * /posts/{id}/attend:
+ *   post:
+ *     summary: Marcar presença/interesse em evento
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do post
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [interested, confirmed]
+ *                 description: Tipo de presença no evento
+ *     responses:
+ *       201:
+ *         description: Presença registrada com sucesso
+ *       400:
+ *         description: Status inválido
+ *       401:
+ *         description: Não autenticado
+ *       404:
+ *         description: Post não encontrado
+ */
+postRoutes.post('/:id/attend', ensureAuthenticated, postController.attendEvent);
+
+
 export default postRoutes;

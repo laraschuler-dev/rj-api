@@ -1,7 +1,9 @@
 import { prisma } from '../../../infrastructure/database/prisma/prisma';
 import { Post, PostMetadata } from '../../../core/entities/Post';
 import { PostRepository } from '../../../core/repositories/PostRepository';
-import { CreateCommentDTO } from '@/core/dtos/CreateCommentDTO';
+import { CreateCommentDTO } from '../../../core/dtos/CreateCommentDTO';
+import { AttendEventDTO } from '../../../core/dtos/AttendEventDTO';
+import { post } from '@prisma/client';
 /**
  * Implementação do repositório de Post utilizando Prisma ORM.
  * Responsável por persistir e recuperar posts do banco de dados.
@@ -175,5 +177,46 @@ export class PostRepositoryPrisma implements PostRepository {
     });
 
     return newComment;
+  }
+
+  async attendEvent(data: AttendEventDTO): Promise<void> {
+    await this.prisma.event_attendance.upsert({
+      where: {
+        user_iduser_post_idpost: {
+          user_iduser: data.userId,
+          post_idpost: data.postId,
+        },
+      },
+      update: {
+        status: data.status,
+      },
+      create: {
+        user_iduser: data.userId,
+        post_idpost: data.postId,
+        status: data.status,
+      },
+    });
+  }
+
+  async findAttendance(postId: number, userId: number) {
+    return await this.prisma.event_attendance.findUnique({
+      where: {
+        user_iduser_post_idpost: {
+          user_iduser: userId,
+          post_idpost: postId,
+        },
+      },
+    });
+  }
+
+  async removeAttendance(postId: number, userId: number): Promise<void> {
+    await this.prisma.event_attendance.delete({
+      where: {
+        user_iduser_post_idpost: {
+          user_iduser: userId,
+          post_idpost: postId,
+        },
+      },
+    });
   }
 }

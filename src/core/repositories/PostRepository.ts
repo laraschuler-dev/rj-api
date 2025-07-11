@@ -1,6 +1,7 @@
+import { AttendEventDTO } from '../dtos/AttendEventDTO';
 import { CreateCommentDTO } from '../dtos/CreateCommentDTO';
 import { Post } from '../entities/Post';
-import { Prisma } from '@prisma/client';
+import { post, Prisma } from '@prisma/client';
 
 export type PostWithAllDetails = Prisma.postGetPayload<{
   include: {
@@ -56,4 +57,11 @@ export interface PostRepository {
   sharePost(userId: number, postId: number): Promise<void>;
 
   createComment(createCommentDTO: CreateCommentDTO): Promise<Comment>;
+
+  attendEvent(data: AttendEventDTO): Promise<void>;
+
+  findAttendance(postId: number, userId: number): Promise<any>;
+
+  removeAttendance(postId: number, userId: number): Promise<void>;
+
 }

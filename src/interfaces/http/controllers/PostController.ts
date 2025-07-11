@@ -14,6 +14,7 @@ import { CreateCommentDTO } from '../../../core/dtos/CreateCommentDTO';
  */
 
 export class PostController {
+  postService: any;
   /**
    * Inicializa o controlador de posts.
    * @param postUseCases - Instância dos casos de uso de posts.
@@ -30,6 +31,7 @@ export class PostController {
     this.like = this.like.bind(this);
     this.sharePost = this.sharePost.bind(this);
     this.commentPost = this.commentPost.bind(this);
+    this.attendEvent = this.attendEvent.bind(this);
   }
 
   /**
@@ -220,6 +222,42 @@ export class PostController {
       console.error(error);
       res.status(500).json({ error: 'Erro ao adicionar comentário' });
       console.log('Erro ao adicionar comentário:', error);
+    }
+  }
+
+  // src/presentation/controllers/PostController.ts
+
+  async attendEvent(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      const postId = Number(req.params.id);
+      const { status } = req.body;
+
+      if (!['interested', 'confirmed'].includes(status)) {
+        res.status(400).json({ error: 'Status inválido' });
+      }
+
+      if (!userId) {
+       res.status(401).json({ error: 'Usuário não autenticado' });
+       return;
+      }
+
+      const result = await this.postUseCases.attendEvent({
+        postId,
+        userId,
+        status,
+      });
+
+      const messages = {
+        interested: 'Interesse registrado com sucesso',
+        confirmed: 'Presença confirmada com sucesso',
+        removed: 'Presença desmarcada',
+      };
+
+      res.status(201).json({ message: messages[result], status: result });
+    } catch (error) {
+      console.error('Erro ao registrar presença:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
     }
   }
 }

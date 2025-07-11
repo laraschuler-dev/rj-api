@@ -2,7 +2,8 @@ import { Post } from '../../core/entities/Post';
 import { PostRepository } from '../../core/repositories/PostRepository';
 import { prisma } from '../../infrastructure/database/prisma/prisma';
 import { SharePostDTO } from '../../core/dtos/SharePostDTO';
-import { CreateCommentDTO } from '@/core/dtos/CreateCommentDTO';
+import { CreateCommentDTO } from '../../core/dtos/CreateCommentDTO';
+import { AttendEventDTO } from '../../core/dtos/AttendEventDTO';
 
 /**
  * Serviço responsável por gerenciar posts.
@@ -108,5 +109,29 @@ export class PostService {
       userId,
       comment: createCommentDTO.comment,
     });
+  }
+
+  async attendEvent(
+    data: AttendEventDTO
+  ): Promise<'interested' | 'confirmed' | 'removed'> {
+    const post = await this.repository.findById(data.postId);
+    if (!post) {
+      throw new Error('Post não encontrado');
+    }
+
+    const currentAttendance = await this.repository.findAttendance(
+      data.postId,
+      data.userId
+    );
+
+    if (currentAttendance?.status === data.status) {
+      // Já existe com mesmo status: desmarcar
+      await this.repository.removeAttendance(data.postId, data.userId);
+      return 'removed';
+    }
+
+    // Cria ou atualiza com novo status
+    await this.repository.attendEvent(data);
+    return data.status;
   }
 }

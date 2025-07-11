@@ -2,7 +2,8 @@ import { PostDetailsDTO } from '../../core/dtos/PostDetailsDTO';
 import { Post, PostMetadata } from '../../core/entities/Post';
 import { PostService } from '../services/PostService';
 import { SharePostDTO } from '../../core/dtos/SharePostDTO';
-import { CreateCommentDTO } from '@/core/dtos/CreateCommentDTO';
+import { CreateCommentDTO } from '../../core/dtos/CreateCommentDTO';
+import { AttendEventDTO } from '../../core/dtos/AttendEventDTO';
 
 /**
  * Caso de uso para gerenciar posts.
@@ -11,6 +12,7 @@ import { CreateCommentDTO } from '@/core/dtos/CreateCommentDTO';
  */
 
 export class PostUseCases {
+  
   postRepository: any;
   /**
    * Construtor da classe PostUseCases.
@@ -83,4 +85,9 @@ export class PostUseCases {
   ): Promise<void> {
     await this.postService.createComment(createCommentDTO, userId);
   }
+
+  async attendEvent(data: AttendEventDTO): Promise<'interested' | 'confirmed' | 'removed'> {
+  return this.postService.attendEvent(data);
+}
+
 }

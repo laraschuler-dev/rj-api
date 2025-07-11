@@ -2,6 +2,7 @@ import { PostDetailsDTO } from '../../core/dtos/PostDetailsDTO';
 import { Post, PostMetadata } from '../../core/entities/Post';
 import { PostService } from '../services/PostService';
 import { SharePostDTO } from '../../core/dtos/SharePostDTO';
+import { CreateCommentDTO } from '@/core/dtos/CreateCommentDTO';
 
 /**
  * Caso de uso para gerenciar posts.
@@ -74,5 +75,12 @@ export class PostUseCases {
 
   async sharePost(sharePostDTO: SharePostDTO): Promise<void> {
     await this.postService.sharePost(sharePostDTO);
+  }
+
+  async commentPost(
+    createCommentDTO: CreateCommentDTO,
+    userId: number
+  ): Promise<void> {
+    await this.postService.createComment(createCommentDTO, userId);
   }
 }

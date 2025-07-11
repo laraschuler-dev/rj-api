@@ -2,6 +2,7 @@ import { Post } from '../../core/entities/Post';
 import { PostRepository } from '../../core/repositories/PostRepository';
 import { prisma } from '../../infrastructure/database/prisma/prisma';
 import { SharePostDTO } from '../../core/dtos/SharePostDTO';
+import { CreateCommentDTO } from '@/core/dtos/CreateCommentDTO';
 
 /**
  * Serviço responsável por gerenciar posts.
@@ -90,9 +91,22 @@ export class PostService {
   }
 
   async sharePost(sharePostDTO: SharePostDTO): Promise<void> {
-    await this.repository.sharePost(
-      sharePostDTO.userId,
-      sharePostDTO.postId
-    );
+    await this.repository.sharePost(sharePostDTO.userId, sharePostDTO.postId);
+  }
+
+  async createComment(
+    createCommentDTO: CreateCommentDTO,
+    userId: number
+  ): Promise<void> {
+    const post = await this.repository.findById(createCommentDTO.postId);
+    if (!post) {
+      throw new Error('Post não encontrado');
+    }
+
+    await this.repository.createComment({
+      postId: createCommentDTO.postId,
+      userId,
+      comment: createCommentDTO.comment,
+    });
   }
 }

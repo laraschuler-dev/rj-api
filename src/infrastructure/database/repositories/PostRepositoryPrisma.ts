@@ -1,6 +1,7 @@
 import { prisma } from '../../../infrastructure/database/prisma/prisma';
 import { Post, PostMetadata } from '../../../core/entities/Post';
 import { PostRepository } from '../../../core/repositories/PostRepository';
+import { CreateCommentDTO } from '@/core/dtos/CreateCommentDTO';
 /**
  * Implementação do repositório de Post utilizando Prisma ORM.
  * Responsável por persistir e recuperar posts do banco de dados.
@@ -161,5 +162,18 @@ export class PostRepositoryPrisma implements PostRepository {
         post_idpost: postId,
       },
     });
+  }
+
+  async createComment(createCommentDTO: CreateCommentDTO): Promise<any> {
+    const newComment = await this.prisma.comment.create({
+      data: {
+        comment: createCommentDTO.comment,
+        post: { connect: { idpost: createCommentDTO.postId } },
+        user: { connect: { iduser: createCommentDTO.userId } },
+        time: createCommentDTO.time ?? new Date(),
+      },
+    });
+
+    return newComment;
   }
 }

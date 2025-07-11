@@ -6,6 +6,7 @@ import { UserRepository } from '../../../core/repositories/UserRepository';
 import { PostListItemDTO } from '../../../core/dtos/PostListItemDTO';
 import { LikePostResponseDTO } from '../../../core/dtos/LikePostResponseDTO';
 import { SharePostDTO } from '../../../core/dtos/SharePostDTO';
+import { CreateCommentDTO } from '../../../core/dtos/CreateCommentDTO';
 
 /**
  * Controlador responsável por lidar com requisições relacionadas a posts.
@@ -28,6 +29,7 @@ export class PostController {
     this.getById = this.getById.bind(this);
     this.like = this.like.bind(this);
     this.sharePost = this.sharePost.bind(this);
+    this.commentPost = this.commentPost.bind(this);
   }
 
   /**
@@ -193,6 +195,31 @@ export class PostController {
       console.error(error);
       res.status(500).json({ error: 'Erro ao compartilhar post' });
       console.log('Erro ao compartilhar post:', error);
+    }
+  }
+
+  async commentPost(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { comment } = req.body;
+      const userId = req.user?.id;
+
+      const createCommentDTO: CreateCommentDTO = {
+        userId: 0,
+        postId: parseInt(id),
+        comment,
+      };
+
+      if (userId === undefined) {
+        res.status(401).json({ error: 'Usuário não autenticado' });
+      } else {
+        this.postUseCases.commentPost(createCommentDTO, userId);
+        res.status(201).json({ message: 'Comentário adicionado com sucesso' });
+      }
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Erro ao adicionar comentário' });
+      console.log('Erro ao adicionar comentário:', error);
     }
   }
 }

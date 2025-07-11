@@ -1,3 +1,4 @@
+import { CreateCommentDTO } from '../dtos/CreateCommentDTO';
 import { Post } from '../entities/Post';
 import { Prisma } from '@prisma/client';
 
@@ -53,4 +54,6 @@ export interface PostRepository {
   isPostLikedByUser(postId: number, userId: number): Promise<boolean>;
 
   sharePost(userId: number, postId: number): Promise<void>;
+
+  createComment(createCommentDTO: CreateCommentDTO): Promise<Comment>;
 }

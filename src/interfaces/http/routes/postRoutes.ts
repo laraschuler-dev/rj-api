@@ -352,4 +352,41 @@ postRoutes.post('/:id/like', ensureAuthenticated, postController.like);
  */
 postRoutes.post('/:id/share', ensureAuthenticated, postController.sharePost);
 
+/**
+ * @swagger
+ * /posts/{id}/comment:
+ *   post:
+ *     summary: Adicionar um comentário a um post
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do post a ser comentado
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               comment:
+ *                 type: string
+ *                 example: "Essa iniciativa é muito importante, parabéns!"
+ *     responses:
+ *       201:
+ *         description: Comentário adicionado com sucesso
+ *       400:
+ *         description: Requisição inválida
+ *       401:
+ *         description: Usuário não autenticado
+ *       404:
+ *         description: Post não encontrado
+ */
+postRoutes.post('/:id/comment', ensureAuthenticated, postController.commentPost);
+
 export default postRoutes;

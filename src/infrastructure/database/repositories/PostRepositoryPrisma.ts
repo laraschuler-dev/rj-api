@@ -6,6 +6,7 @@ import { PostRepository } from '../../../core/repositories/PostRepository';
  * Responsável por persistir e recuperar posts do banco de dados.
  */
 export class PostRepositoryPrisma implements PostRepository {
+  private prisma = prisma;
   /**
    * Salva um novo post no banco de dados, incluindo imagens se existirem.
    * @param post - Instância de Post a ser salva.
@@ -151,5 +152,14 @@ export class PostRepositoryPrisma implements PostRepository {
       },
     });
     return !!like;
+  }
+
+  async sharePost(userId: number, postId: number): Promise<void> {
+    await this.prisma.post_share.create({
+      data: {
+        user_iduser: userId,
+        post_idpost: postId,
+      },
+    });
   }
 }

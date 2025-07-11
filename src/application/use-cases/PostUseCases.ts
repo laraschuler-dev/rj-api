@@ -1,6 +1,7 @@
 import { PostDetailsDTO } from '../../core/dtos/PostDetailsDTO';
 import { Post, PostMetadata } from '../../core/entities/Post';
 import { PostService } from '../services/PostService';
+import { SharePostDTO } from '../../core/dtos/SharePostDTO';
 
 /**
  * Caso de uso para gerenciar posts.
@@ -69,5 +70,9 @@ export class PostUseCases {
 
   async toggleLike(postId: number, userId: number) {
     return this.postService.toggleLike(postId, userId);
+  }
+
+  async sharePost(sharePostDTO: SharePostDTO): Promise<void> {
+    await this.postService.sharePost(sharePostDTO);
   }
 }

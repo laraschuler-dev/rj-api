@@ -5,6 +5,7 @@ import { PostUseCases } from '../../../application/use-cases/PostUseCases';
 import { UserRepository } from '../../../core/repositories/UserRepository';
 import { PostListItemDTO } from '../../../core/dtos/PostListItemDTO';
 import { LikePostResponseDTO } from '../../../core/dtos/LikePostResponseDTO';
+import { SharePostDTO } from '../../../core/dtos/SharePostDTO';
 
 /**
  * Controlador responsável por lidar com requisições relacionadas a posts.
@@ -26,7 +27,7 @@ export class PostController {
     this.list = this.list.bind(this);
     this.getById = this.getById.bind(this);
     this.like = this.like.bind(this);
-
+    this.sharePost = this.sharePost.bind(this);
   }
 
   /**
@@ -168,6 +169,30 @@ export class PostController {
       res.status(200).json(LikePostResponseDTO.fromResult(result.liked));
     } catch (err) {
       res.status(500).json({ error: 'Erro ao curtir/descurtir o post.' });
+    }
+  }
+
+  async sharePost(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+
+      const sharePostDTO: SharePostDTO = {
+        userId: 0,
+        postId: parseInt(id),
+      };
+
+      if (userId === undefined) {
+        res.status(401).json({ error: 'Usuário não autenticado' });
+      } else {
+        sharePostDTO.userId = userId;
+        await this.postUseCases.sharePost(sharePostDTO);
+        res.status(201).json({ message: 'Post compartilhado com sucesso' });
+      }
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Erro ao compartilhar post' });
+      console.log('Erro ao compartilhar post:', error);
     }
   }
 }

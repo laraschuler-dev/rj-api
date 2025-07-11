@@ -327,4 +327,29 @@ postRoutes.get('/:id', ensureAuthenticated, postController.getById);
  */
 postRoutes.post('/:id/like', ensureAuthenticated, postController.like);
 
+/**
+ * @swagger
+ * /posts/{id}/share:
+ *   post:
+ *     summary: Compartilhar um post
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do post
+ *     responses:
+ *       201:
+ *         description: Post compartilhado com sucesso
+ *       401:
+ *         description: Usuário não autenticado
+ *       404:
+ *         description: Post não encontrado
+ */
+postRoutes.post('/:id/share', ensureAuthenticated, postController.sharePost);
+
 export default postRoutes;

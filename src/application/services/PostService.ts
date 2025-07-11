@@ -1,6 +1,7 @@
 import { Post } from '../../core/entities/Post';
 import { PostRepository } from '../../core/repositories/PostRepository';
 import { prisma } from '../../infrastructure/database/prisma/prisma';
+import { SharePostDTO } from '../../core/dtos/SharePostDTO';
 
 /**
  * Serviço responsável por gerenciar posts.
@@ -86,5 +87,12 @@ export class PostService {
       await this.repository.likePost(postId, userId);
       return { liked: true };
     }
+  }
+
+  async sharePost(sharePostDTO: SharePostDTO): Promise<void> {
+    await this.repository.sharePost(
+      sharePostDTO.userId,
+      sharePostDTO.postId
+    );
   }
 }

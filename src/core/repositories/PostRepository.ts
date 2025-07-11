@@ -51,5 +51,6 @@ export interface PostRepository {
   unlikePost(postId: number, userId: number): Promise<void>;
 
   isPostLikedByUser(postId: number, userId: number): Promise<boolean>;
-  
+
+  sharePost(userId: number, postId: number): Promise<void>;
 }

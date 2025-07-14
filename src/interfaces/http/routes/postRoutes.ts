@@ -8,7 +8,7 @@ const postRoutes = Router();
 
 /**
  * Rotas de posts.
- * 
+ *
  * Esse arquivo define as rotas de posts para o aplicativo.
  */
 
@@ -387,7 +387,119 @@ postRoutes.post('/:id/share', ensureAuthenticated, postController.sharePost);
  *       404:
  *         description: Post não encontrado
  */
-postRoutes.post('/:id/comment', ensureAuthenticated, postController.commentPost);
+postRoutes.post(
+  '/:id/comment',
+  ensureAuthenticated,
+  postController.commentPost
+);
+
+/**
+ * @swagger
+ * /posts/{postId}/comments/{commentId}:
+ *   put:
+ *     summary: Editar um comentário
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 example: "Atualizei meu comentário anterior"
+ *     responses:
+ *       200:
+ *         description: Comentário atualizado com sucesso
+ *       400:
+ *         description: Requisição inválida
+ *       401:
+ *         description: Não autenticado
+ *       403:
+ *         description: Ação não permitida
+ *       404:
+ *         description: Comentário não encontrado
+ */
+postRoutes.put(
+  '/:postId/comments/:commentId',
+  ensureAuthenticated,
+  postController.updateComment
+);
+
+/**
+ * @swagger
+ * /posts/{postId}/comments/{commentId}:
+ *   delete:
+ *     summary: Exclui logicamente um comentário
+ *     description: Marca um comentário como excluído sem removê-lo fisicamente do banco de dados
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do post ao qual o comentário pertence
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do comentário a ser excluído
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userId:
+ *                 type: integer
+ *                 description: ID do usuário que está realizando a ação
+ *             required:
+ *               - userId
+ *     responses:
+ *       200:
+ *         description: Comentário marcado como excluído com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Requisição inválida ou comentário já excluído
+ *       401:
+ *         description: Não autenticado
+ *       403:
+ *         description: Ação não permitida
+ *       404:
+ *         description: Comentário não encontrado
+ */
+postRoutes.delete(
+  '/:postId/comments/:commentId',
+  ensureAuthenticated,
+  postController.deleteComment
+);
 
 /**
  * @swagger
@@ -429,5 +541,107 @@ postRoutes.post('/:id/comment', ensureAuthenticated, postController.commentPost)
  */
 postRoutes.post('/:id/attend', ensureAuthenticated, postController.attendEvent);
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     UpdatePostRequest:
+ *       type: object
+ *       properties:
+ *         content:
+ *           type: string
+ *           example: "Atualizei o conteúdo do post"
+ *         metadata:
+ *           type: string
+ *           format: json
+ *           description: Metadados do post como string JSON
+ *           example: '{"title": "Nova campanha", "goal": "100 agasalhos"}'
+ *         images:
+ *           type: array
+ *           items:
+ *             type: string
+ *             format: binary
+ *           description: Arquivos de imagem atualizados para o post
+ */
+/**
+ * @swagger
+ * /posts/{id}:
+ *   put:
+ *     summary: Atualiza um post existente
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     consumes:
+ *       - multipart/form-data
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do post a ser editado
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdatePostRequest'
+ *     responses:
+ *       200:
+ *         description: Post atualizado com sucesso
+ *       400:
+ *         description: Erro na requisição
+ *       401:
+ *         description: Não autenticado
+ *       403:
+ *         description: Usuário não autorizado a editar o post
+ *       404:
+ *         description: Post não encontrado
+ */
+postRoutes.put(
+  '/:id',
+  ensureAuthenticated,
+  upload.array('images'),
+  postController.updatePost
+);
+
+// src/interfaces/http/routes/PostRoutes.ts
+
+/**
+ * @swagger
+ * /posts/{postId}/images/{imageId}:
+ *   delete:
+ *     summary: Remove uma imagem específica de um post
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: imageId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Imagem removida com sucesso
+ *       400:
+ *         description: Erro na requisição
+ *       401:
+ *         description: Não autenticado
+ *       403:
+ *         description: Ação não permitida
+ *       404:
+ *         description: Imagem não encontrada
+ */
+postRoutes.delete(
+  '/:postId/images/:imageId',
+  ensureAuthenticated,
+  postController.deletePostImage
+);
 
 export default postRoutes;

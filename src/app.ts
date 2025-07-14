@@ -6,6 +6,7 @@ import authRoutes from './interfaces/http/routes/authRoutes';
 import postRoutes from './interfaces/http/routes/postRoutes';
 import contactRoutes from './interfaces/http/routes/contactRoutes';
 import userProfileRoutes from './interfaces/http/routes/userProfileRoutes';
+import userRoutes from './interfaces/http/routes/userRoutes';
 import path from 'path';
 
 /**
@@ -54,5 +55,6 @@ app.use('/auth', authRoutes);
 app.use('/posts', postRoutes);
 app.use('/contact', contactRoutes);
 app.use('/profile', userProfileRoutes);
+app.use('/users', userRoutes);
 
 export { app };

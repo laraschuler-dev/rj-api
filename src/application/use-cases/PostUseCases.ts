@@ -4,6 +4,11 @@ import { PostService } from '../services/PostService';
 import { SharePostDTO } from '../../core/dtos/SharePostDTO';
 import { CreateCommentDTO } from '../../core/dtos/CreateCommentDTO';
 import { AttendEventDTO } from '../../core/dtos/AttendEventDTO';
+import { GetUserPostsDTO } from '@/core/dtos/GetUserPostsDTO';
+import { UpdatePostDTO } from '@/core/dtos/UpdatePostDTO';
+import { DeletePostImageDTO } from '@/core/dtos/DeletePostImageDTO';
+import { UpdateCommentDTO } from '@/core/dtos/UpdateCommentDTO';
+import { DeleteCommentDTO } from '@/core/dtos/DeleteCommentDTO';
 
 /**
  * Caso de uso para gerenciar posts.
@@ -12,7 +17,6 @@ import { AttendEventDTO } from '../../core/dtos/AttendEventDTO';
  */
 
 export class PostUseCases {
-  
   postRepository: any;
   /**
    * Construtor da classe PostUseCases.
@@ -86,8 +90,30 @@ export class PostUseCases {
     await this.postService.createComment(createCommentDTO, userId);
   }
 
-  async attendEvent(data: AttendEventDTO): Promise<'interested' | 'confirmed' | 'removed'> {
-  return this.postService.attendEvent(data);
-}
+  async attendEvent(
+    data: AttendEventDTO
+  ): Promise<'interested' | 'confirmed' | 'removed'> {
+    return this.postService.attendEvent(data);
+  }
 
+  async getPostsByUser(dto: GetUserPostsDTO) {
+    return this.postService.getPostsByUser(dto);
+  }
+
+  async updatePost(data: UpdatePostDTO): Promise<void> {
+    return this.postService.updatePost(data);
+  }
+
+  async deleteImage(data: DeletePostImageDTO): Promise<void> {
+    return this.postService.deleteImage(data);
+  }
+
+  // src/application/use-cases/PostUseCases.ts
+  async updateComment(data: UpdateCommentDTO): Promise<void> {
+    return this.postService.updateComment(data);
+  }
+
+  async deleteComment(data: DeleteCommentDTO): Promise<void> {
+    return this.postService.deleteComment(data);
+  }
 }

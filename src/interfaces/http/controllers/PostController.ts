@@ -7,6 +7,7 @@ import { PostListItemDTO } from '../../../core/dtos/PostListItemDTO';
 import { LikePostResponseDTO } from '../../../core/dtos/LikePostResponseDTO';
 import { SharePostDTO } from '../../../core/dtos/SharePostDTO';
 import { CreateCommentDTO } from '../../../core/dtos/CreateCommentDTO';
+import { DeleteCommentDTO } from '@/core/dtos/DeleteCommentDTO';
 
 /**
  * Controlador responsável por lidar com requisições relacionadas a posts.
@@ -31,7 +32,12 @@ export class PostController {
     this.like = this.like.bind(this);
     this.sharePost = this.sharePost.bind(this);
     this.commentPost = this.commentPost.bind(this);
+    this.updateComment = this.updateComment.bind(this);
     this.attendEvent = this.attendEvent.bind(this);
+    this.getPostsByUser = this.getPostsByUser.bind(this);
+    this.updatePost = this.updatePost.bind(this);
+    this.deletePostImage = this.deletePostImage.bind(this);
+    this.deleteComment = this.deleteComment.bind(this);
   }
 
   /**
@@ -215,7 +221,7 @@ export class PostController {
       if (userId === undefined) {
         res.status(401).json({ error: 'Usuário não autenticado' });
       } else {
-        this.postUseCases.commentPost(createCommentDTO, userId);
+        await this.postUseCases.commentPost(createCommentDTO, userId);
         res.status(201).json({ message: 'Comentário adicionado com sucesso' });
       }
     } catch (error) {
@@ -225,7 +231,30 @@ export class PostController {
     }
   }
 
-  // src/presentation/controllers/PostController.ts
+  async updateComment(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      const postId = Number(req.params.postId);
+      const commentId = Number(req.params.commentId);
+      const { content } = req.body;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Não autenticado' });
+        return;
+      }
+
+      await this.postUseCases.updateComment({
+        postId,
+        commentId,
+        userId,
+        content,
+      });
+      res.status(200).json({ message: 'Comentário atualizado com sucesso' });
+    } catch (error: any) {
+      console.error('Erro ao atualizar comentário:', error);
+      res.status(400).json({ error: error.message });
+    }
+  }
 
   async attendEvent(req: Request, res: Response): Promise<void> {
     try {
@@ -238,8 +267,8 @@ export class PostController {
       }
 
       if (!userId) {
-       res.status(401).json({ error: 'Usuário não autenticado' });
-       return;
+        res.status(401).json({ error: 'Usuário não autenticado' });
+        return;
       }
 
       const result = await this.postUseCases.attendEvent({
@@ -258,6 +287,103 @@ export class PostController {
     } catch (error) {
       console.error('Erro ao registrar presença:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+
+  async getPostsByUser(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = Number(req.params.id);
+      const page = Number(req.query.page || 1);
+      const limit = Number(req.query.limit || 10);
+
+      const posts = await this.postUseCases.getPostsByUser({
+        userId,
+        page,
+        limit,
+      });
+
+      res.status(200).json({ data: posts });
+    } catch (error) {
+      console.error('Erro ao buscar posts do usuário:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+      console.log('Erro ao buscar posts do usuário:', error);
+    }
+  }
+
+  async updatePost(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      const postId = Number(req.params.id);
+
+      if (!userId) {
+        res.status(401).json({ error: 'Não autenticado' });
+        return;
+      }
+
+      const content = req.body.content;
+      const metadata = req.body.metadata
+        ? JSON.parse(req.body.metadata)
+        : undefined;
+
+      // ✅ Extrai nomes dos arquivos de imagem enviados, se houver
+      const imageFiles = req.files as Express.Multer.File[] | undefined;
+      const imageFilenames = imageFiles?.map((file) => file.filename) || [];
+
+      await this.postUseCases.updatePost({
+        postId,
+        userId,
+        content,
+        metadata,
+        images: imageFilenames.length > 0 ? imageFilenames : undefined, // só envia se tiver imagens
+      });
+
+      res.status(200).json({ message: 'Post atualizado com sucesso' });
+    } catch (error: any) {
+      console.error('Erro ao atualizar post:', error);
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async deletePostImage(req: Request, res: Response): Promise<void> {
+    try {
+      const postId = Number(req.params.postId);
+      const imageId = Number(req.params.imageId);
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Não autenticado' });
+        return;
+      }
+
+      await this.postUseCases.deleteImage({ postId, imageId, userId });
+
+      res.status(200).json({ message: 'Imagem removida com sucesso' });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async deleteComment(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      const { postId, commentId } = req.params;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Não autenticado' });
+        return;
+      }
+
+      const dto: DeleteCommentDTO = {
+        commentId: Number(commentId),
+        userId: Number(userId),
+        postId: Number(postId), // Agora incluímos o postId no DTO
+      };
+
+      await this.postUseCases.deleteComment(dto);
+
+      res.status(200).json({ message: 'Comentário removido com sucesso' });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
     }
   }
 }

@@ -2,6 +2,7 @@ import { AttendEventDTO } from '../dtos/AttendEventDTO';
 import { CreateCommentDTO } from '../dtos/CreateCommentDTO';
 import { Post } from '../entities/Post';
 import { post, Prisma } from '@prisma/client';
+import { comment as PrismaComment } from '@prisma/client';
 
 export type PostWithAllDetails = Prisma.postGetPayload<{
   include: {
@@ -64,4 +65,17 @@ export interface PostRepository {
 
   removeAttendance(postId: number, userId: number): Promise<void>;
 
+  findPostsByUser(userId: number, page: number, limit: number): Promise<Post[]>;
+
+  update(postId: number, data: Partial<Post>): Promise<void>;
+
+  deleteImage(postId: number, imageId: number): Promise<void>;
+
+  findImageOwner(imageId: number): Promise<{ userId: number } | null>;
+
+  updateComment(commentId: number, content: string): Promise<void>;
+
+  findCommentById(commentId: number): Promise<PrismaComment | null>;
+
+  softDeleteComment(commentId: number): Promise<void>;
 }

@@ -3,13 +3,13 @@ import { Post, PostMetadata } from '../../../core/entities/Post';
 import { PostRepository } from '../../../core/repositories/PostRepository';
 import { CreateCommentDTO } from '../../../core/dtos/CreateCommentDTO';
 import { AttendEventDTO } from '../../../core/dtos/AttendEventDTO';
+import { comment as Comment } from '@prisma/client';
 import { post } from '@prisma/client';
 /**
  * Implementação do repositório de Post utilizando Prisma ORM.
  * Responsável por persistir e recuperar posts do banco de dados.
  */
 export class PostRepositoryPrisma implements PostRepository {
-  private prisma = prisma;
   /**
    * Salva um novo post no banco de dados, incluindo imagens se existirem.
    * @param post - Instância de Post a ser salva.
@@ -158,7 +158,7 @@ export class PostRepositoryPrisma implements PostRepository {
   }
 
   async sharePost(userId: number, postId: number): Promise<void> {
-    await this.prisma.post_share.create({
+    await prisma.post_share.create({
       data: {
         user_iduser: userId,
         post_idpost: postId,
@@ -167,7 +167,7 @@ export class PostRepositoryPrisma implements PostRepository {
   }
 
   async createComment(createCommentDTO: CreateCommentDTO): Promise<any> {
-    const newComment = await this.prisma.comment.create({
+    const newComment = await prisma.comment.create({
       data: {
         comment: createCommentDTO.comment,
         post: { connect: { idpost: createCommentDTO.postId } },
@@ -179,8 +179,22 @@ export class PostRepositoryPrisma implements PostRepository {
     return newComment;
   }
 
+  // src/infrastructure/database/repositories/PostRepositoryPrisma.ts
+  async findCommentById(commentId: number): Promise<Comment | null> {
+    return prisma.comment.findUnique({
+      where: { idcomment: commentId },
+    });
+  }
+
+  async updateComment(commentId: number, content: string): Promise<void> {
+    await prisma.comment.update({
+      where: { idcomment: commentId },
+      data: { comment: content }, // corrigido aqui
+    });
+  }
+
   async attendEvent(data: AttendEventDTO): Promise<void> {
-    await this.prisma.event_attendance.upsert({
+    await prisma.event_attendance.upsert({
       where: {
         user_iduser_post_idpost: {
           user_iduser: data.userId,
@@ -199,7 +213,7 @@ export class PostRepositoryPrisma implements PostRepository {
   }
 
   async findAttendance(postId: number, userId: number) {
-    return await this.prisma.event_attendance.findUnique({
+    return await prisma.event_attendance.findUnique({
       where: {
         user_iduser_post_idpost: {
           user_iduser: userId,
@@ -210,12 +224,94 @@ export class PostRepositoryPrisma implements PostRepository {
   }
 
   async removeAttendance(postId: number, userId: number): Promise<void> {
-    await this.prisma.event_attendance.delete({
+    await prisma.event_attendance.delete({
       where: {
         user_iduser_post_idpost: {
           user_iduser: userId,
           post_idpost: postId,
         },
+      },
+    });
+  }
+
+  async findPostsByUser(
+    userId: number,
+    page: number,
+    limit: number
+  ): Promise<Post[]> {
+    const skip = (page - 1) * limit;
+
+    const posts = await prisma.post.findMany({
+      where: { user_iduser: userId },
+      skip,
+      take: limit,
+      orderBy: { time: 'desc' },
+      include: { image: true, user: true },
+    });
+
+    return posts.map(
+      (post) =>
+        new Post(
+          post.idpost,
+          post.content,
+          post.categoria_idcategoria,
+          post.user_iduser,
+          post.metadata ? JSON.parse(post.metadata) : {},
+          post.time,
+          post.image.map((img) => img.image)
+        )
+    );
+  }
+
+  async update(postId: number, data: Partial<Post>): Promise<void> {
+    await prisma.post.update({
+      where: { idpost: postId },
+      data: {
+        content: data.content,
+        metadata: data.metadata ? JSON.stringify(data.metadata) : undefined,
+      },
+    });
+
+    // ✅ Atualizar imagens (se enviadas)
+    if (data.images && data.images.length > 0) {
+      // Remove imagens antigas (opcional, se quiser sobrescrever completamente)
+      await prisma.image.deleteMany({
+        where: { post_idpost: postId },
+      });
+
+      // Insere novas imagens
+      await prisma.image.createMany({
+        data: data.images.map((filename) => ({
+          image: filename, // ✅ Nome correto da coluna segundo o Prisma
+          post_idpost: postId,
+        })),
+      });
+    }
+  }
+
+  async findImageOwner(imageId: number): Promise<{ userId: number } | null> {
+    const image = await prisma.image.findUnique({
+      where: { idimage: imageId },
+      include: { post: true },
+    });
+
+    if (!image || !image.post) return null;
+
+    return { userId: image.post.user_iduser };
+  }
+
+  async deleteImage(postId: number, imageId: number): Promise<void> {
+    await prisma.image.delete({
+      where: { idimage: imageId },
+    });
+  }
+
+  async softDeleteComment(commentId: number): Promise<void> {
+    await prisma.comment.update({
+      where: { idcomment: commentId },
+      data: {
+        deleted: true, // precisa existir essa coluna
+        deleted_at: new Date(), // idem
       },
     });
   }

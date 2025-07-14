@@ -10,6 +10,7 @@ import { DeletePostImageDTO } from '@/core/dtos/DeletePostImageDTO';
 import { UpdateCommentDTO } from '@/core/dtos/UpdateCommentDTO';
 import { comment as PrismaComment } from '@prisma/client';
 import { DeleteCommentDTO } from '@/core/dtos/DeleteCommentDTO';
+import { DeletePostDTO } from '@/core/dtos/DeletePostDTO';
 
 /**
  * Serviço responsável por gerenciar posts.
@@ -65,6 +66,16 @@ export class PostService {
     return this.repository.save(post);
   }
 
+  async deletePost(data: DeletePostDTO): Promise<void> {
+    const { postId, userId } = data;
+
+    const authorId = await this.repository.findPostAuthor(postId);
+    if (!authorId) throw new Error('Post não encontrado');
+    if (authorId !== userId) throw new Error('Usuário não autorizado');
+
+    await this.repository.softDeletePost(postId);
+  }
+
   /**
    * Busca posts de forma paginada.
    *
@@ -106,7 +117,7 @@ export class PostService {
     userId: number
   ): Promise<void> {
     const post = await this.repository.findById(createCommentDTO.postId);
-    console.log("INFO:",post);
+    console.log('INFO:', post);
     if (!post) {
       throw new Error('Post não encontrado');
     }

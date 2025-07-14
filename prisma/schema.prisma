@@ -45,6 +45,8 @@ model post {
   categoria_idcategoria Int
   time                  DateTime           @db.DateTime(0)
   metadata              String?            @db.LongText
+  deleted               Boolean?           @default(false)
+  deleted_at            DateTime?          @db.DateTime(0)
   comment               comment[]
   event_attendance      event_attendance[]
   image                 image[]

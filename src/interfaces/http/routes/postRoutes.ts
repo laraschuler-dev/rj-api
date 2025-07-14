@@ -644,4 +644,38 @@ postRoutes.delete(
   postController.deletePostImage
 );
 
+/**
+ * @swagger
+ * /posts/{postId}:
+ *   delete:
+ *     summary: Exclui logicamente um post
+ *     description: Marca um post como excluído sem removê-lo fisicamente do banco de dados
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do post a ser excluído
+ *     responses:
+ *       200:
+ *         description: Post excluído com sucesso
+ *       400:
+ *         description: Requisição inválida
+ *       401:
+ *         description: Não autenticado
+ *       403:
+ *         description: Ação não permitida
+ *       404:
+ *         description: Post não encontrado
+ */
+postRoutes.delete(
+  '/:postId',
+  ensureAuthenticated,
+  postController.deletePost
+);
+
 export default postRoutes;

@@ -78,4 +78,8 @@ export interface PostRepository {
   findCommentById(commentId: number): Promise<PrismaComment | null>;
 
   softDeleteComment(commentId: number): Promise<void>;
+
+  softDeletePost(postId: number): Promise<void>;
+
+  findPostAuthor(postId: number): Promise<number | null>;
 }

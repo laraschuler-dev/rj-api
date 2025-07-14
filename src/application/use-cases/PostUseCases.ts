@@ -9,6 +9,7 @@ import { UpdatePostDTO } from '@/core/dtos/UpdatePostDTO';
 import { DeletePostImageDTO } from '@/core/dtos/DeletePostImageDTO';
 import { UpdateCommentDTO } from '@/core/dtos/UpdateCommentDTO';
 import { DeleteCommentDTO } from '@/core/dtos/DeleteCommentDTO';
+import { DeletePostDTO } from '@/core/dtos/DeletePostDTO';
 
 /**
  * Caso de uso para gerenciar posts.
@@ -73,6 +74,10 @@ export class PostUseCases {
 
   getPostByIdWithDetails(id: number) {
     return this.postService.getPostByIdWithDetails(id);
+  }
+
+  async deletePost(data: DeletePostDTO): Promise<void> {
+    return this.postService.deletePost(data);
   }
 
   async toggleLike(postId: number, userId: number) {

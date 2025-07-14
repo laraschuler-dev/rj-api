@@ -38,6 +38,7 @@ export class PostController {
     this.updatePost = this.updatePost.bind(this);
     this.deletePostImage = this.deletePostImage.bind(this);
     this.deleteComment = this.deleteComment.bind(this);
+    this.deletePost = this.deletePost.bind(this);
   }
 
   /**
@@ -382,6 +383,24 @@ export class PostController {
       await this.postUseCases.deleteComment(dto);
 
       res.status(200).json({ message: 'Comentário removido com sucesso' });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async deletePost(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      const postId = Number(req.params.postId);
+
+      if (!userId) {
+        res.status(401).json({ error: 'Não autenticado' });
+        return;
+      }
+
+      await this.postUseCases.deletePost({ postId, userId });
+
+      res.status(200).json({ message: 'Post excluído com sucesso' });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }

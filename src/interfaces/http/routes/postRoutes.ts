@@ -601,7 +601,7 @@ postRoutes.post('/:id/attend', ensureAuthenticated, postController.attendEvent);
 postRoutes.put(
   '/:id',
   ensureAuthenticated,
-  upload.array('images'),
+  upload.array('images', 5),
   postController.updatePost
 );
 

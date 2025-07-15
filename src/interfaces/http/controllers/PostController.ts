@@ -285,29 +285,32 @@ export class PostController {
       };
 
       res.status(201).json({ message: messages[result], status: result });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao registrar presença:', error);
-      res.status(500).json({ error: 'Erro interno do servidor' });
+
+      const message =
+        error instanceof Error ? error.message : 'Erro interno do servidor';
+      res.status(400).json({ error: message });
     }
   }
 
   async getPostsByUser(req: Request, res: Response): Promise<void> {
     try {
       const userId = Number(req.params.id);
-      const page = Number(req.query.page || 1);
-      const limit = Number(req.query.limit || 10);
+      const page = Number(req.query.page) || 1;
+      const limit = Number(req.query.limit) || 10;
 
-      const posts = await this.postUseCases.getPostsByUser({
+      const result = await this.postUseCases.getPostsByUser({
         userId,
         page,
         limit,
       });
 
-      res.status(200).json({ data: posts });
-    } catch (error) {
-      console.error('Erro ao buscar posts do usuário:', error);
-      res.status(500).json({ error: 'Erro interno do servidor' });
-      console.log('Erro ao buscar posts do usuário:', error);
+      res.status(200).json(result);
+    } catch (error: any) {
+      const message = error.message || 'Erro ao buscar posts';
+      const status = message.includes('não encontrado') ? 404 : 400;
+      res.status(status).json({ error: message });
     }
   }
 

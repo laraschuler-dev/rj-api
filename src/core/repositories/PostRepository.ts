@@ -65,13 +65,26 @@ export interface PostRepository {
 
   removeAttendance(postId: number, userId: number): Promise<void>;
 
-  findPostsByUser(userId: number, page: number, limit: number): Promise<Post[]>;
+  findCategoryById(id: number): Promise<{
+    idcategory: number;
+    nome: string;
+    required_fields: string | null;
+  } | null>;
+
+  findPostsByUser(
+    userId: number,
+    page: number,
+    limit: number
+  ): Promise<{ posts: Post[]; totalCount: number }>;
 
   update(postId: number, data: Partial<Post>): Promise<void>;
 
   deleteImage(postId: number, imageId: number): Promise<void>;
 
-  findImageOwner(imageId: number): Promise<{ userId: number } | null>;
+  findImageOwner(imageId: number): Promise<{
+    postId: number;
+    userId: number;
+  } | null>;
 
   updateComment(commentId: number, content: string): Promise<void>;
 

@@ -88,7 +88,13 @@ export class PostService {
   }
 
   async getPostByIdWithDetails(id: number) {
-    return this.repository.getPostByIdWithDetails(id);
+    const post = await this.repository.getPostByIdWithDetails(id);
+
+    if (!post || post.deleted) {
+      return null;
+    }
+
+    return post;
   }
 
   async toggleLike(
@@ -117,7 +123,7 @@ export class PostService {
     userId: number
   ): Promise<void> {
     const post = await this.repository.findById(createCommentDTO.postId);
-    console.log('INFO:', post);
+
     if (!post) {
       throw new Error('Post não encontrado');
     }
@@ -133,8 +139,19 @@ export class PostService {
     data: AttendEventDTO
   ): Promise<'interested' | 'confirmed' | 'removed'> {
     const post = await this.repository.findById(data.postId);
+
     if (!post) {
       throw new Error('Post não encontrado');
+    }
+
+    // ✅ Verifica se é um post do tipo evento
+    const category = await this.repository.findCategoryById(
+      post.categoria_idcategoria
+    );
+    const EVENT_CATEGORY_ID = 8;
+
+    if (post.categoria_idcategoria !== EVENT_CATEGORY_ID) {
+      throw new Error('Este post não permite confirmação de presença');
     }
 
     const currentAttendance = await this.repository.findAttendance(
@@ -143,18 +160,42 @@ export class PostService {
     );
 
     if (currentAttendance?.status === data.status) {
-      // Já existe com mesmo status: desmarcar
       await this.repository.removeAttendance(data.postId, data.userId);
       return 'removed';
     }
 
-    // Cria ou atualiza com novo status
     await this.repository.attendEvent(data);
     return data.status;
   }
 
   async getPostsByUser({ userId, page = 1, limit = 10 }: GetUserPostsDTO) {
-    return this.repository.findPostsByUser(userId, page, limit);
+    if (page < 1 || limit < 1 || limit > 100) {
+      throw new Error('Parâmetros de paginação inválidos');
+    }
+
+    const userExists = await this.repository.findById(userId);
+    if (!userExists) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    const { posts, totalCount } = await this.repository.findPostsByUser(
+      userId,
+      page,
+      limit
+    );
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return {
+      data: posts,
+      pagination: {
+        currentPage: page,
+        limit,
+        totalItems: totalCount,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
   }
 
   async updatePost(data: UpdatePostDTO): Promise<void> {
@@ -204,19 +245,20 @@ export class PostService {
     });
   }
 
-  async deleteImage({
-    postId,
-    imageId,
-    userId,
-  }: DeletePostImageDTO): Promise<void> {
-    const owner = await this.repository.findImageOwner(imageId);
+  async deleteImage(data: DeletePostImageDTO): Promise<void> {
+    const { postId, imageId, userId } = data;
 
+    const owner = await this.repository.findImageOwner(imageId);
     if (!owner) throw new Error('Imagem não encontrada');
     if (owner.userId !== userId) throw new Error('Ação não permitida');
 
+    if (owner.postId !== postId) {
+      throw new Error('Imagem não pertence ao post informado');
+    }
+
     await this.repository.deleteImage(postId, imageId);
   }
-  // src/domain/services/PostService.ts
+
   async updateComment(data: UpdateCommentDTO): Promise<void> {
     const { postId, commentId, userId, content } = data;
 
@@ -239,7 +281,7 @@ export class PostService {
   }
 
   async deleteComment(data: DeleteCommentDTO): Promise<void> {
-    const { commentId, userId, postId } = data;
+    const { commentId, postId } = data;
 
     // Verificação adicional para garantir que postId existe
     if (postId === undefined) {

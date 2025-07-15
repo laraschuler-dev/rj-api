@@ -4,7 +4,7 @@ import { PostRepository } from '../../../core/repositories/PostRepository';
 import { CreateCommentDTO } from '../../../core/dtos/CreateCommentDTO';
 import { AttendEventDTO } from '../../../core/dtos/AttendEventDTO';
 import { comment as Comment } from '@prisma/client';
-import { post } from '@prisma/client';
+import { PostMapper } from '../mappers/PostMapper';
 /**
  * Implementação do repositório de Post utilizando Prisma ORM.
  * Responsável por persistir e recuperar posts do banco de dados.
@@ -86,18 +86,24 @@ export class PostRepositoryPrisma implements PostRepository {
 
   async findManyPaginated(page: number, limit: number) {
     const skip = (page - 1) * limit;
+
     const [posts, total] = await Promise.all([
       prisma.post.findMany({
         skip,
         take: limit,
         orderBy: { time: 'desc' },
+        where: {
+          deleted: false, // ← exclui posts marcados como deletados
+        },
         include: {
           user: true,
           image: true,
           category: true,
         },
       }),
-      prisma.post.count(),
+      prisma.post.count({
+        where: { deleted: false },
+      }),
     ]);
 
     return {
@@ -109,7 +115,8 @@ export class PostRepositoryPrisma implements PostRepository {
             post.categoria_idcategoria,
             post.user_iduser,
             post.metadata ? JSON.parse(post.metadata) : {},
-            post.time
+            post.time,
+            post.image.map((img) => img.image)
           )
       ),
       total,
@@ -179,7 +186,6 @@ export class PostRepositoryPrisma implements PostRepository {
     return newComment;
   }
 
-  // src/infrastructure/database/repositories/PostRepositoryPrisma.ts
   async findCommentById(commentId: number): Promise<Comment | null> {
     return prisma.comment.findUnique({
       where: { idcomment: commentId },
@@ -234,34 +240,47 @@ export class PostRepositoryPrisma implements PostRepository {
     });
   }
 
-  async findPostsByUser(
-    userId: number,
-    page: number,
-    limit: number
-  ): Promise<Post[]> {
-    const skip = (page - 1) * limit;
+  async findCategoryById(
+    id: number
+  ): Promise<{
+    idcategory: number;
+    nome: string;
+    required_fields: string | null;
+  } | null> {
+    return await prisma.category.findUnique({
+      where: { idcategory: id },
+      select: {
+        idcategory: true,
+        nome: true,
+        required_fields: true,
+      },
+    });
+  }
 
-    const posts = await prisma.post.findMany({
-      where: { user_iduser: userId },
+  async findPostsByUser(userId: number, page: number, limit: number): Promise<{
+  posts: Post[];
+  totalCount: number;
+}> {
+  const skip = (page - 1) * limit;
+
+  const [rawPosts, totalCount] = await prisma.$transaction([
+    prisma.post.findMany({
+      where: { user_iduser: userId, deleted: false },
+      include: { image: true },
       skip,
       take: limit,
       orderBy: { time: 'desc' },
-      include: { image: true, user: true },
-    });
+    }),
+    prisma.post.count({
+      where: { user_iduser: userId, deleted: false },
+    }),
+  ]);
 
-    return posts.map(
-      (post) =>
-        new Post(
-          post.idpost,
-          post.content,
-          post.categoria_idcategoria,
-          post.user_iduser,
-          post.metadata ? JSON.parse(post.metadata) : {},
-          post.time,
-          post.image.map((img) => img.image)
-        )
-    );
-  }
+  return {
+    posts: rawPosts.map(PostMapper.toDomain),
+    totalCount,
+  };
+}
 
   async update(postId: number, data: Partial<Post>): Promise<void> {
     await prisma.post.update({
@@ -289,15 +308,27 @@ export class PostRepositoryPrisma implements PostRepository {
     }
   }
 
-  async findImageOwner(imageId: number): Promise<{ userId: number } | null> {
+  async findImageOwner(
+    imageId: number
+  ): Promise<{ userId: number; postId: number } | null> {
     const image = await prisma.image.findUnique({
       where: { idimage: imageId },
-      include: { post: true },
+      include: {
+        post: {
+          select: {
+            user_iduser: true,
+            idpost: true,
+          },
+        },
+      },
     });
 
     if (!image || !image.post) return null;
 
-    return { userId: image.post.user_iduser };
+    return {
+      userId: image.post.user_iduser,
+      postId: image.post.idpost,
+    };
   }
 
   async deleteImage(postId: number, imageId: number): Promise<void> {

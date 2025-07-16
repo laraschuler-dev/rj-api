@@ -10,6 +10,12 @@ import { DeletePostImageDTO } from '@/core/dtos/DeletePostImageDTO';
 import { UpdateCommentDTO } from '@/core/dtos/UpdateCommentDTO';
 import { DeleteCommentDTO } from '@/core/dtos/DeleteCommentDTO';
 import { DeletePostDTO } from '@/core/dtos/DeletePostDTO';
+import { CommentDTO } from '@/core/dtos/ComentListDTO';
+import { LikePostResponseDTO } from '@/core/dtos/LikePostResponseDTO';
+import { PostLikeDTO } from '@/core/dtos/PostLikeDTO';
+import { PostLikeCountDTO } from '@/core/dtos/PostLikeCountDTO';
+import { CommentCountDTO } from '@/core/dtos/CommentCountDTO';
+import { PostShareCountDTO } from '@/core/dtos/PostShareCountDTO';
 
 /**
  * Caso de uso para gerenciar posts.
@@ -84,8 +90,20 @@ export class PostUseCases {
     return this.postService.toggleLike(postId, userId);
   }
 
+  async listLikes(postId: number): Promise<PostLikeDTO[]> {
+    return this.postService.getLikesByPost(postId);
+  }
+
+  async getLikeCount(postId: number): Promise<PostLikeCountDTO> {
+    return this.postService.getLikeCount(postId);
+  }
+
   async sharePost(sharePostDTO: SharePostDTO): Promise<void> {
     await this.postService.sharePost(sharePostDTO);
+  }
+
+  async getShareCount(postId: number): Promise<PostShareCountDTO> {
+    return this.postService.getShareCount(postId);
   }
 
   async commentPost(
@@ -93,6 +111,18 @@ export class PostUseCases {
     userId: number
   ): Promise<void> {
     await this.postService.createComment(createCommentDTO, userId);
+  }
+
+  async listComments(postId: number) {
+    return this.postService.getCommentsByPostId(postId);
+  }
+
+  async getSingleComment(commentId: number): Promise<CommentDTO | null> {
+    return this.postService.getSingleComment(commentId);
+  }
+
+  async getCommentCount(postId: number): Promise<CommentCountDTO> {
+    return this.postService.getCommentCount(postId);
   }
 
   async attendEvent(
@@ -113,7 +143,6 @@ export class PostUseCases {
     return this.postService.deleteImage(data);
   }
 
-  // src/application/use-cases/PostUseCases.ts
   async updateComment(data: UpdateCommentDTO): Promise<void> {
     return this.postService.updateComment(data);
   }

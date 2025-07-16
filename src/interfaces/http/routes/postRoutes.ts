@@ -327,6 +327,75 @@ postRoutes.get('/:id', ensureAuthenticated, postController.getById);
  */
 postRoutes.post('/:id/like', ensureAuthenticated, postController.like);
 
+
+/**
+ * @swagger
+ * /posts/{id}/likes:
+ *   get:
+ *     summary: Lista os usuários que curtiram o post
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do post
+ *     responses:
+ *       200:
+ *         description: Lista de usuários que curtiram o post
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *                       avatarUrl:
+ *                         type: string
+ *                         nullable: true
+ *       500:
+ *         description: Erro interno do servidor
+ */
+postRoutes.get('/:id/likes', postController.listLikes);
+
+/**
+ * @swagger
+ * /posts/{id}/likes/count:
+ *   get:
+ *     summary: Retorna a quantidade de curtidas de um post
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do post
+ *     responses:
+ *       200:
+ *         description: Quantidade de curtidas retornada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 count:
+ *                   type: integer
+ *       404:
+ *         description: Post não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+postRoutes.get('/:id/likes/count', postController.getLikeCount);
+
 /**
  * @swagger
  * /posts/{id}/share:
@@ -351,6 +420,66 @@ postRoutes.post('/:id/like', ensureAuthenticated, postController.like);
  *         description: Post não encontrado
  */
 postRoutes.post('/:id/share', ensureAuthenticated, postController.sharePost);
+
+/**
+ * @swagger
+ * /posts/{id}/shares/count:
+ *   get:
+ *     summary: Retorna a quantidade de compartilhamentos de um post
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do post
+ *     responses:
+ *       200:
+ *         description: Quantidade de compartilhamentos retornada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 count:
+ *                   type: integer
+ *       404:
+ *         description: Post não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+postRoutes.get('/:id/shares/count', postController.getShareCount);
+
+/**
+ * @swagger
+ * /posts/{id}/comments/count:
+ *   get:
+ *     summary: Retorna a quantidade de comentários de um post
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do post
+ *     responses:
+ *       200:
+ *         description: Quantidade de comentários retornada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 count:
+ *                   type: integer
+ *       404:
+ *         description: Post não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+postRoutes.get('/:id/comments/count', postController.getCommentCount);
 
 /**
  * @swagger
@@ -500,6 +629,108 @@ postRoutes.delete(
   ensureAuthenticated,
   postController.deleteComment
 );
+
+/**
+* @swagger
+* /posts/{id}/comments:
+*  get:
+*    summary: Lista os comentários de um post
+*    tags:
+*      - Posts
+*    parameters:
+*      - in: path
+*        name: id
+*        required: true
+*        schema:
+*          type: integer
+*        description: ID do post
+*    responses:
+*      '200':
+*        description: Lista de comentários
+*        content:
+*          application/json:
+*            schema:
+*              type: object
+*              properties:
+*                data:
+*                  type: array
+*                  items:
+*                    type: object
+*                    properties:
+*                      id:
+*                        type: integer
+*                      content:
+*                        type: string
+*                      createdAt:
+*                        type: string
+*                        format: date-time
+*                      author:
+*                        type: object
+*                        properties:
+*                          id:
+*                            type: integer
+*                          name:
+*                            type: string
+*                          avatarUrl:
+*                            type: string
+*                            nullable: true
+*      '400':
+*        description: ID inválido
+*      '500':
+*        description: Erro interno do servidor
+*/
+postRoutes.get(
+  '/:id/comments',
+  postController.listComments
+);
+
+/**
+* @swagger
+* /posts/comments/{id}:
+*  get:
+*    summary: Buscar comentário por ID
+*    tags:
+*      [Posts]
+*    parameters:
+*      - in: path
+*        name: id
+*        required: true
+*        schema:
+*          type: integer
+*        description: ID do comentário
+*    responses:
+*      '200':
+*        description: Comentário encontrado
+*        content:
+*          application/json:
+*            schema:
+*              type: object
+*              properties:
+*                id:
+*                  type: integer
+*                content:
+*                  type: string
+*                createdAt:
+*                  type: string
+*                  format: date-time
+*                author:
+*                  type: object
+*                  properties:
+*                    id:
+*                      type: integer
+*                    name:
+*                      type: string
+*                    avatarUrl:
+*                      type: string
+*                      nullable: true
+*      '400':
+*        description: ID inválido
+*      '404':
+*        description: Comentário não encontrado
+*      '500':
+*        description: Erro interno do servidor
+*/
+postRoutes.get('/comments/:id', postController.getSingleComment);
 
 /**
  * @swagger
@@ -672,10 +903,6 @@ postRoutes.delete(
  *       404:
  *         description: Post não encontrado
  */
-postRoutes.delete(
-  '/:postId',
-  ensureAuthenticated,
-  postController.deletePost
-);
+postRoutes.delete('/:postId', ensureAuthenticated, postController.deletePost);
 
 export default postRoutes;

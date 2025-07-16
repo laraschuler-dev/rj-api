@@ -4,13 +4,19 @@ import { prisma } from '../../infrastructure/database/prisma/prisma';
 import { SharePostDTO } from '../../core/dtos/SharePostDTO';
 import { CreateCommentDTO } from '../../core/dtos/CreateCommentDTO';
 import { AttendEventDTO } from '../../core/dtos/AttendEventDTO';
-import { GetUserPostsDTO } from '@/core/dtos/GetUserPostsDTO';
-import { UpdatePostDTO } from '@/core/dtos/UpdatePostDTO';
-import { DeletePostImageDTO } from '@/core/dtos/DeletePostImageDTO';
-import { UpdateCommentDTO } from '@/core/dtos/UpdateCommentDTO';
+import { GetUserPostsDTO } from '../../core/dtos/GetUserPostsDTO';
+import { UpdatePostDTO } from '../../core/dtos/UpdatePostDTO';
+import { DeletePostImageDTO } from '../../core/dtos/DeletePostImageDTO';
+import { UpdateCommentDTO } from '../../core/dtos/UpdateCommentDTO';
 import { comment as PrismaComment } from '@prisma/client';
-import { DeleteCommentDTO } from '@/core/dtos/DeleteCommentDTO';
-import { DeletePostDTO } from '@/core/dtos/DeletePostDTO';
+import { DeleteCommentDTO } from '../../core/dtos/DeleteCommentDTO';
+import { DeletePostDTO } from '../../core/dtos/DeletePostDTO';
+import { CommentDTO } from '../../core/dtos/ComentListDTO';
+import { LikePostResponseDTO } from '../../core/dtos/LikePostResponseDTO';
+import { PostLikeDTO } from '../../core/dtos/PostLikeDTO';
+import { PostLikeCountDTO } from '../../core/dtos/PostLikeCountDTO';
+import { CommentCountDTO } from '../../core/dtos/CommentCountDTO';
+import { PostShareCountDTO } from '../../core/dtos/PostShareCountDTO';
 
 /**
  * Serviço responsável por gerenciar posts.
@@ -84,6 +90,9 @@ export class PostService {
    * @returns Um objeto contendo um array de posts e o número total de posts.
    */
   async getPaginatedPosts(page: number, limit: number) {
+    if (page < 1 || limit < 1 || limit > 100) {
+      throw new Error('Parâmetros de paginação inválidos');
+    }
     return this.repository.findManyPaginated(page, limit);
   }
 
@@ -114,8 +123,43 @@ export class PostService {
     }
   }
 
+  async getLikesByPost(postId: number): Promise<PostLikeDTO[]> {
+    const post = await this.repository.findById(postId);
+    if (!post) {
+      throw new Error('Post não encontrado');
+    }
+    return this.repository.findLikesByPost(postId);
+  }
+
+  async getLikeCount(postId: number): Promise<PostLikeCountDTO> {
+    const post = await this.repository.findById(postId);
+    if (!post) {
+      throw new Error('Post não encontrado');
+    }
+    const count = await this.repository.countLikesByPostId(postId);
+    return PostLikeCountDTO.fromResult(postId, count);
+  }
+
   async sharePost(sharePostDTO: SharePostDTO): Promise<void> {
-    await this.repository.sharePost(sharePostDTO.userId, sharePostDTO.postId);
+    const { postId, userId } = sharePostDTO;
+
+    const post = await this.repository.findById(postId);
+
+    // Se o método `findById` já exclui posts deletados da busca, isso basta:
+    if (!post) {
+      throw new Error('Post não encontrado ou foi removido.');
+    }
+
+    await this.repository.sharePost(userId, postId);
+  }
+
+  async getShareCount(postId: number): Promise<PostShareCountDTO> {
+    const post = await this.repository.findById(postId);
+    if (!post) {
+      throw new Error('Post não encontrado');
+    }
+    const count = await this.repository.countSharesByPostId(postId);
+    return PostShareCountDTO.fromResult(postId, count);
   }
 
   async createComment(
@@ -135,6 +179,24 @@ export class PostService {
     });
   }
 
+  async getCommentsByPostId(postId: number) {
+    return this.repository.findCommentsByPostId(postId);
+  }
+
+  // src/application/services/PostService.ts
+  async getSingleComment(commentId: number): Promise<CommentDTO | null> {
+    return this.repository.getSingleComment(commentId);
+  }
+
+  async getCommentCount(postId: number): Promise<CommentCountDTO> {
+    const post = await this.repository.findById(postId);
+    if (!post) {
+      throw new Error('Post não encontrado');
+    }
+    const count = await this.repository.countCommentsByPostId(postId);
+    return CommentCountDTO.fromResult(postId, count);
+  }
+
   async attendEvent(
     data: AttendEventDTO
   ): Promise<'interested' | 'confirmed' | 'removed'> {
@@ -144,7 +206,6 @@ export class PostService {
       throw new Error('Post não encontrado');
     }
 
-    // ✅ Verifica se é um post do tipo evento
     const category = await this.repository.findCategoryById(
       post.categoria_idcategoria
     );
@@ -241,7 +302,7 @@ export class PostService {
     await this.repository.update(data.postId, {
       content: data.content,
       metadata: data.metadata,
-      images: data.images, // ✅ agora repassamos as imagens também
+      images: data.images,
     });
   }
 

@@ -1,8 +1,10 @@
 import { AttendEventDTO } from '../dtos/AttendEventDTO';
+import { CommentDTO } from '../dtos/ComentListDTO';
 import { CreateCommentDTO } from '../dtos/CreateCommentDTO';
 import { Post } from '../entities/Post';
 import { post, Prisma } from '@prisma/client';
 import { comment as PrismaComment } from '@prisma/client';
+import { PostLikeDTO } from '../dtos/PostLikeDTO';
 
 export type PostWithAllDetails = Prisma.postGetPayload<{
   include: {
@@ -51,13 +53,25 @@ export interface PostRepository {
 
   likePost(postId: number, userId: number): Promise<void>;
 
+  findLikesByPost(postId: number): Promise<PostLikeDTO[]>;
+
   unlikePost(postId: number, userId: number): Promise<void>;
 
   isPostLikedByUser(postId: number, userId: number): Promise<boolean>;
 
+  countLikesByPostId(postId: number): Promise<number>;
+
   sharePost(userId: number, postId: number): Promise<void>;
 
+  countSharesByPostId(postId: number): Promise<number>;
+
   createComment(createCommentDTO: CreateCommentDTO): Promise<Comment>;
+
+  findCommentsByPostId(postId: number): Promise<CommentDTO[]>;
+
+  getSingleComment(commentId: number): Promise<CommentDTO | null>;
+
+  countCommentsByPostId(postId: number): Promise<number>;
 
   attendEvent(data: AttendEventDTO): Promise<void>;
 

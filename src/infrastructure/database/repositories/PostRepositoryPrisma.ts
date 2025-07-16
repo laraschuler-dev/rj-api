@@ -5,6 +5,8 @@ import { CreateCommentDTO } from '../../../core/dtos/CreateCommentDTO';
 import { AttendEventDTO } from '../../../core/dtos/AttendEventDTO';
 import { comment as Comment } from '@prisma/client';
 import { PostMapper } from '../mappers/PostMapper';
+import { CommentDTO } from '@/core/dtos/ComentListDTO';
+import { PostLikeDTO } from '@/core/dtos/PostLikeDTO';
 /**
  * Implementação do repositório de Post utilizando Prisma ORM.
  * Responsável por persistir e recuperar posts do banco de dados.
@@ -164,6 +166,36 @@ export class PostRepositoryPrisma implements PostRepository {
     return !!like;
   }
 
+  async findLikesByPost(postId: number): Promise<PostLikeDTO[]> {
+    const likes = await prisma.user_like.findMany({
+      where: {
+        post_idpost: postId,
+      },
+      include: {
+        user: {
+          include: {
+            user_profile: true,
+          },
+        },
+      },
+    });
+
+    return likes.map((like) => ({
+      id: like.user.iduser,
+      name: like.user.name,
+      avatarUrl: like.user.user_profile?.profile_photo ?? null,
+    }));
+  }
+
+  async countLikesByPostId(postId: number): Promise<number> {
+    const count = await prisma.user_like.count({
+      where: {
+        post_idpost: postId,
+      },
+    });
+    return count;
+  }
+
   async sharePost(userId: number, postId: number): Promise<void> {
     await prisma.post_share.create({
       data: {
@@ -171,6 +203,16 @@ export class PostRepositoryPrisma implements PostRepository {
         post_idpost: postId,
       },
     });
+  }
+
+  async countSharesByPostId(postId: number): Promise<number> {
+    const count = await prisma.post_share.count({
+      where: {
+        post_idpost: postId,
+      },
+    });
+
+    return count;
   }
 
   async createComment(createCommentDTO: CreateCommentDTO): Promise<any> {
@@ -197,6 +239,73 @@ export class PostRepositoryPrisma implements PostRepository {
       where: { idcomment: commentId },
       data: { comment: content }, // corrigido aqui
     });
+  }
+
+  async findCommentsByPostId(postId: number): Promise<CommentDTO[]> {
+    const comments = await prisma.comment.findMany({
+      where: {
+        post_idpost: postId,
+        deleted: false,
+      },
+      orderBy: { time: 'asc' },
+      include: {
+        user: {
+          include: {
+            user_profile: true,
+          },
+        },
+      },
+    });
+
+    return comments.map((comment) => ({
+      id: comment.idcomment,
+      content: comment.comment,
+      createdAt: comment.time!,
+      author: {
+        id: comment.user.iduser,
+        name: comment.user.name,
+        avatarUrl: comment.user.user_profile?.profile_photo ?? null,
+      },
+    }));
+  }
+
+  async getSingleComment(commentId: number): Promise<CommentDTO | null> {
+    const comment = await prisma.comment.findUnique({
+      where: { idcomment: commentId },
+      include: {
+        user: {
+          include: {
+            user_profile: true,
+          },
+        },
+      },
+    });
+
+    if (!comment || comment.deleted) {
+      return null;
+    }
+
+    return {
+      id: comment.idcomment,
+      content: comment.comment,
+      createdAt: comment.time!,
+      author: {
+        id: comment.user.iduser,
+        name: comment.user.name,
+        avatarUrl: comment.user.user_profile?.profile_photo ?? null,
+      },
+    };
+  }
+
+  async countCommentsByPostId(postId: number): Promise<number> {
+    const count = await prisma.comment.count({
+      where: {
+        post_idpost: postId,
+        deleted: false, // considera apenas os não deletados
+      },
+    });
+
+    return count;
   }
 
   async attendEvent(data: AttendEventDTO): Promise<void> {
@@ -240,9 +349,7 @@ export class PostRepositoryPrisma implements PostRepository {
     });
   }
 
-  async findCategoryById(
-    id: number
-  ): Promise<{
+  async findCategoryById(id: number): Promise<{
     idcategory: number;
     nome: string;
     required_fields: string | null;
@@ -257,30 +364,34 @@ export class PostRepositoryPrisma implements PostRepository {
     });
   }
 
-  async findPostsByUser(userId: number, page: number, limit: number): Promise<{
-  posts: Post[];
-  totalCount: number;
-}> {
-  const skip = (page - 1) * limit;
+  async findPostsByUser(
+    userId: number,
+    page: number,
+    limit: number
+  ): Promise<{
+    posts: Post[];
+    totalCount: number;
+  }> {
+    const skip = (page - 1) * limit;
 
-  const [rawPosts, totalCount] = await prisma.$transaction([
-    prisma.post.findMany({
-      where: { user_iduser: userId, deleted: false },
-      include: { image: true },
-      skip,
-      take: limit,
-      orderBy: { time: 'desc' },
-    }),
-    prisma.post.count({
-      where: { user_iduser: userId, deleted: false },
-    }),
-  ]);
+    const [rawPosts, totalCount] = await prisma.$transaction([
+      prisma.post.findMany({
+        where: { user_iduser: userId, deleted: false },
+        include: { image: true },
+        skip,
+        take: limit,
+        orderBy: { time: 'desc' },
+      }),
+      prisma.post.count({
+        where: { user_iduser: userId, deleted: false },
+      }),
+    ]);
 
-  return {
-    posts: rawPosts.map(PostMapper.toDomain),
-    totalCount,
-  };
-}
+    return {
+      posts: rawPosts.map(PostMapper.toDomain),
+      totalCount,
+    };
+  }
 
   async update(postId: number, data: Partial<Post>): Promise<void> {
     await prisma.post.update({

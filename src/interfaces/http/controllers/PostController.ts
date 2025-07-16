@@ -39,6 +39,12 @@ export class PostController {
     this.deletePostImage = this.deletePostImage.bind(this);
     this.deleteComment = this.deleteComment.bind(this);
     this.deletePost = this.deletePost.bind(this);
+    this.listComments = this.listComments.bind(this);
+    this.getSingleComment = this.getSingleComment.bind(this);
+    this.listLikes = this.listLikes.bind(this);
+    this.getLikeCount = this.getLikeCount.bind(this);
+    this.getCommentCount = this.getCommentCount.bind(this);
+    this.getShareCount = this.getShareCount.bind(this);
   }
 
   /**
@@ -133,8 +139,9 @@ export class PostController {
         total,
         totalPages: Math.ceil(total / limit),
       });
-    } catch (err) {
-      res.status(500).json({ error: 'Erro ao buscar posts.' });
+    } catch (error: any) {
+      console.error('Erro ao buscar posts:', error);
+      res.status(400).json({ error: error.message });
     }
   }
 
@@ -183,6 +190,34 @@ export class PostController {
     }
   }
 
+  async listLikes(req: Request, res: Response): Promise<void> {
+    try {
+      const postId = Number(req.params.id);
+
+      const likes = await this.postUseCases.listLikes(postId);
+
+      if (likes.length === 0) {
+        res.status(404).json({ error: 'Nenhuma curtida encontrada.' });
+        return;
+      }
+
+      res.json({ data: likes });
+    } catch (error: any) {
+      console.error('Erro ao listar curtidas:', error);
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async getLikeCount(req: Request, res: Response): Promise<void> {
+    try {
+      const postId = parseInt(req.params.id);
+      const result = await this.postUseCases.getLikeCount(postId);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: 'Erro ao obter contagem de likes.' });
+    }
+  }
+
   async sharePost(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
@@ -200,10 +235,24 @@ export class PostController {
         await this.postUseCases.sharePost(sharePostDTO);
         res.status(201).json({ message: 'Post compartilhado com sucesso' });
       }
+    } catch (error: any) {
+      console.error('Erro ao compartilhar post:', error);
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async getShareCount(req: Request, res: Response): Promise<void> {
+    try {
+      const postId = parseInt(req.params.id);
+      if (isNaN(postId)) {
+        res.status(400).json({ error: 'Parâmetro postId inválido.' });
+        return;
+      }
+
+      const result = await this.postUseCases.getShareCount(postId);
+      res.json(result);
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Erro ao compartilhar post' });
-      console.log('Erro ao compartilhar post:', error);
+      res.status(500).json({ error: 'Erro ao contar compartilhamentos.' });
     }
   }
 
@@ -253,6 +302,61 @@ export class PostController {
       res.status(200).json({ message: 'Comentário atualizado com sucesso' });
     } catch (error: any) {
       console.error('Erro ao atualizar comentário:', error);
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async listComments(req: Request, res: Response): Promise<void> {
+    try {
+      const postId = Number(req.params.id);
+
+      if (isNaN(postId)) {
+        res.status(400).json({ error: 'ID do post inválido' });
+        return;
+      }
+
+      const comments = await this.postUseCases.listComments(postId);
+
+      res.status(200).json({ data: comments });
+    } catch (error) {
+      console.error('Erro ao listar comentários:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+
+  async getSingleComment(req: Request, res: Response): Promise<void> {
+    try {
+      const commentId = Number(req.params.id);
+      if (isNaN(commentId)) {
+        res.status(400).json({ error: 'ID inválido' });
+        return;
+      }
+
+      const comment = await this.postUseCases.getSingleComment(commentId);
+      if (!comment) {
+        res.status(404).json({ error: 'Comentário não encontrado' });
+        return;
+      }
+
+      res.status(200).json(comment);
+    } catch (error) {
+      console.error('Erro ao buscar comentário:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  }
+
+  async getCommentCount(req: Request, res: Response): Promise<void> {
+    try {
+      const postId = parseInt(req.params.id);
+      if (isNaN(postId)) {
+        res.status(400).json({ error: 'Parâmetro postId inválido.' });
+        return;
+      }
+
+      const result = await this.postUseCases.getCommentCount(postId);
+      res.json(result);
+    } catch (error: any) {
+      console.error('Erro ao contar comentários:', error);
       res.status(400).json({ error: error.message });
     }
   }
@@ -329,7 +433,6 @@ export class PostController {
         ? JSON.parse(req.body.metadata)
         : undefined;
 
-      // ✅ Extrai nomes dos arquivos de imagem enviados, se houver
       const imageFiles = req.files as Express.Multer.File[] | undefined;
       const imageFilenames = imageFiles?.map((file) => file.filename) || [];
 

@@ -1,5 +1,5 @@
-import { Post } from "../entities/Post";
-import { User } from "../entities/User";
+import { Post } from '../entities/Post';
+import { User } from '../entities/User';
 
 export class PostListItemDTO {
   constructor(
@@ -13,14 +13,11 @@ export class PostListItemDTO {
     },
     public readonly metadata: any,
     public readonly images: string[],
-    public readonly createdAt: string
+    public readonly createdAt: string,
+    public readonly liked: boolean
   ) {}
 
-  static fromDomain(
-    post: Post,
-    user: User,
-    images: string[]
-  ): PostListItemDTO {
+  static fromDomain(post: Post, user: User, images: string[]): PostListItemDTO {
     return new PostListItemDTO(
       post.id!,
       post.content,
@@ -28,11 +25,12 @@ export class PostListItemDTO {
       {
         id: user.id,
         name: user.name,
-        avatarUrl: user.avatarUrl,
+        avatarUrl: post.avatarUrl || user.avatarUrl,
       },
       post.metadata,
       images,
-      post.createdAt.toISOString()
+      post.createdAt.toISOString(),
+      post.liked || false
     );
   }
 }

@@ -86,7 +86,7 @@ export class PostRepositoryPrisma implements PostRepository {
     );
   }
 
-  async findManyPaginated(page: number, limit: number) {
+  async findManyPaginated(page: number, limit: number, userId?: number) {
     const skip = (page - 1) * limit;
 
     const [posts, total] = await Promise.all([
@@ -95,12 +95,26 @@ export class PostRepositoryPrisma implements PostRepository {
         take: limit,
         orderBy: { time: 'desc' },
         where: {
-          deleted: false, // ← exclui posts marcados como deletados
+          deleted: false,
         },
         include: {
-          user: true,
+          user: {
+            include: {
+              user_profile: true,
+            },
+          },
           image: true,
           category: true,
+          user_like: userId
+            ? {
+                where: {
+                  user_iduser: userId,
+                },
+                select: {
+                  user_iduser: true,
+                },
+              }
+            : false,
         },
       }),
       prisma.post.count({
@@ -109,18 +123,22 @@ export class PostRepositoryPrisma implements PostRepository {
     ]);
 
     return {
-      posts: posts.map(
-        (post) =>
-          new Post(
-            post.idpost,
-            post.content,
-            post.categoria_idcategoria,
-            post.user_iduser,
-            post.metadata ? JSON.parse(post.metadata) : {},
-            post.time,
-            post.image.map((img) => img.image)
-          )
-      ),
+      posts: posts.map((post) => {
+        const images = post.image.map((img) => img.image);
+        const liked = userId ? post.user_like.length > 0 : false;
+
+        return new Post(
+          post.idpost,
+          post.content,
+          post.categoria_idcategoria,
+          post.user_iduser,
+          post.metadata ? JSON.parse(post.metadata) : {},
+          post.time,
+          images,
+          post.user.user_profile?.profile_photo,
+          liked
+        );
+      }),
       total,
     };
   }
@@ -196,11 +214,12 @@ export class PostRepositoryPrisma implements PostRepository {
     return count;
   }
 
-  async sharePost(userId: number, postId: number): Promise<void> {
+  async sharePost(userId: number, postId: number, message?: string): Promise<void> {
     await prisma.post_share.create({
       data: {
         user_iduser: userId,
         post_idpost: postId,
+        message: message || null,
       },
     });
   }

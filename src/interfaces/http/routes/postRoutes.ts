@@ -167,17 +167,10 @@ postRoutes.post(
  *                 totalPages:
  *                   type: integer
  *                   example: 10
- *       500:
- *         description: Erro ao buscar posts
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: Erro ao buscar posts.
- *
+ */
+
+/**
+ * @swagger
  * components:
  *   schemas:
  *     PostListItem:
@@ -214,6 +207,9 @@ postRoutes.post(
  *           items:
  *             type: string
  *             example: "uploads/123456789-imagem.jpg"
+ *         liked:
+ *           type: boolean
+ *           example: true
  *         createdAt:
  *           type: string
  *           format: date-time
@@ -411,6 +407,17 @@ postRoutes.get('/:id/likes/count', postController.getLikeCount);
  *         schema:
  *           type: integer
  *         description: ID do post
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 description: Mensagem opcional para o compartilhamento
+ *                 example: "Confira este post incrível!"
  *     responses:
  *       201:
  *         description: Post compartilhado com sucesso

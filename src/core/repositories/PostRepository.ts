@@ -46,7 +46,8 @@ export interface PostRepository {
    */
   findManyPaginated(
     page: number,
-    limit: number
+    limit: number,
+    userId?: number // Adicione este parâmetro opcional
   ): Promise<{ posts: Post[]; total: number }>;
 
   getPostByIdWithDetails(postId: number): Promise<PostWithAllDetails | null>;
@@ -61,7 +62,7 @@ export interface PostRepository {
 
   countLikesByPostId(postId: number): Promise<number>;
 
-  sharePost(userId: number, postId: number): Promise<void>;
+  sharePost(userId: number, postId: number, message?: string): Promise<void>;
 
   countSharesByPostId(postId: number): Promise<number>;
 

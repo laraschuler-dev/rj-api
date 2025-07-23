@@ -119,7 +119,9 @@ export class Post {
     public readonly user_iduser: number,
     public readonly metadata: PostMetadata,
     public readonly createdAt: Date = new Date(),
-    images: string[] = [] 
+    images: string[] = [],
+    public readonly avatarUrl?: string | null,
+    public readonly liked?: boolean
   ) {
     this.images = images;
   }

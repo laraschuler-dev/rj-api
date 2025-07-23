@@ -89,11 +89,11 @@ export class PostService {
    * @param limit - Número de posts por página.
    * @returns Um objeto contendo um array de posts e o número total de posts.
    */
-  async getPaginatedPosts(page: number, limit: number) {
+  async getPaginatedPosts(page: number, limit: number, userId?: number) {
     if (page < 1 || limit < 1 || limit > 100) {
       throw new Error('Parâmetros de paginação inválidos');
     }
-    return this.repository.findManyPaginated(page, limit);
+    return this.repository.findManyPaginated(page, limit, userId);
   }
 
   async getPostByIdWithDetails(id: number) {
@@ -141,16 +141,19 @@ export class PostService {
   }
 
   async sharePost(sharePostDTO: SharePostDTO): Promise<void> {
-    const { postId, userId } = sharePostDTO;
+    const { postId, userId, message } = sharePostDTO;
 
     const post = await this.repository.findById(postId);
 
-    // Se o método `findById` já exclui posts deletados da busca, isso basta:
     if (!post) {
       throw new Error('Post não encontrado ou foi removido.');
     }
 
-    await this.repository.sharePost(userId, postId);
+    if (message && message.length > 500) {
+      throw new Error('A mensagem deve ter no máximo 500 caracteres');
+    }
+
+    await this.repository.sharePost(userId, postId, message);
   }
 
   async getShareCount(postId: number): Promise<PostShareCountDTO> {

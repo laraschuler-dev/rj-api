@@ -56,6 +56,11 @@ export class PostController {
    */
   async create(req: Request, res: Response): Promise<void> {
     try {
+      if (!req.user) {
+        res.status(401).json({ error: 'Usuário não autenticado' });
+        return;
+      }
+
       const categoriaId = Number(req.body.categoria_idcategoria);
       const metadata = req.body.metadata ? JSON.parse(req.body.metadata) : {};
 
@@ -63,7 +68,7 @@ export class PostController {
         ...req.body,
         categoria_idcategoria: categoriaId,
         metadata,
-        user_iduser: req.user?.id,
+        user_iduser: req.user.id,
         images: req.files as Express.Multer.File[],
       });
 
@@ -116,24 +121,25 @@ export class PostController {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
+      const userId = req.user?.id;
+
       const { posts, total } = await this.postUseCases.listPaginated(
         page,
-        limit
+        limit,
+        userId
       );
 
-      // Para cada post, busca o autor e monta o DTO
       const data = await Promise.all(
         posts.map(async (post) => {
           const author = await this.userRepository.findById(post.user_iduser);
           if (!author) return null;
-          // Supondo que post.images seja um array de strings (ajuste se necessário)
           const images = post.images || [];
           return PostListItemDTO.fromDomain(post, author, images);
         })
       );
 
       res.json({
-        data: data.filter(Boolean), // Remove nulos caso algum autor não seja encontrado
+        data: data.filter(Boolean),
         page,
         limit,
         total,
@@ -218,17 +224,20 @@ export class PostController {
     }
   }
 
+  // src/presentation/controllers/PostController.ts
   async sharePost(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+      const { message } = req.body; // Recebe a mensagem do body
       const userId = req.user?.id;
 
       const sharePostDTO: SharePostDTO = {
         userId: 0,
         postId: parseInt(id),
+        message, // Adiciona a mensagem
       };
 
-      if (userId === undefined) {
+      if (!userId) {
         res.status(401).json({ error: 'Usuário não autenticado' });
       } else {
         sharePostDTO.userId = userId;

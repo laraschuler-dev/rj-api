@@ -68,8 +68,8 @@ export class PostUseCases {
    * @param limit - Número de posts por página.
    * @returns Um objeto contendo um array de posts e o número total de posts.
    */
-  async listPaginated(page: number, limit: number) {
-    return this.postService.getPaginatedPosts(page, limit);
+  async listPaginated(page: number, limit: number, userId?: number) {
+    return this.postService.getPaginatedPosts(page, limit, userId);
   }
 
   async getPostById(postId: number, userId: number) {
@@ -99,8 +99,8 @@ export class PostUseCases {
   }
 
   async sharePost(sharePostDTO: SharePostDTO): Promise<void> {
-    await this.postService.sharePost(sharePostDTO);
-  }
+  await this.postService.sharePost(sharePostDTO);
+}
 
   async getShareCount(postId: number): Promise<PostShareCountDTO> {
     return this.postService.getShareCount(postId);

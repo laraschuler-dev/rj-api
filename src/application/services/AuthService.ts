@@ -187,7 +187,7 @@ export class AuthService {
       phone: user.phone,
     };
 
-    return jwt.sign(payload, this.jwtSecret, { expiresIn: '1h' });
+    return jwt.sign(payload, this.jwtSecret, { expiresIn: '24h' });
   }
 
   async getAuthenticatedUser(userId: number): Promise<Omit<User, 'password'>> {

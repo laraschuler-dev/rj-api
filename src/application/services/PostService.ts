@@ -90,19 +90,27 @@ export class PostService {
    * @param limit - Número de posts por página.
    * @returns Um objeto contendo um array de posts e o número total de posts.
    */
-  /*async getPaginatedPosts(page: number, limit: number, userId?: number) {
-    if (page < 1 || limit < 1 || limit > 100) {
-      throw new Error('Parâmetros de paginação inválidos');
-    }
-    return this.repository.findManyPaginated(page, limit, userId);
-  }*/
-
   async listPaginatedPosts(
     page: number,
     limit: number,
     userId?: number
-  ): Promise<{ posts: Post[]; total: number }> {
-    return this.repository.findManyPaginated(page, limit, userId);
+  ): Promise<{
+    posts: Post[];
+    total: number;
+    currentPage: number;
+    limit: number;
+    totalPages: number;
+    hasNext: boolean;
+  }> {
+    const result = await this.repository.findManyPaginated(page, limit, userId);
+
+    return {
+      ...result,
+      currentPage: page,
+      limit,
+      totalPages: Math.ceil(result.total / limit),
+      hasNext: page * limit < result.total,
+    };
   }
 
   async getPostByIdWithDetails(id: number) {

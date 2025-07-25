@@ -73,15 +73,18 @@ export class PostUseCases {
    * @param limit - Número de posts por página.
    * @returns Um objeto contendo um array de posts e o número total de posts.
    */
-  /*async listPaginated(page: number, limit: number, userId?: number) {
-    return this.postService.getPaginatedPosts(page, limit, userId);
-  }*/
-
   async listPaginatedPosts(
     page: number,
     limit: number,
     userId?: number
-  ): Promise<{ posts: Post[]; total: number }> {
+  ): Promise<{
+    posts: Post[];
+    total: number;
+    currentPage: number;
+    limit: number;
+    totalPages: number;
+    hasNext: boolean;
+  }> {
     return this.postService.listPaginatedPosts(page, limit, userId);
   }
 

@@ -1,110 +1,110 @@
- /**
+/**
  * Tipo que representa os metadados de um post.
- * 
+ *
  * Esse tipo contém as propriedades necessárias para representar os metadados de um post.
  */
 export type PostMetadata = {
   /**
    * Título do post.
    */
-  title?: string
+  title?: string;
 
   /**
    * Localização do post.
    */
-  location?: string
+  location?: string;
 
   /**
    * Data do post.
    */
-  date?: string
+  date?: string;
 
   /**
    * Tipo do post.
    */
-  itemType?: string
+  itemType?: string;
 
   /**
    * Condição do post.
    */
-  condition?: string
+  condition?: string;
 
   /**
    * Disponibilidade do post.
    */
-  availability?: string
+  availability?: string;
 
   /**
    * Descrição do post.
    */
-  description?: string
+  description?: string;
 
   /**
    * Se o post é anônimo.
    */
-  isAnonymous?: boolean
+  isAnonymous?: boolean;
 
   /**
    * Objetivo do post.
    */
-  goal?: string
+  goal?: string;
 
   /**
    * Prazo do post.
    */
-  deadline?: string
+  deadline?: string;
 
   /**
    * Organizador do post.
    */
-  organizer?: string
+  organizer?: string;
 
   /**
    * Tipo do post.
    */
-  type?: string
+  type?: string;
 
   /**
    * Urgência do post.
    */
-  urgency?: string
+  urgency?: string;
 
   /**
    * Tipo de serviço do post.
    */
-  serviceType?: string
+  serviceType?: string;
 
   /**
    * Qualificações do post.
    */
-  qualifications?: string
+  qualifications?: string;
 
   /**
    * Formato do post.
    */
-  format?: string
+  format?: string;
 
   /**
    * Duração do post.
    */
-  duration?: string
+  duration?: string;
 
   /**
    * Requisitos do post.
    */
-  requirements?: string
+  requirements?: string;
 };
 
 /**
  * Entidade que representa um post.
- * 
+ *
  * Essa entidade contém as propriedades e métodos necessários para representar um post.
  */
 export class Post {
   images: string[];
   /**
    * Construtor da classe Post.
-   * 
+   *
    * @param id - ID do post.
    * @param content - Conteúdo do post.
    * @param categoria_idcategoria - ID da categoria do post.
@@ -121,16 +121,32 @@ export class Post {
     public readonly createdAt: Date = new Date(),
     images: string[] = [],
     public readonly avatarUrl?: string | null,
-    public readonly liked?: boolean
+    public readonly liked?: boolean,
+    public readonly sharedBy?: {
+      id: number; // Mudar de userId para id
+      name: string; // Mudar de userName para name
+      avatarUrl?: string | null;
+      message?: string;
+      sharedAt: Date; // Manter como Date
+    }
   ) {
     this.images = images;
   }
 
-  public readonly sharedBy?: {
-    userId: number;
-    userName: string;
-    avatarUrl?: string;
-    message?: string;
-    sharedAt: Date;
-  };
+  /**
+   * Identificador universal para posts em feeds combinados.
+   *
+   * - Posts originais: `post:{id}`
+   * - Compartilhamentos: `shared:{sharerId}:{postId}:{timestamp}`
+   *
+   * Garante unicidade mesmo quando:
+   * - O mesmo post é compartilhado múltiplas vezes
+   * - Múltiplos usuários compartilham o mesmo post
+   */
+  getUniqueIdentifier(): string {
+    if (this.sharedBy) {
+      return `shared:${this.sharedBy.id}:${this.id}:${this.sharedBy.sharedAt.getTime()}`;
+    }
+    return `post:${this.id}`;
+  }
 }

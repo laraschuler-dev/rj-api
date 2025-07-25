@@ -3,6 +3,7 @@ import { User } from '../entities/User';
 
 export class PostListItemDTO {
   constructor(
+    public readonly uniqueKey: string,
     public readonly id: number,
     public readonly content: string,
     public readonly categoria_idcategoria: number,
@@ -24,8 +25,10 @@ export class PostListItemDTO {
     }
   ) {}
 
+  // PostListItemDTO.ts
   static fromDomain(post: Post, user: User, images: string[]): PostListItemDTO {
     return new PostListItemDTO(
+      post.getUniqueIdentifier(),
       post.id!,
       post.content,
       post.categoria_idcategoria,
@@ -40,11 +43,11 @@ export class PostListItemDTO {
       post.liked || false,
       post.sharedBy
         ? {
-            id: post.sharedBy.userId,
-            name: post.sharedBy.userName,
-            avatarUrl: post.sharedBy.avatarUrl,
+            id: post.sharedBy.id,
+            name: post.sharedBy.name,
+            avatarUrl: post.sharedBy.avatarUrl || undefined,
             message: post.sharedBy.message,
-            sharedAt: post.sharedBy.sharedAt.toISOString(),
+            sharedAt: post.sharedBy.sharedAt.toISOString(), // Converter para string aqui
           }
         : undefined
     );

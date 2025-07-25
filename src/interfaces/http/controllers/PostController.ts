@@ -8,6 +8,9 @@ import { LikePostResponseDTO } from '../../../core/dtos/LikePostResponseDTO';
 import { SharePostDTO } from '../../../core/dtos/SharePostDTO';
 import { CreateCommentDTO } from '../../../core/dtos/CreateCommentDTO';
 import { DeleteCommentDTO } from '@/core/dtos/DeleteCommentDTO';
+import { User } from '../../../core/entities/User';
+import { Post } from '../../../core/entities/Post';
+import { PostService } from '../../../application/services/PostService';
 
 /**
  * Controlador responsável por lidar com requisições relacionadas a posts.
@@ -27,7 +30,7 @@ export class PostController {
     private readonly userRepository: UserRepository
   ) {
     this.create = this.create.bind(this);
-    this.list = this.list.bind(this);
+    this.listPosts = this.listPosts.bind(this);
     this.getById = this.getById.bind(this);
     this.like = this.like.bind(this);
     this.sharePost = this.sharePost.bind(this);
@@ -117,7 +120,7 @@ export class PostController {
    *
    * @cath {Error} Caso ocorra um erro ao buscar os posts
    */
-  async list(req: Request, res: Response): Promise<void> {
+  /*async list(req: Request, res: Response): Promise<void> {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
@@ -148,6 +151,43 @@ export class PostController {
     } catch (error: any) {
       console.error('Erro ao buscar posts:', error);
       res.status(400).json({ error: error.message });
+    }
+  }
+    */
+
+  async listPosts(req: Request, res: Response): Promise<void> {
+    try {
+      const { page = 1, limit = 10 } = req.query;
+      const userId = req.user?.id;
+
+      const result = await this.postUseCases.listPaginatedPosts(
+        Number(page),
+        Number(limit),
+        userId
+      );
+
+      const postDTOs = await Promise.all(
+        result.posts.map(async (post: Post) => {
+          const author = await this.userRepository.findById(post.user_iduser);
+          if (!author) {
+            throw new Error('Autor do post não encontrado');
+          }
+          return PostListItemDTO.fromDomain(post, author, post.images);
+        })
+      );
+
+      res.json({
+        posts: postDTOs,
+        total: result.total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(result.total / Number(limit)),
+      });
+    } catch (error) {
+      console.error('Erro ao listar posts:', error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : 'Erro ao listar posts' 
+      });
     }
   }
 
@@ -224,7 +264,6 @@ export class PostController {
     }
   }
 
-  // src/presentation/controllers/PostController.ts
   async sharePost(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
@@ -234,7 +273,7 @@ export class PostController {
       const sharePostDTO: SharePostDTO = {
         userId: 0,
         postId: parseInt(id),
-        message, // Adiciona a mensagem
+        message, 
       };
 
       if (!userId) {

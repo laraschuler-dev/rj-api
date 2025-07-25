@@ -17,6 +17,11 @@ import { PostLikeCountDTO } from '@/core/dtos/PostLikeCountDTO';
 import { CommentCountDTO } from '@/core/dtos/CommentCountDTO';
 import { PostShareCountDTO } from '@/core/dtos/PostShareCountDTO';
 
+interface PaginatedPostsResult {
+  posts: Post[];
+  total: number;
+}
+
 /**
  * Caso de uso para gerenciar posts.
  *
@@ -68,8 +73,16 @@ export class PostUseCases {
    * @param limit - Número de posts por página.
    * @returns Um objeto contendo um array de posts e o número total de posts.
    */
-  async listPaginated(page: number, limit: number, userId?: number) {
+  /*async listPaginated(page: number, limit: number, userId?: number) {
     return this.postService.getPaginatedPosts(page, limit, userId);
+  }*/
+
+  async listPaginatedPosts(
+    page: number,
+    limit: number,
+    userId?: number
+  ): Promise<{ posts: Post[]; total: number }> {
+    return this.postService.listPaginatedPosts(page, limit, userId);
   }
 
   async getPostById(postId: number, userId: number) {
@@ -99,8 +112,8 @@ export class PostUseCases {
   }
 
   async sharePost(sharePostDTO: SharePostDTO): Promise<void> {
-  await this.postService.sharePost(sharePostDTO);
-}
+    await this.postService.sharePost(sharePostDTO);
+  }
 
   async getShareCount(postId: number): Promise<PostShareCountDTO> {
     return this.postService.getShareCount(postId);

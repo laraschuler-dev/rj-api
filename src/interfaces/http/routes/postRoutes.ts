@@ -215,7 +215,7 @@ postRoutes.post(
  *           format: date-time
  *           example: "2023-05-15T10:00:00Z"
  */
-postRoutes.get('/', ensureAuthenticated, postController.list);
+postRoutes.get('/', ensureAuthenticated, postController.listPosts);
 
 /**
  * @swagger

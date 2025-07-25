@@ -125,4 +125,12 @@ export class Post {
   ) {
     this.images = images;
   }
+
+  public readonly sharedBy?: {
+    userId: number;
+    userName: string;
+    avatarUrl?: string;
+    message?: string;
+    sharedAt: Date;
+  };
 }

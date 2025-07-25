@@ -24,6 +24,7 @@ import { PostShareCountDTO } from '../../core/dtos/PostShareCountDTO';
  * Esse serviço fornece métodos para criar e gerenciar posts.
  */
 export class PostService {
+  useCase: any;
   /**
    * Construtor da classe PostService.
    *
@@ -89,10 +90,18 @@ export class PostService {
    * @param limit - Número de posts por página.
    * @returns Um objeto contendo um array de posts e o número total de posts.
    */
-  async getPaginatedPosts(page: number, limit: number, userId?: number) {
+  /*async getPaginatedPosts(page: number, limit: number, userId?: number) {
     if (page < 1 || limit < 1 || limit > 100) {
       throw new Error('Parâmetros de paginação inválidos');
     }
+    return this.repository.findManyPaginated(page, limit, userId);
+  }*/
+
+  async listPaginatedPosts(
+    page: number,
+    limit: number,
+    userId?: number
+  ): Promise<{ posts: Post[]; total: number }> {
     return this.repository.findManyPaginated(page, limit, userId);
   }
 

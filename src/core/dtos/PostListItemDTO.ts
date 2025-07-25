@@ -14,7 +14,14 @@ export class PostListItemDTO {
     public readonly metadata: any,
     public readonly images: string[],
     public readonly createdAt: string,
-    public readonly liked: boolean
+    public readonly liked: boolean,
+    public readonly sharedBy?: {
+      id: number;
+      name: string;
+      avatarUrl?: string;
+      message?: string;
+      sharedAt: string;
+    }
   ) {}
 
   static fromDomain(post: Post, user: User, images: string[]): PostListItemDTO {
@@ -30,7 +37,16 @@ export class PostListItemDTO {
       post.metadata,
       images,
       post.createdAt.toISOString(),
-      post.liked || false
+      post.liked || false,
+      post.sharedBy
+        ? {
+            id: post.sharedBy.userId,
+            name: post.sharedBy.userName,
+            avatarUrl: post.sharedBy.avatarUrl,
+            message: post.sharedBy.message,
+            sharedAt: post.sharedBy.sharedAt.toISOString(),
+          }
+        : undefined
     );
   }
 }

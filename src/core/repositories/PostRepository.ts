@@ -66,6 +66,8 @@ export interface PostRepository {
 
   countSharesByPostId(postId: number): Promise<number>;
 
+  findShareById(id: number): Promise<any | null>;
+
   createComment(createCommentDTO: CreateCommentDTO): Promise<Comment>;
 
   findCommentsByPostId(postId: number): Promise<CommentDTO[]>;

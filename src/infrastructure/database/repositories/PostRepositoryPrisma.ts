@@ -214,11 +214,20 @@ export class PostRepositoryPrisma implements PostRepository {
     });
   }
 
-  async likePost(postId: number, userId: number): Promise<void> {
+  async likePost(
+    userId: number,
+    postId?: number,
+    postShareId?: number
+  ): Promise<void> {
+    if (!postId && !postShareId) {
+      throw new Error('É necessário informar postId ou postShareId.');
+    }
+
     await prisma.user_like.create({
       data: {
-        post_idpost: postId,
         user_iduser: userId,
+        post_idpost: postId,
+        post_share_id: postShareId,
       },
     });
   }
@@ -296,17 +305,24 @@ export class PostRepositoryPrisma implements PostRepository {
     return count;
   }
 
-  async createComment(createCommentDTO: CreateCommentDTO): Promise<any> {
-    const newComment = await prisma.comment.create({
-      data: {
-        comment: createCommentDTO.comment,
-        post: { connect: { idpost: createCommentDTO.postId } },
-        user: { connect: { iduser: createCommentDTO.userId } },
-        time: createCommentDTO.time ?? new Date(),
-      },
-    });
+  async findShareById(id: number): Promise<any | null> {
+    return prisma.post_share.findUnique({ where: { id } });
+  }
 
-    return newComment;
+  async createComment(createCommentDTO: CreateCommentDTO): Promise<any> {
+    const data: any = {
+      comment: createCommentDTO.comment,
+      user: { connect: { iduser: createCommentDTO.userId } },
+      time: createCommentDTO.time ?? new Date(),
+    };
+
+    if (createCommentDTO.targetType === 'post') {
+      data.post = { connect: { idpost: createCommentDTO.targetId } };
+    } else if (createCommentDTO.targetType === 'share') {
+      data.post_share = { connect: { id: createCommentDTO.targetId } };
+    }
+
+    return prisma.comment.create({ data });
   }
 
   async findCommentById(commentId: number): Promise<Comment | null> {

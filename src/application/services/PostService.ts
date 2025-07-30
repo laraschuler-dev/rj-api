@@ -186,17 +186,17 @@ export class PostService {
     createCommentDTO: CreateCommentDTO,
     userId: number
   ): Promise<void> {
-    const post = await this.repository.findById(createCommentDTO.postId);
-
-    if (!post) {
-      throw new Error('Post não encontrado');
+    if (createCommentDTO.targetType === 'post') {
+      const post = await this.repository.findById(createCommentDTO.targetId);
+      if (!post) throw new Error('Post não encontrado');
+    } else if (createCommentDTO.targetType === 'share') {
+      const share = await this.repository.findShareById(
+        createCommentDTO.targetId
+      );
+      if (!share) throw new Error('Compartilhamento não encontrado');
     }
 
-    await this.repository.createComment({
-      postId: createCommentDTO.postId,
-      userId,
-      comment: createCommentDTO.comment,
-    });
+    await this.repository.createComment(createCommentDTO);
   }
 
   async getCommentsByPostId(postId: number) {

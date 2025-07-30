@@ -270,12 +270,21 @@ export class PostController {
     try {
       const { id } = req.params;
       const { comment } = req.body;
+      const { target = 'post' } = req.query; // padrão: post
       const userId = req.user?.id;
 
+      if (!['post', 'share'].includes(target as string)) {
+        res
+          .status(400)
+          .json({ error: 'Tipo de alvo inválido. Use "post" ou "share".' });
+        return;
+      }
+
       const createCommentDTO: CreateCommentDTO = {
-        userId: 0,
-        postId: parseInt(id),
+        userId: userId ?? 0,
+        targetId: parseInt(id),
         comment,
+        targetType: target as 'post' | 'share',
       };
 
       if (userId === undefined) {
@@ -287,7 +296,6 @@ export class PostController {
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Erro ao adicionar comentário' });
-      console.log('Erro ao adicionar comentário:', error);
     }
   }
 

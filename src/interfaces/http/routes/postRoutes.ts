@@ -487,12 +487,11 @@ postRoutes.get('/:id/shares/count', postController.getShareCount);
  *         description: Erro interno do servidor
  */
 postRoutes.get('/:id/comments/count', postController.getCommentCount);
-
 /**
  * @swagger
  * /posts/{id}/comment:
  *   post:
- *     summary: Adicionar um comentário a um post
+ *     summary: Adicionar um comentário a um post ou compartilhamento
  *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
@@ -502,13 +501,22 @@ postRoutes.get('/:id/comments/count', postController.getCommentCount);
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID do post a ser comentado
+ *         description: ID do post ou compartilhamento
+ *       - in: query
+ *         name: shared
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *           example: false
+ *         description: Indica se o comentário é para um post compartilhado (shared=true)
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - comment
  *             properties:
  *               comment:
  *                 type: string
@@ -521,13 +529,14 @@ postRoutes.get('/:id/comments/count', postController.getCommentCount);
  *       401:
  *         description: Usuário não autenticado
  *       404:
- *         description: Post não encontrado
+ *         description: Post ou compartilhamento não encontrado
  */
 postRoutes.post(
   '/:id/comment',
   ensureAuthenticated,
   postController.commentPost
 );
+
 
 /**
  * @swagger
@@ -842,8 +851,6 @@ postRoutes.put(
   upload.array('images', 5),
   postController.updatePost
 );
-
-// src/interfaces/http/routes/PostRoutes.ts
 
 /**
  * @swagger

@@ -15,18 +15,21 @@ model category {
 }
 
 model comment {
-  user_iduser Int       @db.UnsignedInt
-  post_idpost Int       @db.UnsignedInt
-  comment     String    @db.Text
-  time        DateTime? @db.DateTime(0)
-  idcomment   Int       @id @default(autoincrement()) @db.UnsignedInt
-  deleted     Boolean?  @default(false)
-  deleted_at  DateTime? @db.DateTime(0)
-  post        post      @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_post2")
-  user        user      @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_user2")
+  idcomment     Int         @id @default(autoincrement()) @db.UnsignedInt
+  user_iduser   Int         @db.UnsignedInt
+  post_idpost   Int?        @db.UnsignedInt
+  post_share_id Int?        @db.UnsignedInt
+  comment       String      @db.Text
+  time          DateTime?   @db.DateTime(0)
+  deleted       Boolean?    @default(false)
+  deleted_at    DateTime?   @db.DateTime(0)
+  post_share    post_share? @relation(fields: [post_share_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_comment_post_share")
+  post          post?       @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_post2")
+  user          user        @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_user2")
 
   @@index([post_idpost], map: "fk_user_has_post_post2_idx")
   @@index([user_iduser], map: "fk_user_has_post_user2_idx")
+  @@index([post_share_id], map: "idx_comment_post_share")
 }
 
 model image {
@@ -78,14 +81,18 @@ model user {
 }
 
 model user_like {
-  user_iduser Int  @db.UnsignedInt
-  post_idpost Int  @db.UnsignedInt
-  post        post @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_post1")
-  user        user @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_user1")
+  id            Int         @id @default(autoincrement()) @db.UnsignedInt
+  user_iduser   Int         @db.UnsignedInt
+  post_idpost   Int         @db.UnsignedInt
+  post_share_id Int?        @db.UnsignedInt
+  post          post        @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_post1")
+  post_share    post_share? @relation(fields: [post_share_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_like_post_share")
+  user          user        @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_user1")
 
-  @@id([user_iduser, post_idpost])
-  @@index([post_idpost], map: "fk_user_has_post_post1_idx")
-  @@index([user_iduser], map: "fk_user_has_post_user1_idx")
+  @@unique([user_iduser, post_idpost, post_share_id], map: "uniq_like_post")
+  @@index([post_idpost], map: "fk_post_idx")
+  @@index([post_share_id], map: "fk_post_share_idx")
+  @@index([user_iduser], map: "fk_user_idx")
 }
 
 model event_attendance {
@@ -101,13 +108,15 @@ model event_attendance {
 }
 
 model post_share {
-  id          Int       @id @default(autoincrement())
-  user_iduser Int       @db.UnsignedInt
-  post_idpost Int       @db.UnsignedInt
-  shared_at   DateTime? @default(now()) @db.DateTime(0)
-  message     String?   @db.VarChar(500)
-  post        post      @relation(fields: [post_idpost], references: [idpost], onUpdate: Restrict, map: "fk_share_post")
-  user        user      @relation(fields: [user_iduser], references: [iduser], onUpdate: Restrict, map: "fk_share_user")
+  id          Int         @id @default(autoincrement()) @db.UnsignedInt
+  user_iduser Int         @db.UnsignedInt
+  post_idpost Int         @db.UnsignedInt
+  shared_at   DateTime?   @default(now()) @db.DateTime(0)
+  message     String?     @db.VarChar(500)
+  comment     comment[]
+  post        post        @relation(fields: [post_idpost], references: [idpost], onUpdate: Restrict, map: "fk_share_post")
+  user        user        @relation(fields: [user_iduser], references: [iduser], onUpdate: Restrict, map: "fk_share_user")
+  user_like   user_like[]
 
   @@index([post_idpost], map: "fk_share_post_idx")
   @@index([user_iduser], map: "fk_share_user")

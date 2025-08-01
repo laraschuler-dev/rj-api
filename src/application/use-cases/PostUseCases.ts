@@ -4,18 +4,19 @@ import { PostService } from '../services/PostService';
 import { SharePostDTO } from '../../core/dtos/SharePostDTO';
 import { CreateCommentDTO } from '../../core/dtos/CreateCommentDTO';
 import { AttendEventDTO } from '../../core/dtos/AttendEventDTO';
-import { GetUserPostsDTO } from '@/core/dtos/GetUserPostsDTO';
-import { UpdatePostDTO } from '@/core/dtos/UpdatePostDTO';
-import { DeletePostImageDTO } from '@/core/dtos/DeletePostImageDTO';
-import { UpdateCommentDTO } from '@/core/dtos/UpdateCommentDTO';
-import { DeleteCommentDTO } from '@/core/dtos/DeleteCommentDTO';
-import { DeletePostDTO } from '@/core/dtos/DeletePostDTO';
-import { CommentDTO } from '@/core/dtos/ComentListDTO';
-import { LikePostResponseDTO } from '@/core/dtos/LikePostResponseDTO';
-import { PostLikeDTO } from '@/core/dtos/PostLikeDTO';
-import { PostLikeCountDTO } from '@/core/dtos/PostLikeCountDTO';
-import { CommentCountDTO } from '@/core/dtos/CommentCountDTO';
-import { PostShareCountDTO } from '@/core/dtos/PostShareCountDTO';
+import { GetUserPostsDTO } from '../../core/dtos/GetUserPostsDTO';
+import { UpdatePostDTO } from '../../core/dtos/UpdatePostDTO';
+import { DeletePostImageDTO } from '../../core/dtos/DeletePostImageDTO';
+import { UpdateCommentDTO } from '../../core/dtos/UpdateCommentDTO';
+import { DeleteCommentDTO } from '../../core/dtos/DeleteCommentDTO';
+import { DeletePostDTO } from '../../core/dtos/DeletePostDTO';
+import { CommentDTO } from '../../core/dtos/ComentListDTO';
+import { LikePostResponseDTO } from '../../core/dtos/LikePostResponseDTO';
+import { PostLikeDTO } from '../../core/dtos/PostLikeDTO';
+import { PostLikeCountDTO } from '../../core/dtos/PostLikeCountDTO';
+import { CommentCountDTO } from '../../core/dtos/CommentCountDTO';
+import { PostShareCountDTO } from '../../core/dtos/PostShareCountDTO';
+import { SharedPostDetailsDTO } from '../../core/dtos/SharedPostDetailsDTO';
 
 interface PaginatedPostsResult {
   posts: Post[];
@@ -94,6 +95,18 @@ export class PostUseCases {
     return PostDetailsDTO.fromPrisma(post, userId);
   }
 
+  async getSharedPostById(shareId: number, userId: number) {
+    const sharedData = await this.postService.getSharedPostDetails(
+      shareId,
+      userId
+    );
+
+    if (!sharedData) {
+      return null;
+    }
+
+    return sharedData;
+  }
   getPostByIdWithDetails(id: number) {
     return this.postService.getPostByIdWithDetails(id);
   }
@@ -102,17 +115,17 @@ export class PostUseCases {
     return this.postService.deletePost(data);
   }
 
-  async toggleLike(postId: number, userId: number) {
-    return this.postService.toggleLike(postId, userId);
-  }
+  async toggleLike(postId: number, userId: number, postShareId?: number) {
+  return this.postService.toggleLike(postId, userId, postShareId);
+}
 
-  async listLikes(postId: number): Promise<PostLikeDTO[]> {
-    return this.postService.getLikesByPost(postId);
-  }
+async listLikes(postId: number, shareId?: number): Promise<PostLikeDTO[]> {
+  return this.postService.getLikesByPost(postId, shareId);
+}
 
-  async getLikeCount(postId: number): Promise<PostLikeCountDTO> {
-    return this.postService.getLikeCount(postId);
-  }
+async getLikeCount(postId: number, shareId?: number): Promise<PostLikeCountDTO> {
+  return this.postService.getLikeCount(postId, shareId);
+}
 
   async sharePost(sharePostDTO: SharePostDTO): Promise<void> {
     await this.postService.sharePost(sharePostDTO);

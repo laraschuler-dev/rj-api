@@ -17,6 +17,7 @@ import { PostLikeDTO } from '../../core/dtos/PostLikeDTO';
 import { PostLikeCountDTO } from '../../core/dtos/PostLikeCountDTO';
 import { CommentCountDTO } from '../../core/dtos/CommentCountDTO';
 import { PostShareCountDTO } from '../../core/dtos/PostShareCountDTO';
+import { SharedPostDetailsDTO } from '../../core/dtos/SharedPostDetailsDTO';
 
 /**
  * Serviço responsável por gerenciar posts.
@@ -113,6 +114,15 @@ export class PostService {
     };
   }
 
+  async getSharedPostDetails(shareId: number, userId: number) {
+    const shared = await this.repository.getSharedPostByIdWithDetails(shareId);
+
+    if (!shared || shared.deleted) {
+      return null;
+    }
+    return SharedPostDetailsDTO.fromPrisma(shared, userId);
+  }
+
   async getPostByIdWithDetails(id: number) {
     const post = await this.repository.getPostByIdWithDetails(id);
 
@@ -125,35 +135,78 @@ export class PostService {
 
   async toggleLike(
     postId: number,
-    userId: number
-  ): Promise<{ liked: boolean }> {
+    userId: number,
+    shareId?: number
+  ): Promise<{
+    liked: boolean;
+    postId?: number;
+    postShareId?: number;
+    sharedById?: number;
+    sharedAt?: Date;
+  }> {
     const alreadyLiked = await this.repository.isPostLikedByUser(
       postId,
-      userId
+      userId,
+      shareId
     );
+
     if (alreadyLiked) {
-      await this.repository.unlikePost(postId, userId);
-      return { liked: false };
+      await this.repository.unlikePost(postId, userId, shareId);
     } else {
-      await this.repository.likePost(postId, userId);
-      return { liked: true };
+      await this.repository.likePost(userId, postId, shareId);
     }
+
+    if (shareId) {
+      const share = await this.repository.findPostShareById(shareId);
+
+      return {
+        liked: !alreadyLiked,
+        postShareId: shareId,
+        sharedById: share?.user_iduser,
+        sharedAt: share?.shared_at ?? undefined,
+      };
+    }
+
+    return {
+      liked: !alreadyLiked,
+      postId,
+    };
   }
 
-  async getLikesByPost(postId: number): Promise<PostLikeDTO[]> {
+  async getLikesByPost(
+    postId: number,
+    shareId?: number
+  ): Promise<PostLikeDTO[]> {
     const post = await this.repository.findById(postId);
-    if (!post) {
-      throw new Error('Post não encontrado');
-    }
-    return this.repository.findLikesByPost(postId);
+    if (!post) throw new Error('Post não encontrado');
+
+    return this.repository.findLikesByPost(postId, shareId);
   }
 
-  async getLikeCount(postId: number): Promise<PostLikeCountDTO> {
+  async getLikeCount(
+    postId: number,
+    shareId?: number
+  ): Promise<PostLikeCountDTO> {
     const post = await this.repository.findById(postId);
-    if (!post) {
-      throw new Error('Post não encontrado');
+    if (!post) throw new Error('Post não encontrado');
+
+    const count = await this.repository.countLikesByPostId(postId, shareId);
+
+    if (shareId) {
+      const shareData = await this.repository.findPostShareById(shareId);
+      if (!shareData) throw new Error('Compartilhamento não encontrado');
+
+      if (!shareData.shared_at) {
+        throw new Error('shared_at é obrigatório');
+      }
+
+      return PostLikeCountDTO.fromResult(postId, count, {
+        id: shareId,
+        userId: shareData.user_iduser,
+        sharedAt: shareData.shared_at,
+      });
     }
-    const count = await this.repository.countLikesByPostId(postId);
+
     return PostLikeCountDTO.fromResult(postId, count);
   }
 

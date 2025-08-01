@@ -5,6 +5,7 @@ import { Post } from '../entities/Post';
 import { post, Prisma } from '@prisma/client';
 import { comment as PrismaComment } from '@prisma/client';
 import { PostLikeDTO } from '../dtos/PostLikeDTO';
+import { PrismaClient, post_share } from '@prisma/client';
 
 export type PostWithAllDetails = Prisma.postGetPayload<{
   include: {
@@ -50,17 +51,31 @@ export interface PostRepository {
     userId?: number // Adicione este parâmetro opcional
   ): Promise<{ posts: Post[]; total: number }>;
 
+  getSharedPostByIdWithDetails(
+    shareId: number
+  ): Promise<PostWithAllDetails | null>;
+
   getPostByIdWithDetails(postId: number): Promise<PostWithAllDetails | null>;
 
-  likePost(postId: number, userId: number): Promise<void>;
+  likePost(postId: number, userId: number, postShareId?: number): Promise<void>;
 
-  findLikesByPost(postId: number): Promise<PostLikeDTO[]>;
+  findLikesByPost(postId: number, shareId?: number): Promise<PostLikeDTO[]>;
 
-  unlikePost(postId: number, userId: number): Promise<void>;
+  unlikePost(
+    postId: number,
+    userId: number,
+    postShareId?: number
+  ): Promise<void>;
 
-  isPostLikedByUser(postId: number, userId: number): Promise<boolean>;
+  isPostLikedByUser(
+    postId: number,
+    userId: number,
+    shareId?: number
+  ): Promise<boolean>;
 
-  countLikesByPostId(postId: number): Promise<number>;
+  countLikesByPostId(postId: number, shareId?: number): Promise<number>;
+
+  findPostShareById(shareId: number): Promise<post_share | null>;
 
   sharePost(userId: number, postId: number, message?: string): Promise<void>;
 

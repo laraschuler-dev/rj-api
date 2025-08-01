@@ -221,7 +221,7 @@ postRoutes.get('/', ensureAuthenticated, postController.listPosts);
  * @swagger
  * /posts/{id}:
  *   get:
- *     summary: Obtém os detalhes completos de um post
+ *     summary: Obtém os detalhes completos de um post ou de um post compartilhado
  *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
@@ -229,10 +229,17 @@ postRoutes.get('/', ensureAuthenticated, postController.listPosts);
  *       - in: path
  *         name: id
  *         required: true
- *         description: ID do post a ser consultado
+ *         description: ID do post (original ou compartilhado) a ser consultado
  *         schema:
  *           type: integer
  *           example: 34
+ *       - in: query
+ *         name: shareId
+ *         required: false
+ *         description: ID do compartilhamento do post (para buscar um post compartilhado)
+ *         schema:
+ *           type: integer
+ *           example: 12
  *     responses:
  *       200:
  *         description: Detalhes do post retornados com sucesso
@@ -254,25 +261,19 @@ postRoutes.get('/', ensureAuthenticated, postController.listPosts);
  *       properties:
  *         id:
  *           type: integer
- *           example: 34
  *         content:
  *           type: string
- *           example: "Preciso de ajuda com doações de roupas"
  *         categoria_idcategoria:
  *           type: integer
- *           example: 1
  *         user_iduser:
  *           type: object
  *           properties:
  *             id:
  *               type: integer
- *               example: 14
  *             name:
  *               type: string
- *               example: "Lara das Graças Schüler"
  *             avatarUrl:
  *               type: string
- *               example: "uploads/123456789-avatar.jpg"
  *         metadata:
  *           type: object
  *           example:
@@ -282,19 +283,34 @@ postRoutes.get('/', ensureAuthenticated, postController.listPosts);
  *           type: array
  *           items:
  *             type: string
- *             example: "uploads/123456789-imagem.jpg"
  *         createdAt:
  *           type: string
  *           format: date-time
- *           example: "2025-07-10T20:21:56.000Z"
+ *         sharedBy:
+ *           type: object
+ *           nullable: true
+ *           description: Dados do usuário que compartilhou o post (caso aplicável)
+ *           properties:
+ *             userId:
+ *               type: integer
+ *             name:
+ *               type: string
+ *             avatarUrl:
+ *               type: string
+ *             message:
+ *               type: string
+ *             sharedAt:
+ *               type: string
+ *               format: date-time
  */
+
 postRoutes.get('/:id', ensureAuthenticated, postController.getById);
 
 /**
  * @swagger
  * /posts/{id}/like:
  *   post:
- *     summary: Curtir ou descurtir um post
+ *     summary: Curte ou descurte um post (original ou compartilhado)
  *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
@@ -302,12 +318,18 @@ postRoutes.get('/:id', ensureAuthenticated, postController.getById);
  *       - in: path
  *         name: id
  *         required: true
+ *         description: ID do post original
  *         schema:
  *           type: integer
- *         description: ID do post
+ *       - in: query
+ *         name: shareId
+ *         required: false
+ *         description: ID do compartilhamento do post, se for o caso
+ *         schema:
+ *           type: integer
  *     responses:
  *       200:
- *         description: Retorna se o post foi curtido ou descurtido
+ *         description: Status da curtida
  *         content:
  *           application/json:
  *             schema:
@@ -318,17 +340,16 @@ postRoutes.get('/:id', ensureAuthenticated, postController.getById);
  *                   example: true
  *       401:
  *         description: Usuário não autenticado
- *       404:
- *         description: Post não encontrado
+ *       500:
+ *         description: Erro interno
  */
 postRoutes.post('/:id/like', ensureAuthenticated, postController.like);
-
 
 /**
  * @swagger
  * /posts/{id}/likes:
  *   get:
- *     summary: Lista os usuários que curtiram o post
+ *     summary: Lista os usuários que curtiram um post ou compartilhamento
  *     tags: [Posts]
  *     parameters:
  *       - in: path
@@ -336,10 +357,15 @@ postRoutes.post('/:id/like', ensureAuthenticated, postController.like);
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID do post
+ *         description: ID do post original (use com ou sem `shareId`)
+ *       - in: query
+ *         name: shareId
+ *         schema:
+ *           type: integer
+ *         description: (Opcional) ID do compartilhamento. Use para listar curtidas de um post compartilhado.
  *     responses:
  *       200:
- *         description: Lista de usuários que curtiram o post
+ *         description: Lista de usuários que curtiram o post ou compartilhamento
  *         content:
  *           application/json:
  *             schema:
@@ -366,7 +392,7 @@ postRoutes.get('/:id/likes', postController.listLikes);
  * @swagger
  * /posts/{id}/likes/count:
  *   get:
- *     summary: Retorna a quantidade de curtidas de um post
+ *     summary: Retorna a quantidade de curtidas de um post ou compartilhamento
  *     tags: [Posts]
  *     parameters:
  *       - in: path
@@ -374,7 +400,12 @@ postRoutes.get('/:id/likes', postController.listLikes);
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID do post
+ *         description: ID do post original
+ *       - in: query
+ *         name: shareId
+ *         schema:
+ *           type: integer
+ *         description: (Opcional) ID do compartilhamento. Use para contar curtidas de um post compartilhado.
  *     responses:
  *       200:
  *         description: Quantidade de curtidas retornada com sucesso
@@ -383,8 +414,13 @@ postRoutes.get('/:id/likes', postController.listLikes);
  *             schema:
  *               type: object
  *               properties:
- *                 count:
+ *                 postId:
  *                   type: integer
+ *                 totalLikes:
+ *                   type: integer
+ *                 uniqueKey:
+ *                   type: string
+ *                   example: post-17
  *       404:
  *         description: Post não encontrado
  *       500:

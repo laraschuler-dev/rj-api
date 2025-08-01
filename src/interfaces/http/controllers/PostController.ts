@@ -7,7 +7,7 @@ import { PostListItemDTO } from '../../../core/dtos/PostListItemDTO';
 import { LikePostResponseDTO } from '../../../core/dtos/LikePostResponseDTO';
 import { SharePostDTO } from '../../../core/dtos/SharePostDTO';
 import { CreateCommentDTO } from '../../../core/dtos/CreateCommentDTO';
-import { DeleteCommentDTO } from '@/core/dtos/DeleteCommentDTO';
+import { DeleteCommentDTO } from '../../../core/dtos/DeleteCommentDTO';
 import { User } from '../../../core/entities/User';
 import { Post } from '../../../core/entities/Post';
 import { PostService } from '../../../application/services/PostService';
@@ -156,43 +156,75 @@ export class PostController {
   async getById(req: Request, res: Response): Promise<void> {
     try {
       const postId = Number(req.params.id);
+      const shareId = req.query.shareId ? Number(req.query.shareId) : null;
       const userId = req.user?.id;
 
-      if (isNaN(postId)) {
-        res.status(400).json({ error: 'ID de post inválido.' });
-        return;
-      }
-
       if (typeof userId !== 'number') {
-        res.status(400).json({ error: 'ID de usuário inválido.' });
+        res.status(401).json({ message: 'Usuário não autenticado.' });
         return;
       }
 
-      const postDetails = await this.postUseCases.getPostById(postId, userId);
+      if (shareId) {
+        // Se shareId existir, busca post compartilhado pelo id do compartilhamento
+        const sharedPost = await this.postUseCases.getSharedPostById(
+          shareId,
+          userId
+        );
 
-      if (!postDetails) {
-        res.status(404).json({ error: 'Post não encontrado.' });
+        if (!sharedPost) {
+          res
+            .status(404)
+            .json({ message: 'Post compartilhado não encontrado.' });
+          return;
+        }
+
+        res.json(sharedPost);
         return;
       }
 
-      res.status(200).json(postDetails);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Erro desconhecido';
-      res.status(500).json({ error: errorMessage });
+      // Senão, busca o post original
+      const post = await this.postUseCases.getPostById(postId, userId);
+
+      if (!post) {
+        res.status(404).json({ message: 'Post não encontrado.' });
+        return;
+      }
+
+      res.json(post);
+    } catch (error) {
+      console.error('[PostController:getById]', error);
+      res.status(500).json({ message: 'Erro ao buscar o post.' });
     }
   }
 
   async like(req: Request, res: Response): Promise<void> {
     try {
       const postId = Number(req.params.id);
+      const shareId = req.query.shareId ? Number(req.query.shareId) : undefined;
       const userId = req.user?.id;
+
       if (!userId) {
         res.status(401).json({ error: 'Usuário não autenticado.' });
         return;
       }
-      const result = await this.postUseCases.toggleLike(postId, userId);
-      res.status(200).json(LikePostResponseDTO.fromResult(result.liked));
+
+      const result = await this.postUseCases.toggleLike(
+        postId,
+        userId,
+        shareId
+      );
+
+      res
+  .status(200)
+  .json(
+    LikePostResponseDTO.fromResult(
+      result.liked,
+      result.postId,
+      result.postShareId,
+      result.sharedById,
+      result.sharedAt
+    )
+  );
     } catch (err) {
       res.status(500).json({ error: 'Erro ao curtir/descurtir o post.' });
     }
@@ -201,8 +233,9 @@ export class PostController {
   async listLikes(req: Request, res: Response): Promise<void> {
     try {
       const postId = Number(req.params.id);
+      const shareId = req.query.shareId ? Number(req.query.shareId) : undefined;
 
-      const likes = await this.postUseCases.listLikes(postId);
+      const likes = await this.postUseCases.listLikes(postId, shareId);
 
       if (likes.length === 0) {
         res.status(404).json({ error: 'Nenhuma curtida encontrada.' });
@@ -218,8 +251,10 @@ export class PostController {
 
   async getLikeCount(req: Request, res: Response): Promise<void> {
     try {
-      const postId = parseInt(req.params.id);
-      const result = await this.postUseCases.getLikeCount(postId);
+      const postId = Number(req.params.id);
+      const shareId = req.query.shareId ? Number(req.query.shareId) : undefined;
+
+      const result = await this.postUseCases.getLikeCount(postId, shareId);
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: 'Erro ao obter contagem de likes.' });

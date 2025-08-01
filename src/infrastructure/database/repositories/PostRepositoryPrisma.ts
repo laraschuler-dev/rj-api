@@ -7,6 +7,8 @@ import { comment as Comment } from '@prisma/client';
 import { PostMapper } from '../mappers/PostMapper';
 import { CommentDTO } from '@/core/dtos/ComentListDTO';
 import { PostLikeDTO } from '@/core/dtos/PostLikeDTO';
+import { PrismaClient, post_share } from '@prisma/client';
+
 /**
  * Implementação do repositório de Post utilizando Prisma ORM.
  * Responsável por persistir e recuperar posts do banco de dados.
@@ -201,60 +203,190 @@ export class PostRepositoryPrisma implements PostRepository {
     };
   }
 
+  async getSharedPostByIdWithDetails(shareId: number) {
+    const shared = await prisma.post_share.findUnique({
+      where: { id: shareId },
+      include: {
+        post: {
+          include: {
+            user: {
+              include: {
+                user_profile: true,
+              },
+            },
+            image: true,
+          },
+        },
+        user: {
+          include: {
+            user_profile: true,
+          },
+        },
+      },
+    });
+
+    if (!shared || !shared.post) return null;
+
+    const originalPostId = shared.post.idpost;
+
+    const [user_like, comment, event_attendance] = await Promise.all([
+      prisma.user_like.findMany({
+        where: {
+          post_idpost: originalPostId,
+          post_share_id: shareId,
+        },
+      }),
+      prisma.comment.findMany({
+        where: {
+          post_idpost: originalPostId,
+          post_share_id: shareId,
+          deleted: false,
+        },
+      }),
+      prisma.event_attendance.findMany({
+        where: {
+          post_idpost: originalPostId,
+          //post_share_id: shareId,
+        },
+      }),
+    ]);
+
+    const post = shared.post as any;
+
+    post.user.avatarUrl = shared.post.user.user_profile?.profile_photo ?? null;
+
+    post.sharedBy = {
+      id: shared.user.iduser,
+      name: shared.user.name,
+      avatarUrl: shared.user.user_profile?.profile_photo ?? null,
+      message: shared.message,
+      sharedAt: shared.shared_at ? new Date(shared.shared_at) : new Date(),
+    };
+
+    post.user_like = user_like;
+    post.comment = comment;
+    post.event_attendance = event_attendance;
+
+    return post;
+  }
+
   async getPostByIdWithDetails(postId: number) {
-    return prisma.post.findUnique({
+    const post = await prisma.post.findUnique({
       where: { idpost: postId },
       include: {
-        user: true,
+        user: {
+          include: {
+            user_profile: true,
+          },
+        },
         image: true,
         user_like: true,
         comment: true,
         event_attendance: true,
       },
     });
+
+    if (!post) return null;
+
+    const [user_like, comment, event_attendance] = await Promise.all([
+      prisma.user_like.findMany({
+        where: {
+          post_idpost: postId,
+          post_share_id: null, // Curtidas feitas no post original
+        },
+      }),
+      prisma.comment.findMany({
+        where: {
+          post_idpost: postId,
+          post_share_id: null, // Comentários feitos no post original
+          deleted: false,
+        },
+      }),
+      prisma.event_attendance.findMany({
+        where: {
+          post_idpost: postId,
+        },
+      }),
+    ]);
+
+    (post as any).user_like = user_like;
+    (post as any).comment = comment;
+    (post as any).event_attendance = event_attendance;
+
+    return post;
   }
 
   async likePost(
     userId: number,
-    postId?: number,
-    postShareId?: number
+    postId: number, // deve ser obrigatório
+    postShareId?: number // opcional
   ): Promise<void> {
-    if (!postId && !postShareId) {
-      throw new Error('É necessário informar postId ou postShareId.');
+    if (!postId) {
+      throw new Error('postId é obrigatório.');
     }
 
     await prisma.user_like.create({
       data: {
         user_iduser: userId,
         post_idpost: postId,
-        post_share_id: postShareId,
+        ...(postShareId ? { post_share_id: postShareId } : {}),
       },
     });
   }
 
-  async unlikePost(postId: number, userId: number): Promise<void> {
+  async unlikePost(
+    postId: number,
+    userId: number,
+    postShareId?: number
+  ): Promise<void> {
     await prisma.user_like.deleteMany({
       where: {
         post_idpost: postId,
         user_iduser: userId,
+        ...(postShareId
+          ? { post_share_id: postShareId }
+          : { post_share_id: null }),
       },
     });
   }
-
-  async isPostLikedByUser(postId: number, userId: number): Promise<boolean> {
+  async isPostLikedByUser(
+    postId: number,
+    userId: number,
+    postShareId?: number
+  ): Promise<boolean> {
     const like = await prisma.user_like.findFirst({
       where: {
         post_idpost: postId,
         user_iduser: userId,
+        ...(postShareId
+          ? { post_share_id: postShareId }
+          : { post_share_id: null }),
       },
     });
     return !!like;
   }
 
-  async findLikesByPost(postId: number): Promise<PostLikeDTO[]> {
+  async findLikesByPost(
+    postId: number,
+    postShareId?: number
+  ): Promise<PostLikeDTO[]> {
+    // Busca o share info se for post compartilhado
+    let shareInfo = null;
+    if (postShareId) {
+      shareInfo = await prisma.post_share.findUnique({
+        where: { id: postShareId },
+        include: {
+          user: true, // para pegar o sharedBy id e outras infos
+        },
+      });
+    }
+
     const likes = await prisma.user_like.findMany({
       where: {
         post_idpost: postId,
+        ...(postShareId
+          ? { post_share_id: postShareId }
+          : { post_share_id: null }),
       },
       include: {
         user: {
@@ -265,20 +397,46 @@ export class PostRepositoryPrisma implements PostRepository {
       },
     });
 
-    return likes.map((like) => ({
-      id: like.user.iduser,
-      name: like.user.name,
-      avatarUrl: like.user.user_profile?.profile_photo ?? null,
-    }));
+    // Montar uniqueKey para cada like, já que ela depende de dados do share
+    return likes.map((like) => {
+      let uniqueKey: string;
+      if (postShareId && shareInfo) {
+        const sharedById = shareInfo.user.iduser;
+        const sharedAtTimestamp = shareInfo.shared_at
+          ? new Date(shareInfo.shared_at).getTime()
+          : 0;
+        uniqueKey = `shared:${sharedById}:${postId}:${sharedAtTimestamp}`;
+      } else {
+        uniqueKey = `post:${postId}`;
+      }
+
+      return {
+        id: like.user.iduser,
+        name: like.user.name,
+        avatarUrl: like.user.user_profile?.profile_photo ?? null,
+        uniqueKey,
+      };
+    });
   }
 
-  async countLikesByPostId(postId: number): Promise<number> {
-    const count = await prisma.user_like.count({
+  async countLikesByPostId(
+    postId: number,
+    postShareId?: number
+  ): Promise<number> {
+    return prisma.user_like.count({
       where: {
         post_idpost: postId,
+        ...(postShareId
+          ? { post_share_id: postShareId }
+          : { post_share_id: null }),
       },
     });
-    return count;
+  }
+
+  async findPostShareById(shareId: number): Promise<post_share | null> {
+    return prisma.post_share.findUnique({
+      where: { id: shareId },
+    });
   }
 
   async sharePost(

@@ -8,6 +8,9 @@ import { PostMapper } from '../mappers/PostMapper';
 import { CommentDTO } from '@/core/dtos/ComentListDTO';
 import { PostLikeDTO } from '@/core/dtos/PostLikeDTO';
 import { PrismaClient, post_share } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { CommentDetailDTO } from '@/core/dtos/CommentDetailDTO';
+type CommentWithUser = Prisma.commentGetPayload<{ include: { user: true } }>;
 
 /**
  * Implementação do repositório de Post utilizando Prisma ORM.
@@ -467,20 +470,21 @@ export class PostRepositoryPrisma implements PostRepository {
     return prisma.post_share.findUnique({ where: { id } });
   }
 
-  async createComment(createCommentDTO: CreateCommentDTO): Promise<any> {
-    const data: any = {
-      comment: createCommentDTO.comment,
-      user: { connect: { iduser: createCommentDTO.userId } },
-      time: createCommentDTO.time ?? new Date(),
+  async createComment(data: CreateCommentDTO): Promise<CommentWithUser> {
+    const commentData = {
+      user_iduser: data.userId,
+      post_idpost: data.postId,
+      post_share_id: data.shareId ?? null,
+      comment: data.comment,
+      time: new Date(),
     };
 
-    if (createCommentDTO.targetType === 'post') {
-      data.post = { connect: { idpost: createCommentDTO.targetId } };
-    } else if (createCommentDTO.targetType === 'share') {
-      data.post_share = { connect: { id: createCommentDTO.targetId } };
-    }
-
-    return prisma.comment.create({ data });
+    return prisma.comment.create({
+      data: commentData,
+      include: {
+        user: true,
+      },
+    });
   }
 
   async findCommentById(commentId: number): Promise<Comment | null> {
@@ -524,31 +528,41 @@ export class PostRepositoryPrisma implements PostRepository {
     }));
   }
 
-  async getSingleComment(commentId: number): Promise<CommentDTO | null> {
-    const comment = await prisma.comment.findUnique({
-      where: { idcomment: commentId },
+  async getSingleComment(commentId: number): Promise<CommentDetailDTO | null> {
+    const comment = await prisma.comment.findFirst({
+      where: {
+        idcomment: commentId,
+        deleted: false,
+      },
       include: {
         user: {
           include: {
             user_profile: true,
           },
         },
+        post_share: true,
       },
     });
 
-    if (!comment || comment.deleted) {
-      return null;
-    }
+    if (!comment) return null;
+
+    const uniqueKey =
+      comment.post_share_id &&
+      comment.post_share &&
+      comment.post_share.shared_at
+        ? `shared:${comment.post_share.user_iduser}:${comment.post_idpost}:${comment.post_share.shared_at!.getTime()}`
+        : `post:${comment.post_idpost}`;
 
     return {
       id: comment.idcomment,
-      content: comment.comment,
+      comment: comment.comment,
       createdAt: comment.time!,
       author: {
         id: comment.user.iduser,
         name: comment.user.name,
         avatarUrl: comment.user.user_profile?.profile_photo ?? null,
       },
+      uniqueKey,
     };
   }
 

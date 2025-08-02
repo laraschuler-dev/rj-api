@@ -215,16 +215,16 @@ export class PostController {
       );
 
       res
-  .status(200)
-  .json(
-    LikePostResponseDTO.fromResult(
-      result.liked,
-      result.postId,
-      result.postShareId,
-      result.sharedById,
-      result.sharedAt
-    )
-  );
+        .status(200)
+        .json(
+          LikePostResponseDTO.fromResult(
+            result.liked,
+            result.postId,
+            result.postShareId,
+            result.sharedById,
+            result.sharedAt
+          )
+        );
     } catch (err) {
       res.status(500).json({ error: 'Erro ao curtir/descurtir o post.' });
     }
@@ -303,34 +303,41 @@ export class PostController {
 
   async commentPost(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const postId = Number(req.params.id);
+      const shareId = req.query.shareId ? Number(req.query.shareId) : null;
       const { comment } = req.body;
-      const { target = 'post' } = req.query; // padrão: post
       const userId = req.user?.id;
 
-      if (!['post', 'share'].includes(target as string)) {
-        res
-          .status(400)
-          .json({ error: 'Tipo de alvo inválido. Use "post" ou "share".' });
+      if (!comment || typeof comment !== 'string') {
+        res.status(400).json({ error: 'Comentário inválido' });
+        return;
+      }
+
+      if (!userId) {
+        res.status(401).json({ error: 'Usuário não autenticado' });
         return;
       }
 
       const createCommentDTO: CreateCommentDTO = {
-        userId: userId ?? 0,
-        targetId: parseInt(id),
+        userId,
+        postId,
+        shareId,
         comment,
-        targetType: target as 'post' | 'share',
       };
 
-      if (userId === undefined) {
-        res.status(401).json({ error: 'Usuário não autenticado' });
-      } else {
-        await this.postUseCases.commentPost(createCommentDTO, userId);
-        res.status(201).json({ message: 'Comentário adicionado com sucesso' });
-      }
-    } catch (error) {
+      const result = await this.postUseCases.commentPost(createCommentDTO);
+
+      res.status(201).json({
+        message: 'Comentário adicionado com sucesso',
+        uniqueKey: result.uniqueKey,
+      });
+    } catch (error: any) {
       console.error(error);
-      res.status(500).json({ error: 'Erro ao adicionar comentário' });
+      if (error.message.includes('não encontrado')) {
+        res.status(404).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Erro ao adicionar comentário' });
+      }
     }
   }
 
@@ -380,12 +387,14 @@ export class PostController {
   async getSingleComment(req: Request, res: Response): Promise<void> {
     try {
       const commentId = Number(req.params.id);
+
       if (isNaN(commentId)) {
-        res.status(400).json({ error: 'ID inválido' });
+        res.status(400).json({ error: 'ID do comentário inválido.' });
         return;
       }
 
       const comment = await this.postUseCases.getSingleComment(commentId);
+
       if (!comment) {
         res.status(404).json({ error: 'Comentário não encontrado' });
         return;

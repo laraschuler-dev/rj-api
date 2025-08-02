@@ -18,7 +18,7 @@ import { PostLikeCountDTO } from '../../core/dtos/PostLikeCountDTO';
 import { CommentCountDTO } from '../../core/dtos/CommentCountDTO';
 import { PostShareCountDTO } from '../../core/dtos/PostShareCountDTO';
 import { SharedPostDetailsDTO } from '../../core/dtos/SharedPostDetailsDTO';
-
+import { CommentDetailDTO } from '../../core/dtos/CommentDetailDTO';
 /**
  * Serviço responsável por gerenciar posts.
  *
@@ -236,28 +236,40 @@ export class PostService {
   }
 
   async createComment(
-    createCommentDTO: CreateCommentDTO,
-    userId: number
-  ): Promise<void> {
-    if (createCommentDTO.targetType === 'post') {
-      const post = await this.repository.findById(createCommentDTO.targetId);
-      if (!post) throw new Error('Post não encontrado');
-    } else if (createCommentDTO.targetType === 'share') {
-      const share = await this.repository.findShareById(
-        createCommentDTO.targetId
-      );
+    createCommentDTO: CreateCommentDTO
+  ): Promise<{ uniqueKey: string }> {
+    const { userId, postId, shareId } = createCommentDTO;
+
+    // Validação do post original (sempre obrigatória)
+    const post = await this.repository.findById(postId);
+    if (!post) throw new Error('Post não encontrado');
+
+    // Validação do compartilhamento (se aplicável)
+    if (shareId) {
+      const share = await this.repository.findShareById(shareId);
       if (!share) throw new Error('Compartilhamento não encontrado');
     }
 
-    await this.repository.createComment(createCommentDTO);
+    // Criação do comentário
+    const comment = await this.repository.createComment(createCommentDTO);
+
+    const timestamp = comment.time
+      ? new Date(comment.time).getTime()
+      : Date.now();
+
+    // Geração da uniqueKey
+    const uniqueKey = shareId
+      ? `shared:${comment.user.iduser}:${comment.post_idpost}:${timestamp}`
+      : `post:${comment.user.iduser}:${comment.post_idpost}:${timestamp}`;
+
+    return { uniqueKey };
   }
 
   async getCommentsByPostId(postId: number) {
     return this.repository.findCommentsByPostId(postId);
   }
 
-  // src/application/services/PostService.ts
-  async getSingleComment(commentId: number): Promise<CommentDTO | null> {
+  async getSingleComment(commentId: number): Promise<CommentDetailDTO | null> {
     return this.repository.getSingleComment(commentId);
   }
 

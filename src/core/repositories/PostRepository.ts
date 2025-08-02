@@ -6,6 +6,9 @@ import { post, Prisma } from '@prisma/client';
 import { comment as PrismaComment } from '@prisma/client';
 import { PostLikeDTO } from '../dtos/PostLikeDTO';
 import { PrismaClient, post_share } from '@prisma/client';
+import { CommentDetailDTO } from '../dtos/CommentDetailDTO';
+
+type CommentWithUser = Prisma.commentGetPayload<{ include: { user: true } }>;
 
 export type PostWithAllDetails = Prisma.postGetPayload<{
   include: {
@@ -83,11 +86,11 @@ export interface PostRepository {
 
   findShareById(id: number): Promise<any | null>;
 
-  createComment(createCommentDTO: CreateCommentDTO): Promise<Comment>;
+  createComment(data: CreateCommentDTO): Promise<CommentWithUser>;
 
   findCommentsByPostId(postId: number): Promise<CommentDTO[]>;
 
-  getSingleComment(commentId: number): Promise<CommentDTO | null>;
+  getSingleComment(commentId: number): Promise<CommentDetailDTO | null>;
 
   countCommentsByPostId(postId: number): Promise<number>;
 

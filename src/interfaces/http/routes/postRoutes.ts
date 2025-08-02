@@ -527,7 +527,7 @@ postRoutes.get('/:id/comments/count', postController.getCommentCount);
  * @swagger
  * /posts/{id}/comment:
  *   post:
- *     summary: Adicionar um comentário a um post ou compartilhamento
+ *     summary: Adicionar um comentário a um post original ou compartilhado
  *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
@@ -537,14 +537,13 @@ postRoutes.get('/:id/comments/count', postController.getCommentCount);
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID do post ou compartilhamento
+ *         description: ID do post original
  *       - in: query
- *         name: shared
+ *         name: shareId
  *         required: false
  *         schema:
- *           type: boolean
- *           example: false
- *         description: Indica se o comentário é para um post compartilhado (shared=true)
+ *           type: integer
+ *         description: ID do compartilhamento, obrigatório apenas quando for um comentário em post compartilhado
  *     requestBody:
  *       required: true
  *       content:
@@ -556,16 +555,29 @@ postRoutes.get('/:id/comments/count', postController.getCommentCount);
  *             properties:
  *               comment:
  *                 type: string
- *                 example: "Essa iniciativa é muito importante, parabéns!"
+ *                 example: "Parabéns pela iniciativa!"
  *     responses:
  *       201:
- *         description: Comentário adicionado com sucesso
+ *         description: Comentário adicionado com sucesso, retorna a uniqueKey do comentário
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Comentário adicionado com sucesso
+ *                 uniqueKey:
+ *                   type: string
+ *                   example: post:123:456:1678901234567
  *       400:
- *         description: Requisição inválida
+ *         description: Dados inválidos ou parâmetros ausentes
  *       401:
  *         description: Usuário não autenticado
  *       404:
  *         description: Post ou compartilhamento não encontrado
+ *       500:
+ *         description: Erro ao adicionar comentário
  */
 postRoutes.post(
   '/:id/comment',
@@ -740,9 +752,9 @@ postRoutes.get(
 * @swagger
 * /posts/comments/{id}:
 *  get:
-*    summary: Buscar comentário por ID
+*    summary: Buscar um comentário por ID (de post ou compartilhamento)
 *    tags:
-*      [Posts]
+*      - Posts
 *    parameters:
 *      - in: path
 *        name: id
@@ -765,6 +777,13 @@ postRoutes.get(
 *                createdAt:
 *                  type: string
 *                  format: date-time
+*                uniqueKey:
+*                  type: string
+*                  description: >
+*                    Identificador único do comentário, com base no tipo (post ou compartilhamento).
+*                    Formatos possíveis:
+*                    - post:{userId}:{postId}:{timestamp}
+*                    - shared:{sharerId}:{postId}:{timestamp}
 *                author:
 *                  type: object
 *                  properties:

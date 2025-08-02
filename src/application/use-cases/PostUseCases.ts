@@ -17,6 +17,7 @@ import { PostLikeCountDTO } from '../../core/dtos/PostLikeCountDTO';
 import { CommentCountDTO } from '../../core/dtos/CommentCountDTO';
 import { PostShareCountDTO } from '../../core/dtos/PostShareCountDTO';
 import { SharedPostDetailsDTO } from '../../core/dtos/SharedPostDetailsDTO';
+import { CommentDetailDTO } from '../../core/dtos/CommentDetailDTO';
 
 interface PaginatedPostsResult {
   posts: Post[];
@@ -116,16 +117,19 @@ export class PostUseCases {
   }
 
   async toggleLike(postId: number, userId: number, postShareId?: number) {
-  return this.postService.toggleLike(postId, userId, postShareId);
-}
+    return this.postService.toggleLike(postId, userId, postShareId);
+  }
 
-async listLikes(postId: number, shareId?: number): Promise<PostLikeDTO[]> {
-  return this.postService.getLikesByPost(postId, shareId);
-}
+  async listLikes(postId: number, shareId?: number): Promise<PostLikeDTO[]> {
+    return this.postService.getLikesByPost(postId, shareId);
+  }
 
-async getLikeCount(postId: number, shareId?: number): Promise<PostLikeCountDTO> {
-  return this.postService.getLikeCount(postId, shareId);
-}
+  async getLikeCount(
+    postId: number,
+    shareId?: number
+  ): Promise<PostLikeCountDTO> {
+    return this.postService.getLikeCount(postId, shareId);
+  }
 
   async sharePost(sharePostDTO: SharePostDTO): Promise<void> {
     await this.postService.sharePost(sharePostDTO);
@@ -136,17 +140,16 @@ async getLikeCount(postId: number, shareId?: number): Promise<PostLikeCountDTO> 
   }
 
   async commentPost(
-    createCommentDTO: CreateCommentDTO,
-    userId: number
-  ): Promise<void> {
-    await this.postService.createComment(createCommentDTO, userId);
+    createCommentDTO: CreateCommentDTO
+  ): Promise<{ uniqueKey: string }> {
+    return this.postService.createComment(createCommentDTO);
   }
 
   async listComments(postId: number) {
     return this.postService.getCommentsByPostId(postId);
   }
 
-  async getSingleComment(commentId: number): Promise<CommentDTO | null> {
+  async getSingleComment(commentId: number): Promise<CommentDetailDTO | null> {
     return this.postService.getSingleComment(commentId);
   }
 

@@ -88,7 +88,10 @@ export interface PostRepository {
 
   createComment(data: CreateCommentDTO): Promise<CommentWithUser>;
 
-  findCommentsByPostId(postId: number): Promise<CommentDTO[]>;
+  findCommentsByPostId(
+    postId: number,
+    postShareId?: number
+  ): Promise<CommentDTO[]>;
 
   getSingleComment(commentId: number): Promise<CommentDetailDTO | null>;
 

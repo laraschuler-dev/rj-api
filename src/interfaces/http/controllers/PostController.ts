@@ -369,13 +369,19 @@ export class PostController {
   async listComments(req: Request, res: Response): Promise<void> {
     try {
       const postId = Number(req.params.id);
-
+      const postShareId = req.query.postShareId
+        ? Number(req.query.postShareId)
+        : undefined;
+        
       if (isNaN(postId)) {
         res.status(400).json({ error: 'ID do post inválido' });
         return;
       }
 
-      const comments = await this.postUseCases.listComments(postId);
+      const comments = await this.postUseCases.listComments(
+        postId,
+        postShareId
+      );
 
       res.status(200).json({ data: comments });
     } catch (error) {

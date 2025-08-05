@@ -500,10 +500,14 @@ export class PostRepositoryPrisma implements PostRepository {
     });
   }
 
-  async findCommentsByPostId(postId: number): Promise<CommentDTO[]> {
+  async findCommentsByPostId(
+    postId: number,
+    postShareId?: number
+  ): Promise<CommentDTO[]> {
     const comments = await prisma.comment.findMany({
       where: {
         post_idpost: postId,
+        post_share_id: postShareId ?? null,
         deleted: false,
       },
       orderBy: { time: 'asc' },

@@ -698,7 +698,7 @@ postRoutes.delete(
 * @swagger
 * /posts/{id}/comments:
 *  get:
-*    summary: Lista os comentários de um post
+*    summary: Lista os comentários de um post ou compartilhamento
 *    tags:
 *      - Posts
 *    parameters:
@@ -707,7 +707,13 @@ postRoutes.delete(
 *        required: true
 *        schema:
 *          type: integer
-*        description: ID do post
+*        description: ID do post original
+*      - in: query
+*        name: postShareId
+*        required: false
+*        schema:
+*          type: integer
+*        description: ID do compartilhamento (caso os comentários sejam de um post compartilhado)
 *    responses:
 *      '200':
 *        description: Lista de comentários
@@ -723,7 +729,7 @@ postRoutes.delete(
 *                    properties:
 *                      id:
 *                        type: integer
-*                      content:
+*                      comment:
 *                        type: string
 *                      createdAt:
 *                        type: string
@@ -739,7 +745,7 @@ postRoutes.delete(
 *                            type: string
 *                            nullable: true
 *      '400':
-*        description: ID inválido
+*        description: Parâmetros inválidos
 *      '500':
 *        description: Erro interno do servidor
 */

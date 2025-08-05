@@ -145,8 +145,9 @@ export class PostUseCases {
     return this.postService.createComment(createCommentDTO);
   }
 
-  async listComments(postId: number) {
-    return this.postService.getCommentsByPostId(postId);
+  // usecase
+  async listComments(postId: number, postShareId?: number) {
+    return this.postService.getCommentsByPostId(postId, postShareId);
   }
 
   async getSingleComment(commentId: number): Promise<CommentDetailDTO | null> {

@@ -265,9 +265,11 @@ export class PostService {
     return { uniqueKey };
   }
 
-  async getCommentsByPostId(postId: number) {
-    return this.repository.findCommentsByPostId(postId);
-  }
+  // service
+async getCommentsByPostId(postId: number, postShareId?: number) {
+  return this.repository.findCommentsByPostId(postId, postShareId);
+}
+
 
   async getSingleComment(commentId: number): Promise<CommentDetailDTO | null> {
     return this.repository.getSingleComment(commentId);

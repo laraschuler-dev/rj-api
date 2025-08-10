@@ -2,7 +2,7 @@ import { prisma } from '../../../infrastructure/database/prisma/prisma';
 import { Post, PostMetadata } from '../../../core/entities/Post';
 import { PostRepository } from '../../../core/repositories/PostRepository';
 import { CreateCommentDTO } from '../../../core/dtos/CreateCommentDTO';
-import { AttendEventDTO } from '../../../core/dtos/AttendEventDTO';
+import { AttendEventDTO } from '../../../core/dtos/AttendEvent/AttendEventDTO';
 import { comment as Comment } from '@prisma/client';
 import { PostMapper } from '../mappers/PostMapper';
 import { CommentDTO } from '@/core/dtos/ComentListDTO';
@@ -10,6 +10,8 @@ import { PostLikeDTO } from '@/core/dtos/PostLikeDTO';
 import { PrismaClient, post_share } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { CommentDetailDTO } from '@/core/dtos/CommentDetailDTO';
+import { GetAttendanceStatusDTO } from '@/core/dtos/AttendEvent/GetAttendanceStatusDTO';
+import { AttendanceStatusResponseDTO } from '@/core/dtos/AttendEvent/AttendanceStatusResponseDTO';
 type CommentWithUser = Prisma.commentGetPayload<{ include: { user: true } }>;
 
 /**
@@ -70,8 +72,11 @@ export class PostRepositoryPrisma implements PostRepository {
    * @returns O post encontrado ou null se não existir.
    */
   async findById(id: number): Promise<Post | null> {
-    const post = await prisma.post.findUnique({
-      where: { idpost: id },
+    const post = await prisma.post.findFirst({
+      where: {
+        idpost: id,
+        deleted: false, // só retorna se não estiver deletado
+      },
       include: { user: true },
     });
 
@@ -437,8 +442,11 @@ export class PostRepositoryPrisma implements PostRepository {
   }
 
   async findPostShareById(shareId: number): Promise<post_share | null> {
-    return prisma.post_share.findUnique({
-      where: { id: shareId },
+    return prisma.post_share.findFirst({
+      where: {
+        id: shareId,
+        deleted: false,
+      },
     });
   }
 
@@ -466,10 +474,6 @@ export class PostRepositoryPrisma implements PostRepository {
     return count;
   }
 
-  async findShareById(id: number): Promise<any | null> {
-    return prisma.post_share.findUnique({ where: { id } });
-  }
-
   async createComment(data: CreateCommentDTO): Promise<CommentWithUser> {
     const commentData = {
       user_iduser: data.userId,
@@ -487,9 +491,20 @@ export class PostRepositoryPrisma implements PostRepository {
     });
   }
 
-  async findCommentById(commentId: number): Promise<Comment | null> {
+  async findCommentById(commentId: number): Promise<{
+    idcomment: number;
+    post_idpost: number;
+    post_share_id: number | null;
+    user_iduser: number;
+  } | null> {
     return prisma.comment.findUnique({
       where: { idcomment: commentId },
+      select: {
+        idcomment: true,
+        post_idpost: true,
+        post_share_id: true,
+        user_iduser: true,
+      },
     });
   }
 
@@ -570,57 +585,144 @@ export class PostRepositoryPrisma implements PostRepository {
     };
   }
 
-  async countCommentsByPostId(postId: number): Promise<number> {
-    const count = await prisma.comment.count({
-      where: {
-        post_idpost: postId,
-        deleted: false, // considera apenas os não deletados
-      },
-    });
+  async countCommentsByPostId(
+    postId: number,
+    postShareId?: number
+  ): Promise<number> {
+    const whereClause =
+      typeof postShareId === 'number'
+        ? { post_share_id: postShareId, deleted: false }
+        : { post_idpost: postId, post_share_id: null, deleted: false };
+
+    const count = await prisma.comment.count({ where: whereClause });
 
     return count;
   }
+  
+ async attendEvent(data: AttendEventDTO): Promise<void> {
+  const isShared = data.postShareId !== undefined && data.postShareId !== null;
 
-  async attendEvent(data: AttendEventDTO): Promise<void> {
-    await prisma.event_attendance.upsert({
-      where: {
-        user_iduser_post_idpost: {
+  const existing = isShared
+    ? await prisma.event_attendance.findUnique({
+        where: {
+          user_iduser_post_idpost_post_share_id: {
+            user_iduser: data.userId,
+            post_idpost: data.postId,
+            post_share_id: data.postShareId!,
+          },
+        },
+      })
+    : await prisma.event_attendance.findFirst({
+        where: {
           user_iduser: data.userId,
           post_idpost: data.postId,
+          post_share_id: null,
         },
-      },
-      update: {
-        status: data.status,
-      },
-      create: {
+      });
+
+  if (existing) {
+    await prisma.event_attendance.update({
+      where: { id: existing.id },
+      data: { status: data.status },
+    });
+  } else {
+    await prisma.event_attendance.create({
+      data: {
         user_iduser: data.userId,
         post_idpost: data.postId,
+        post_share_id: isShared ? data.postShareId! : null,
         status: data.status,
       },
     });
   }
+}
 
-  async findAttendance(postId: number, userId: number) {
-    return await prisma.event_attendance.findUnique({
-      where: {
-        user_iduser_post_idpost: {
+async findAttendance(
+  postId: number,
+  userId: number,
+  postShareId?: number | null
+) {
+  const isShared = postShareId !== undefined && postShareId !== null;
+
+  return isShared
+    ? prisma.event_attendance.findUnique({
+        where: {
+          user_iduser_post_idpost_post_share_id: {
+            user_iduser: userId,
+            post_idpost: postId,
+            post_share_id: postShareId!,
+          },
+        },
+      })
+    : prisma.event_attendance.findFirst({
+        where: {
           user_iduser: userId,
           post_idpost: postId,
+          post_share_id: null,
         },
-      },
-    });
-  }
+      });
+}
 
-  async removeAttendance(postId: number, userId: number): Promise<void> {
+async removeAttendance(
+  postId: number,
+  userId: number,
+  postShareId?: number | null
+) {
+  const isShared = postShareId !== undefined && postShareId !== null;
+
+  if (isShared) {
     await prisma.event_attendance.delete({
       where: {
-        user_iduser_post_idpost: {
+        user_iduser_post_idpost_post_share_id: {
           user_iduser: userId,
           post_idpost: postId,
+          post_share_id: postShareId!,
         },
       },
     });
+  } else {
+    await prisma.event_attendance.deleteMany({
+      where: {
+        user_iduser: userId,
+        post_idpost: postId,
+        post_share_id: null,
+      },
+    });
   }
+}
+
+async getAttendanceStatus({
+  postId,
+  postShareId,
+  userId,
+}: GetAttendanceStatusDTO): Promise<AttendanceStatusResponseDTO> {
+  const whereBase = {
+    post_idpost: postId,
+    post_share_id: postShareId ?? null,
+  };
+
+  const [userRecord, interestedCount, confirmedCount] = await Promise.all([
+    prisma.event_attendance.findFirst({
+      where: {
+        ...whereBase,
+        user_iduser: userId,
+      },
+      select: { status: true },
+    }),
+    prisma.event_attendance.count({
+      where: { ...whereBase, status: "interested" },
+    }),
+    prisma.event_attendance.count({
+      where: { ...whereBase, status: "confirmed" },
+    }),
+  ]);
+
+  return {
+    userStatus: userRecord?.status ?? null,
+    interestedCount,
+    confirmedCount,
+  };
+}
 
   async findCategoryById(id: number): Promise<{
     idcategory: number;

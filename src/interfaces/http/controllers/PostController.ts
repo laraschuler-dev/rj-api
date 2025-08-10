@@ -37,6 +37,7 @@ export class PostController {
     this.commentPost = this.commentPost.bind(this);
     this.updateComment = this.updateComment.bind(this);
     this.attendEvent = this.attendEvent.bind(this);
+    this.getAttendanceStatus = this.getAttendanceStatus.bind(this);
     this.getPostsByUser = this.getPostsByUser.bind(this);
     this.updatePost = this.updatePost.bind(this);
     this.deletePostImage = this.deletePostImage.bind(this);
@@ -346,6 +347,9 @@ export class PostController {
       const userId = req.user?.id;
       const postId = Number(req.params.postId);
       const commentId = Number(req.params.commentId);
+      const postShareId = req.query.postShareId
+        ? Number(req.query.postShareId)
+        : undefined;
       const { content } = req.body;
 
       if (!userId) {
@@ -355,14 +359,17 @@ export class PostController {
 
       await this.postUseCases.updateComment({
         postId,
+        postShareId,
         commentId,
         userId,
         content,
       });
+
       res.status(200).json({ message: 'Comentário atualizado com sucesso' });
     } catch (error: any) {
       console.error('Erro ao atualizar comentário:', error);
       res.status(400).json({ error: error.message });
+      console.log(error);
     }
   }
 
@@ -372,7 +379,7 @@ export class PostController {
       const postShareId = req.query.postShareId
         ? Number(req.query.postShareId)
         : undefined;
-        
+
       if (isNaN(postId)) {
         res.status(400).json({ error: 'ID do post inválido' });
         return;
@@ -384,9 +391,16 @@ export class PostController {
       );
 
       res.status(200).json({ data: comments });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao listar comentários:', error);
-      res.status(500).json({ error: 'Erro interno do servidor' });
+
+      if (error.message === 'Post não encontrado') {
+        res.status(404).json({ error: 'Post não encontrado' });
+      } else if (error.message === 'Compartilhamento não encontrado') {
+        res.status(404).json({ error: 'Compartilhamento não encontrado' });
+      } else {
+        res.status(500).json({ error: 'Erro interno do servidor' });
+      }
     }
   }
 
@@ -415,13 +429,20 @@ export class PostController {
 
   async getCommentCount(req: Request, res: Response): Promise<void> {
     try {
-      const postId = parseInt(req.params.id);
+      const postId = parseInt(req.params.postId);
+      const postShareId = req.query.postShareId
+        ? parseInt(req.query.postShareId as string)
+        : undefined;
+
       if (isNaN(postId)) {
         res.status(400).json({ error: 'Parâmetro postId inválido.' });
         return;
       }
 
-      const result = await this.postUseCases.getCommentCount(postId);
+      const result = await this.postUseCases.getCommentCount(
+        postId,
+        postShareId
+      );
       res.json(result);
     } catch (error: any) {
       console.error('Erro ao contar comentários:', error);
@@ -433,10 +454,22 @@ export class PostController {
     try {
       const userId = req.user?.id;
       const postId = Number(req.params.id);
-      const { status } = req.body;
+      const status = req.body.status;
+      // Pega postShareId da query string (se existir)
+      const postShareId = req.query.postShareId
+        ? Number(req.query.postShareId)
+        : undefined;
+
+      console.log('Request body:', req.body);
+      console.log('postShareId parsed:', postShareId);
+      console.log(
+        'Request body stringified:',
+        JSON.stringify(req.body, null, 2)
+      );
 
       if (!['interested', 'confirmed'].includes(status)) {
         res.status(400).json({ error: 'Status inválido' });
+        return; // para garantir que a execução pare aqui
       }
 
       if (!userId) {
@@ -448,6 +481,7 @@ export class PostController {
         postId,
         userId,
         status,
+        postShareId,
       });
 
       const messages = {
@@ -459,11 +493,31 @@ export class PostController {
       res.status(201).json({ message: messages[result], status: result });
     } catch (error: any) {
       console.error('Erro ao registrar presença:', error);
-
       const message =
         error instanceof Error ? error.message : 'Erro interno do servidor';
       res.status(400).json({ error: message });
     }
+  }
+
+  async getAttendanceStatus(req: Request, res: Response): Promise<void> {
+    const postId = Number(req.params.id);
+    const postShareId = req.query.postShareId
+      ? Number(req.query.postShareId)
+      : undefined;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Usuário não autenticado' });
+      return;
+    }
+
+    const result = await this.postUseCases.getAttendanceStatus({
+      postId,
+      postShareId,
+      userId,
+    });
+
+    res.status(200).json(result);
   }
 
   async getPostsByUser(req: Request, res: Response): Promise<void> {
@@ -542,16 +596,15 @@ export class PostController {
     try {
       const userId = req.user?.id;
       const { postId, commentId } = req.params;
-
-      if (!userId) {
-        res.status(401).json({ error: 'Não autenticado' });
-        return;
-      }
+      const postShareId = req.query.postShareId
+        ? Number(req.query.postShareId)
+        : undefined;
 
       const dto: DeleteCommentDTO = {
         commentId: Number(commentId),
         userId: Number(userId),
-        postId: Number(postId), // Agora incluímos o postId no DTO
+        postId: Number(postId),
+        postShareId,
       };
 
       await this.postUseCases.deleteComment(dto);

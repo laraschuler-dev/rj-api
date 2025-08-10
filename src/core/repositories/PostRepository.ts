@@ -1,4 +1,4 @@
-import { AttendEventDTO } from '../dtos/AttendEventDTO';
+import { AttendEventDTO } from '../dtos/AttendEvent/AttendEventDTO';
 import { CommentDTO } from '../dtos/ComentListDTO';
 import { CreateCommentDTO } from '../dtos/CreateCommentDTO';
 import { Post } from '../entities/Post';
@@ -7,6 +7,8 @@ import { comment as PrismaComment } from '@prisma/client';
 import { PostLikeDTO } from '../dtos/PostLikeDTO';
 import { PrismaClient, post_share } from '@prisma/client';
 import { CommentDetailDTO } from '../dtos/CommentDetailDTO';
+import { GetAttendanceStatusDTO } from '../dtos/AttendEvent/GetAttendanceStatusDTO';
+import { AttendanceStatusResponseDTO } from '../dtos/AttendEvent/AttendanceStatusResponseDTO';
 
 type CommentWithUser = Prisma.commentGetPayload<{ include: { user: true } }>;
 
@@ -84,8 +86,6 @@ export interface PostRepository {
 
   countSharesByPostId(postId: number): Promise<number>;
 
-  findShareById(id: number): Promise<any | null>;
-
   createComment(data: CreateCommentDTO): Promise<CommentWithUser>;
 
   findCommentsByPostId(
@@ -95,13 +95,25 @@ export interface PostRepository {
 
   getSingleComment(commentId: number): Promise<CommentDetailDTO | null>;
 
-  countCommentsByPostId(postId: number): Promise<number>;
+  countCommentsByPostId(postId: number, postShareId?: number): Promise<number>;
 
   attendEvent(data: AttendEventDTO): Promise<void>;
 
-  findAttendance(postId: number, userId: number): Promise<any>;
+  findAttendance(
+    postId: number,
+    userId: number,
+    postShareId?: number
+  ): Promise<any>;
 
-  removeAttendance(postId: number, userId: number): Promise<void>;
+  removeAttendance(
+    postId: number,
+    userId: number,
+    postShareId?: number
+  ): Promise<void>;
+
+  getAttendanceStatus(
+    data: GetAttendanceStatusDTO
+  ): Promise<AttendanceStatusResponseDTO>;
 
   findCategoryById(id: number): Promise<{
     idcategory: number;
@@ -126,7 +138,12 @@ export interface PostRepository {
 
   updateComment(commentId: number, content: string): Promise<void>;
 
-  findCommentById(commentId: number): Promise<PrismaComment | null>;
+  findCommentById(commentId: number): Promise<{
+    idcomment: number;
+    post_idpost: number;
+    post_share_id: number | null;
+    user_iduser: number;
+  } | null>;
 
   softDeleteComment(commentId: number): Promise<void>;
 

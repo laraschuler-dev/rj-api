@@ -3,7 +3,7 @@ import { Post, PostMetadata } from '../../core/entities/Post';
 import { PostService } from '../services/PostService';
 import { SharePostDTO } from '../../core/dtos/SharePostDTO';
 import { CreateCommentDTO } from '../../core/dtos/CreateCommentDTO';
-import { AttendEventDTO } from '../../core/dtos/AttendEventDTO';
+import { AttendEventDTO } from '../../core/dtos/AttendEvent/AttendEventDTO';
 import { GetUserPostsDTO } from '../../core/dtos/GetUserPostsDTO';
 import { UpdatePostDTO } from '../../core/dtos/UpdatePostDTO';
 import { DeletePostImageDTO } from '../../core/dtos/DeletePostImageDTO';
@@ -18,6 +18,8 @@ import { CommentCountDTO } from '../../core/dtos/CommentCountDTO';
 import { PostShareCountDTO } from '../../core/dtos/PostShareCountDTO';
 import { SharedPostDetailsDTO } from '../../core/dtos/SharedPostDetailsDTO';
 import { CommentDetailDTO } from '../../core/dtos/CommentDetailDTO';
+import { GetAttendanceStatusDTO } from '@/core/dtos/AttendEvent/GetAttendanceStatusDTO';
+import { AttendanceStatusResponseDTO } from '@/core/dtos/AttendEvent/AttendanceStatusResponseDTO';
 
 interface PaginatedPostsResult {
   posts: Post[];
@@ -154,14 +156,23 @@ export class PostUseCases {
     return this.postService.getSingleComment(commentId);
   }
 
-  async getCommentCount(postId: number): Promise<CommentCountDTO> {
-    return this.postService.getCommentCount(postId);
+  async getCommentCount(
+    postId: number,
+    postShareId?: number
+  ): Promise<CommentCountDTO> {
+    return this.postService.getCommentCount(postId, postShareId);
   }
 
   async attendEvent(
     data: AttendEventDTO
   ): Promise<'interested' | 'confirmed' | 'removed'> {
     return this.postService.attendEvent(data);
+  }
+
+  async getAttendanceStatus(
+    data: GetAttendanceStatusDTO
+  ): Promise<AttendanceStatusResponseDTO> {
+    return this.postService.getAttendanceStatus(data);
   }
 
   async getPostsByUser(dto: GetUserPostsDTO) {

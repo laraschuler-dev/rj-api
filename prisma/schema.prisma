@@ -23,6 +23,7 @@ model comment {
   time          DateTime?   @db.DateTime(0)
   deleted       Boolean?    @default(false)
   deleted_at    DateTime?   @db.DateTime(0)
+  updated_at    DateTime?   @default(now()) @db.DateTime(0)
   post_share    post_share? @relation(fields: [post_share_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_comment_post_share")
   post          post        @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_post2")
   user          user        @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_user2")
@@ -96,27 +97,34 @@ model user_like {
 }
 
 model event_attendance {
-  user_iduser Int                     @db.UnsignedInt
-  post_idpost Int                     @db.UnsignedInt
-  status      event_attendance_status @default(interested)
-  created_at  DateTime                @default(now()) @db.DateTime(0)
-  post        post                    @relation(fields: [post_idpost], references: [idpost], onUpdate: Restrict, map: "fk_event_post")
-  user        user                    @relation(fields: [user_iduser], references: [iduser], onUpdate: Restrict, map: "fk_event_user")
+  id            Int                     @id @default(autoincrement()) @db.UnsignedInt
+  user_iduser   Int                     @db.UnsignedInt
+  post_idpost   Int                     @db.UnsignedInt
+  post_share_id Int?                    @db.UnsignedInt
+  status        event_attendance_status @default(interested)
+  created_at    DateTime                @default(now()) @db.DateTime(0)
+  post          post                    @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: "fk_event_post")
+  post_share    post_share?             @relation(fields: [post_share_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_event_share")
+  user          user                    @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: "fk_event_user")
 
-  @@id([user_iduser, post_idpost])
+  @@unique([user_iduser, post_idpost, post_share_id], map: "uniq_event_attendance")
   @@index([post_idpost], map: "fk_event_post_idx")
+  @@index([post_share_id], map: "fk_event_share_idx")
 }
 
 model post_share {
-  id          Int         @id @default(autoincrement()) @db.UnsignedInt
-  user_iduser Int         @db.UnsignedInt
-  post_idpost Int         @db.UnsignedInt
-  shared_at   DateTime?   @default(now()) @db.DateTime(0)
-  message     String?     @db.VarChar(500)
-  comment     comment[]
-  post        post        @relation(fields: [post_idpost], references: [idpost], onUpdate: Restrict, map: "fk_share_post")
-  user        user        @relation(fields: [user_iduser], references: [iduser], onUpdate: Restrict, map: "fk_share_user")
-  user_like   user_like[]
+  id               Int                @id @default(autoincrement()) @db.UnsignedInt
+  user_iduser      Int                @db.UnsignedInt
+  post_idpost      Int                @db.UnsignedInt
+  shared_at        DateTime?          @default(now()) @db.DateTime(0)
+  message          String?            @db.VarChar(500)
+  deleted          Boolean?           @default(false)
+  deleted_at       DateTime?          @db.DateTime(0)
+  comment          comment[]
+  event_attendance event_attendance[]
+  post             post               @relation(fields: [post_idpost], references: [idpost], onUpdate: Restrict, map: "fk_share_post")
+  user             user               @relation(fields: [user_iduser], references: [iduser], onUpdate: Restrict, map: "fk_share_user")
+  user_like        user_like[]
 
   @@index([post_idpost], map: "fk_share_post_idx")
   @@index([user_iduser], map: "fk_share_user")

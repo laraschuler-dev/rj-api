@@ -3,7 +3,7 @@ import { PostRepository } from '../../core/repositories/PostRepository';
 import { prisma } from '../../infrastructure/database/prisma/prisma';
 import { SharePostDTO } from '../../core/dtos/SharePostDTO';
 import { CreateCommentDTO } from '../../core/dtos/CreateCommentDTO';
-import { AttendEventDTO } from '../../core/dtos/AttendEventDTO';
+import { AttendEventDTO } from '../../core/dtos/AttendEvent/AttendEventDTO';
 import { GetUserPostsDTO } from '../../core/dtos/GetUserPostsDTO';
 import { UpdatePostDTO } from '../../core/dtos/UpdatePostDTO';
 import { DeletePostImageDTO } from '../../core/dtos/DeletePostImageDTO';
@@ -19,6 +19,8 @@ import { CommentCountDTO } from '../../core/dtos/CommentCountDTO';
 import { PostShareCountDTO } from '../../core/dtos/PostShareCountDTO';
 import { SharedPostDetailsDTO } from '../../core/dtos/SharedPostDetailsDTO';
 import { CommentDetailDTO } from '../../core/dtos/CommentDetailDTO';
+import { AttendanceStatusResponseDTO } from '@/core/dtos/AttendEvent/AttendanceStatusResponseDTO';
+import { GetAttendanceStatusDTO } from '@/core/dtos/AttendEvent/GetAttendanceStatusDTO';
 /**
  * Serviço responsável por gerenciar posts.
  *
@@ -156,8 +158,12 @@ export class PostService {
       await this.repository.likePost(userId, postId, shareId);
     }
 
+    const post = await this.repository.findById(postId);
+    if (!post) throw new Error('Post não encontrado');
+
     if (shareId) {
       const share = await this.repository.findPostShareById(shareId);
+      if (!share) throw new Error('Compartilhamento não encontrado');
 
       return {
         liked: !alreadyLiked,
@@ -179,6 +185,11 @@ export class PostService {
   ): Promise<PostLikeDTO[]> {
     const post = await this.repository.findById(postId);
     if (!post) throw new Error('Post não encontrado');
+
+    if (shareId) {
+      const share = await this.repository.findPostShareById(shareId);
+      if (!share) throw new Error('Compartilhamento não encontrado');
+    }
 
     return this.repository.findLikesByPost(postId, shareId);
   }
@@ -246,7 +257,7 @@ export class PostService {
 
     // Validação do compartilhamento (se aplicável)
     if (shareId) {
-      const share = await this.repository.findShareById(shareId);
+      const share = await this.repository.findPostShareById(shareId);
       if (!share) throw new Error('Compartilhamento não encontrado');
     }
 
@@ -265,33 +276,56 @@ export class PostService {
     return { uniqueKey };
   }
 
-  // service
-async getCommentsByPostId(postId: number, postShareId?: number) {
-  return this.repository.findCommentsByPostId(postId, postShareId);
-}
+  async getCommentsByPostId(postId: number, postShareId?: number) {
+    const post = await this.repository.findById(postId);
+    if (!post) {
+      throw new Error('Post não encontrado');
+    }
 
+    if (postShareId) {
+      const share = await this.repository.findPostShareById(postShareId);
+      if (!share) throw new Error('Compartilhamento não encontrado');
+    }
+    return this.repository.findCommentsByPostId(postId, postShareId);
+  }
 
   async getSingleComment(commentId: number): Promise<CommentDetailDTO | null> {
     return this.repository.getSingleComment(commentId);
   }
 
-  async getCommentCount(postId: number): Promise<CommentCountDTO> {
+  async getCommentCount(
+    postId: number,
+    postShareId?: number
+  ): Promise<CommentCountDTO> {
     const post = await this.repository.findById(postId);
     if (!post) {
-      throw new Error('Post não encontrado');
+      throw new Error('Post original não encontrado');
     }
-    const count = await this.repository.countCommentsByPostId(postId);
+
+    // se for um compartilhamento, validar se ele também existe
+    if (postShareId) {
+      const shareExists = await this.repository.findPostShareById(postShareId);
+      if (!shareExists) {
+        throw new Error('Compartilhamento não encontrado');
+      }
+    }
+
+    const count = await this.repository.countCommentsByPostId(
+      postId,
+      postShareId
+    );
     return CommentCountDTO.fromResult(postId, count);
   }
 
   async attendEvent(
     data: AttendEventDTO
   ): Promise<'interested' | 'confirmed' | 'removed'> {
-    const post = await this.repository.findById(data.postId);
+    // converte null para undefined para evitar erro TS
+    const postShareId =
+      data.postShareId === null ? undefined : data.postShareId;
 
-    if (!post) {
-      throw new Error('Post não encontrado');
-    }
+    const post = await this.repository.findById(data.postId);
+    if (!post) throw new Error('Post não encontrado');
 
     const category = await this.repository.findCategoryById(
       post.categoria_idcategoria
@@ -304,16 +338,32 @@ async getCommentsByPostId(postId: number, postShareId?: number) {
 
     const currentAttendance = await this.repository.findAttendance(
       data.postId,
-      data.userId
+      data.userId,
+      postShareId // usa a variável declarada
     );
 
     if (currentAttendance?.status === data.status) {
-      await this.repository.removeAttendance(data.postId, data.userId);
+      await this.repository.removeAttendance(
+        data.postId,
+        data.userId,
+        postShareId // idem aqui
+      );
       return 'removed';
     }
 
-    await this.repository.attendEvent(data);
+    await this.repository.attendEvent({
+      ...data,
+      postShareId, // idem aqui
+    });
+
     return data.status;
+  }
+
+  async getAttendanceStatus(
+    data: GetAttendanceStatusDTO
+  ): Promise<AttendanceStatusResponseDTO> {
+    const { postId, postShareId, userId } = data;
+    return this.repository.getAttendanceStatus({ postId, postShareId, userId });
   }
 
   async getPostsByUser({ userId, page = 1, limit = 10 }: GetUserPostsDTO) {
@@ -408,17 +458,26 @@ async getCommentsByPostId(postId: number, postShareId?: number) {
   }
 
   async updateComment(data: UpdateCommentDTO): Promise<void> {
-    const { postId, commentId, userId, content } = data;
+    const { postId, postShareId, commentId, userId, content } = data;
 
     if (!content || content.trim().length === 0) {
       throw new Error('O conteúdo do comentário não pode estar vazio.');
     }
 
-    const comment: PrismaComment | null =
-      await this.repository.findCommentById(commentId);
+    const comment = await this.repository.findCommentById(commentId);
 
-    if (!comment || comment.post_idpost !== postId) {
+    if (!comment) {
       throw new Error('Comentário não encontrado.');
+    }
+
+    const isCommentLinkedToCorrectPost =
+      (postShareId && comment.post_share_id === postShareId) ||
+      (!postShareId && comment.post_idpost === postId);
+
+    if (!isCommentLinkedToCorrectPost) {
+      throw new Error(
+        'Comentário não encontrado para este post ou compartilhamento.'
+      );
     }
 
     if (comment.user_iduser !== userId) {
@@ -429,10 +488,9 @@ async getCommentsByPostId(postId: number, postShareId?: number) {
   }
 
   async deleteComment(data: DeleteCommentDTO): Promise<void> {
-    const { commentId, postId } = data;
+    const { commentId, postId, postShareId } = data;
 
-    // Verificação adicional para garantir que postId existe
-    if (postId === undefined) {
+    if (!postId) {
       throw new Error('ID do post não fornecido');
     }
 
@@ -442,8 +500,27 @@ async getCommentsByPostId(postId: number, postShareId?: number) {
       throw new Error('Comentário não encontrado.');
     }
 
+    if (comment.user_iduser !== data.userId) {
+      throw new Error('Ação não permitida');
+    }
+
     if (Number(comment.post_idpost) !== Number(postId)) {
       throw new Error('Comentário não pertence ao post especificado.');
+    }
+
+    // Se postShareId for fornecido, verificar se o comentário pertence a ele
+    if (postShareId !== undefined) {
+      if (Number(comment.post_share_id) !== Number(postShareId)) {
+        throw new Error(
+          'Comentário não pertence ao compartilhamento especificado.'
+        );
+      }
+
+      // Validar se o compartilhamento existe
+      const share = await this.repository.findPostShareById(postShareId);
+      if (!share) {
+        throw new Error('Compartilhamento não encontrado.');
+      }
     }
 
     await this.repository.softDeleteComment(commentId);

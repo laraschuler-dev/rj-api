@@ -496,17 +496,23 @@ postRoutes.get('/:id/shares/count', postController.getShareCount);
 
 /**
  * @swagger
- * /posts/{id}/comments/count:
+ * /posts/{postId}/comments/count:
  *   get:
- *     summary: Retorna a quantidade de comentários de um post
+ *     summary: Retorna a quantidade de comentários de um post (original ou compartilhado)
  *     tags: [Posts]
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: postId
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID do post
+ *         description: ID do post original
+ *       - in: query
+ *         name: postShareId
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: ID do compartilhamento (opcional)
  *     responses:
  *       200:
  *         description: Quantidade de comentários retornada com sucesso
@@ -515,14 +521,17 @@ postRoutes.get('/:id/shares/count', postController.getShareCount);
  *             schema:
  *               type: object
  *               properties:
- *                 count:
+ *                 postId:
  *                   type: integer
+ *                 totalComments:
+ *                   type: integer
+ *       400:
+ *         description: Erro nos parâmetros
  *       404:
- *         description: Post não encontrado
- *       500:
- *         description: Erro interno do servidor
+ *         description: Post ou compartilhamento não encontrado
  */
-postRoutes.get('/:id/comments/count', postController.getCommentCount);
+postRoutes.get('/:postId/comments/count', postController.getCommentCount);
+
 /**
  * @swagger
  * /posts/{id}/comment:
@@ -585,7 +594,6 @@ postRoutes.post(
   postController.commentPost
 );
 
-
 /**
  * @swagger
  * /posts/{postId}/comments/{commentId}:
@@ -638,7 +646,7 @@ postRoutes.put(
  * /posts/{postId}/comments/{commentId}:
  *   delete:
  *     summary: Exclui logicamente um comentário
- *     description: Marca um comentário como excluído sem removê-lo fisicamente do banco de dados
+ *     description: Marca um comentário como excluído sem removê-lo fisicamente do banco de dados. Caso o comentário pertença a um post compartilhado, informe o campo postShareId como parâmetro de query.
  *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
@@ -648,25 +656,19 @@ postRoutes.put(
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID do post ao qual o comentário pertence
+ *         description: ID do post original ao qual o comentário pertence
  *       - in: path
  *         name: commentId
  *         required: true
  *         schema:
  *           type: integer
  *         description: ID do comentário a ser excluído
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               userId:
- *                 type: integer
- *                 description: ID do usuário que está realizando a ação
- *             required:
- *               - userId
+ *       - in: query
+ *         name: postShareId
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: ID do compartilhamento (caso o comentário pertença a um post compartilhado)
  *     responses:
  *       200:
  *         description: Comentário marcado como excluído com sucesso
@@ -675,8 +677,6 @@ postRoutes.put(
  *             schema:
  *               type: object
  *               properties:
- *                 success:
- *                   type: boolean
  *                 message:
  *                   type: string
  *       400:
@@ -695,125 +695,115 @@ postRoutes.delete(
 );
 
 /**
-* @swagger
-* /posts/{id}/comments:
-*  get:
-*    summary: Lista os comentários de um post ou compartilhamento
-*    tags:
-*      - Posts
-*    parameters:
-*      - in: path
-*        name: id
-*        required: true
-*        schema:
-*          type: integer
-*        description: ID do post original
-*      - in: query
-*        name: postShareId
-*        required: false
-*        schema:
-*          type: integer
-*        description: ID do compartilhamento (caso os comentários sejam de um post compartilhado)
-*    responses:
-*      '200':
-*        description: Lista de comentários
-*        content:
-*          application/json:
-*            schema:
-*              type: object
-*              properties:
-*                data:
-*                  type: array
-*                  items:
-*                    type: object
-*                    properties:
-*                      id:
-*                        type: integer
-*                      comment:
-*                        type: string
-*                      createdAt:
-*                        type: string
-*                        format: date-time
-*                      author:
-*                        type: object
-*                        properties:
-*                          id:
-*                            type: integer
-*                          name:
-*                            type: string
-*                          avatarUrl:
-*                            type: string
-*                            nullable: true
-*      '400':
-*        description: Parâmetros inválidos
-*      '500':
-*        description: Erro interno do servidor
-*/
-postRoutes.get(
-  '/:id/comments',
-  postController.listComments
-);
+ * @swagger
+ * /posts/{postId}/comments/{commentId}:
+ *   put:
+ *     summary: Editar um comentário
+ *     tags:
+ *       - Posts
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: postId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: postShareId
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: ID do compartilhamento, caso o comentário pertença a um post compartilhado
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 example: "Atualizei meu comentário anterior"
+ *     responses:
+ *       200:
+ *         description: Comentário atualizado com sucesso
+ *       400:
+ *         description: Requisição inválida
+ *       401:
+ *         description: Não autenticado
+ *       403:
+ *         description: Ação não permitida
+ *       404:
+ *         description: Comentário não encontrado
+ */
+postRoutes.get('/:id/comments', postController.listComments);
 
 /**
-* @swagger
-* /posts/comments/{id}:
-*  get:
-*    summary: Buscar um comentário por ID (de post ou compartilhamento)
-*    tags:
-*      - Posts
-*    parameters:
-*      - in: path
-*        name: id
-*        required: true
-*        schema:
-*          type: integer
-*        description: ID do comentário
-*    responses:
-*      '200':
-*        description: Comentário encontrado
-*        content:
-*          application/json:
-*            schema:
-*              type: object
-*              properties:
-*                id:
-*                  type: integer
-*                content:
-*                  type: string
-*                createdAt:
-*                  type: string
-*                  format: date-time
-*                uniqueKey:
-*                  type: string
-*                  description: >
-*                    Identificador único do comentário, com base no tipo (post ou compartilhamento).
-*                    Formatos possíveis:
-*                    - post:{userId}:{postId}:{timestamp}
-*                    - shared:{sharerId}:{postId}:{timestamp}
-*                author:
-*                  type: object
-*                  properties:
-*                    id:
-*                      type: integer
-*                    name:
-*                      type: string
-*                    avatarUrl:
-*                      type: string
-*                      nullable: true
-*      '400':
-*        description: ID inválido
-*      '404':
-*        description: Comentário não encontrado
-*      '500':
-*        description: Erro interno do servidor
-*/
+ * @swagger
+ * /posts/comments/{id}:
+ *  get:
+ *    summary: Buscar um comentário por ID (de post ou compartilhamento)
+ *    tags:
+ *      - Posts
+ *    parameters:
+ *      - in: path
+ *        name: id
+ *        required: true
+ *        schema:
+ *          type: integer
+ *        description: ID do comentário
+ *    responses:
+ *      '200':
+ *        description: Comentário encontrado
+ *        content:
+ *          application/json:
+ *            schema:
+ *              type: object
+ *              properties:
+ *                id:
+ *                  type: integer
+ *                content:
+ *                  type: string
+ *                createdAt:
+ *                  type: string
+ *                  format: date-time
+ *                uniqueKey:
+ *                  type: string
+ *                  description: >
+ *                    Identificador único do comentário, com base no tipo (post ou compartilhamento).
+ *                    Formatos possíveis:
+ *                    - post:{userId}:{postId}:{timestamp}
+ *                    - shared:{sharerId}:{postId}:{timestamp}
+ *                author:
+ *                  type: object
+ *                  properties:
+ *                    id:
+ *                      type: integer
+ *                    name:
+ *                      type: string
+ *                    avatarUrl:
+ *                      type: string
+ *                      nullable: true
+ *      '400':
+ *        description: ID inválido
+ *      '404':
+ *        description: Comentário não encontrado
+ *      '500':
+ *        description: Erro interno do servidor
+ */
 postRoutes.get('/comments/:id', postController.getSingleComment);
 
 /**
  * @swagger
  * /posts/{id}/attend:
  *   post:
- *     summary: Marcar presença/interesse em evento
+ *     summary: Marcar interesse ou presença em um evento
  *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
@@ -823,31 +813,69 @@ postRoutes.get('/comments/:id', postController.getSingleComment);
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID do post
+ *         description: ID do post original
+ *       - in: query
+ *         name: postShareId
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: ID do post compartilhado (caso esteja marcando presença em um compartilhamento)
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - status
  *             properties:
  *               status:
  *                 type: string
  *                 enum: [interested, confirmed]
- *                 description: Tipo de presença no evento
+ *                 description: Tipo de interesse/presença
  *     responses:
- *       201:
+ *       200:
  *         description: Presença registrada com sucesso
- *       400:
- *         description: Status inválido
- *       401:
- *         description: Não autenticado
- *       404:
- *         description: Post não encontrado
  */
 postRoutes.post('/:id/attend', ensureAuthenticated, postController.attendEvent);
+
+/**
+ * @swagger
+ * /posts/{id}/attend-status:
+ *   get:
+ *     summary: Ver status de presença/interesse em um evento
+ *     tags: [Posts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do post original
+ *       - in: query
+ *         name: postShareId
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: ID do post compartilhado (opcional)
+ *     responses:
+ *       200:
+ *         description: Status de presença retornado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 userStatus:
+ *                   type: string
+ *                   enum: [interested, confirmed, null]
+ *                 interestedCount:
+ *                   type: integer
+ *                 confirmedCount:
+ *                   type: integer
+ */
+postRoutes.get('/:id/attend-status', ensureAuthenticated, postController.getAttendanceStatus);
+
 
 /**
  * @swagger

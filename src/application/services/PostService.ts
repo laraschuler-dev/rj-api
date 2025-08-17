@@ -116,14 +116,30 @@ export class PostService {
     };
   }
 
-  async getSharedPostDetails(shareId: number, userId: number) {
-    const shared = await this.repository.getSharedPostByIdWithDetails(shareId);
-
-    if (!shared || shared.deleted) {
-      return null;
-    }
-    return SharedPostDetailsDTO.fromPrisma(shared, userId);
+  async getSharedPostDetails(shareId: number, userId: number, postId: number) {
+  // Valida existência do post
+  const post = await this.repository.findById(postId);
+  if (!post) {
+    return null; // Ou lance erro de post não encontrado
   }
+
+  // Valida existência do compartilhamento
+  const share = await this.repository.findPostShareById(shareId);
+  if (!share || share.post_idpost !== postId) {
+    // post_idpost deve existir no model post_share
+    return null; // Compartilhamento não encontrado ou não pertence ao post
+  }
+
+  // Agora busca os detalhes para montar o DTO completo
+  const sharedDetails = await this.repository.getSharedPostByIdWithDetails(shareId);
+
+  if (!sharedDetails) {
+    return null;
+  }
+
+  return SharedPostDetailsDTO.fromPrisma(sharedDetails, userId);
+}
+
 
   async getPostByIdWithDetails(id: number) {
     const post = await this.repository.getPostByIdWithDetails(id);

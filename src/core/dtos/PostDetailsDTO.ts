@@ -1,7 +1,9 @@
+import { generateUniqueKey } from '../utils/generateUniqueKey';
+
 export class PostDetailsDTO {
   static fromPrisma(post: any, userId: number) {
     return {
-      uniqueKey: `post:${post.idpost}`,
+      uniqueKey: generateUniqueKey({ id: post.idpost }),
       id: post.idpost,
       content: post.content,
       createdAt: post.time,

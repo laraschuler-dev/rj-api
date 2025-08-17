@@ -96,55 +96,66 @@ export class PostRepositoryPrisma implements PostRepository {
     );
   }
 
-  async findManyPaginated(page: number, limit: number, userId?: number) {
+  private async findFeedItemIdsPaginated(
+    page: number,
+    limit: number
+  ): Promise<
+    {
+      type: 'post' | 'share';
+      id: number;
+      timestamp: Date;
+    }[]
+  > {
     const skip = (page - 1) * limit;
 
-    const [posts, shares, totalPosts, totalShares] = await Promise.all([
-      prisma.post.findMany({
-        skip,
-        take: limit,
-        orderBy: { time: 'desc' },
-        where: { deleted: false },
-        include: {
-          user: { include: { user_profile: true } },
-          image: true,
-          category: true,
-          user_like: userId
-            ? {
-                where: { user_iduser: userId },
-                select: { user_iduser: true },
-              }
-            : false,
-        },
-      }),
+    const result = await prisma.$queryRaw<
+      {
+        type: 'post' | 'share';
+        id: number;
+        timestamp: Date;
+      }[]
+    >`
+    SELECT * FROM (
+      SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
+      FROM post p
+      WHERE p.deleted = false
 
-      prisma.post_share.findMany({
-        skip,
-        take: limit,
-        orderBy: { shared_at: 'desc' },
-        include: {
-          user: { include: { user_profile: true } },
-          post: {
-            include: {
-              user: { include: { user_profile: true } },
-              image: true,
-              category: true,
-              user_like: userId
-                ? {
-                    where: { user_iduser: userId },
-                    select: { user_iduser: true },
-                  }
-                : false,
-            },
-          },
-        },
-      }),
+      UNION ALL
 
-      prisma.post.count({ where: { deleted: false } }),
-      prisma.post_share.count(),
-    ]);
+      SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
+      FROM post_share ps
+    ) AS combined_feed
+    ORDER BY timestamp DESC
+    LIMIT ${limit} OFFSET ${skip};
+  `;
 
-    const normalizedPosts = posts.map((post) => {
+    console.log(result);
+
+    return result;
+  }
+
+  private async findPostsByIds(
+    ids: number[],
+    userId?: number
+  ): Promise<Post[]> {
+    if (ids.length === 0) return [];
+
+    const posts = await prisma.post.findMany({
+      where: { idpost: { in: ids }, deleted: false },
+      include: {
+        user: { include: { user_profile: true } },
+        image: true,
+        category: true,
+        user_like: userId
+          ? {
+              where: { user_iduser: userId },
+              select: { user_iduser: true },
+            }
+          : false,
+      },
+    });
+
+    return posts.map((post) => {
       const images = post.image.map((img) => img.image);
       const liked = userId ? post.user_like.length > 0 : false;
 
@@ -160,15 +171,42 @@ export class PostRepositoryPrisma implements PostRepository {
         liked
       );
     });
+  }
 
-    const sharedPosts = shares.map((share) => {
+  private async findSharesByIds(
+    ids: number[],
+    userId?: number
+  ): Promise<Post[]> {
+    if (ids.length === 0) return [];
+
+    const shares = await prisma.post_share.findMany({
+      where: { id: { in: ids } },
+      include: {
+        user: { include: { user_profile: true } },
+        post: {
+          include: {
+            user: { include: { user_profile: true } },
+            image: true,
+            category: true,
+            user_like: userId
+              ? {
+                  where: { user_iduser: userId },
+                  select: { user_iduser: true },
+                }
+              : false,
+          },
+        },
+      },
+    });
+
+    return shares.map((share) => {
       const p = share.post;
       const images = p.image.map((img) => img.image);
       const liked = userId ? p.user_like.length > 0 : false;
       const avatarUrl = share.user.user_profile?.profile_photo ?? undefined;
 
       return new Post(
-        p.idpost,
+        share.id,
         p.content,
         p.categoria_idcategoria,
         p.user_iduser,
@@ -179,35 +217,89 @@ export class PostRepositoryPrisma implements PostRepository {
         liked,
         {
           id: share.user_iduser,
+          shareId: share.id,
+          postId: p.idpost,
           name: share.user.name,
           avatarUrl: avatarUrl,
           message: share.message || undefined,
-          sharedAt: share.shared_at ? new Date(share.shared_at) : new Date(), // Manter como Date
+          sharedAt: share.shared_at ? new Date(share.shared_at) : new Date(),
         }
       );
     });
+  }
 
-    const allPosts = [...normalizedPosts, ...sharedPosts]
-      .filter(
-        (post, index, self) =>
-          index ===
-          self.findIndex(
-            (p) =>
-              p.id === post.id &&
-              (!p.sharedBy ||
-                p.sharedBy.sharedAt.getTime() ===
-                  post.sharedBy?.sharedAt.getTime())
-          )
-      )
-      .sort((a, b) => {
-        const timeA = a.sharedBy?.sharedAt || a.createdAt;
-        const timeB = b.sharedBy?.sharedAt || b.createdAt;
-        return timeB.getTime() - timeA.getTime();
-      });
+  async findManyPaginated(
+    page: number,
+    limit: number,
+    userId?: number
+  ): Promise<{
+    posts: Post[];
+    total: number;
+    currentPage: number;
+    limit: number;
+    totalPages: number;
+    hasNext: boolean;
+  }> {
+    const feedItems = await this.findFeedItemIdsPaginated(page, limit);
+
+    const feedItemsSafe = feedItems.map((item) => ({
+      ...item,
+      id: typeof item.id === 'bigint' ? Number(item.id) : item.id,
+    }));
+
+    const postIds = feedItemsSafe
+      .filter((item) => item.type === 'post')
+      .map((item) => item.id);
+
+    const shareIds = feedItemsSafe
+      .filter((item) => item.type === 'share')
+      .map((item) => item.id);
+
+    console.log('postIds:', postIds);
+    console.log('shareIds:', shareIds);
+
+    const [posts, shares] = await Promise.all([
+      this.findPostsByIds(postIds, userId),
+      this.findSharesByIds(shareIds, userId),
+    ]);
+
+    console.log('postIds:', postIds);
+    console.log('shareIds:', shareIds);
+
+    const postsMap = new Map<number, Post>();
+    posts.forEach((p) => postsMap.set(p.id!, p));
+
+    const sharesMap = new Map<number, Post>();
+    shares.forEach((s) => sharesMap.set(s.id!, s));
+
+    const allPostsWithUndefined = feedItemsSafe.map((item) => {
+      if (item.type === 'post') {
+        return postsMap.get(item.id);
+      } else {
+        return sharesMap.get(item.id);
+      }
+    });
+
+    // Filtra undefined garantindo o tipo Post[]
+    const filteredPosts: Post[] = allPostsWithUndefined.filter(
+      (post): post is Post =>
+        post !== undefined &&
+        post.id !== null &&
+        typeof post.user_iduser === 'number'
+    );
+
+    const [totalPosts, totalShares] = await Promise.all([
+      prisma.post.count({ where: { deleted: false } }),
+      prisma.post_share.count(),
+    ]);
 
     return {
-      posts: allPosts,
+      posts: filteredPosts,
       total: totalPosts + totalShares,
+      currentPage: page,
+      limit,
+      totalPages: Math.ceil((totalPosts + totalShares) / limit),
+      hasNext: page * limit < totalPosts + totalShares,
     };
   }
 
@@ -254,7 +346,7 @@ export class PostRepositoryPrisma implements PostRepository {
       prisma.event_attendance.findMany({
         where: {
           post_idpost: originalPostId,
-          //post_share_id: shareId,
+          post_share_id: shareId,
         },
       }),
     ]);
@@ -264,6 +356,8 @@ export class PostRepositoryPrisma implements PostRepository {
     post.user.avatarUrl = shared.post.user.user_profile?.profile_photo ?? null;
 
     post.sharedBy = {
+      shareId: shared.id,
+      postId: shared.post.idpost,
       id: shared.user.iduser,
       name: shared.user.name,
       avatarUrl: shared.user.user_profile?.profile_photo ?? null,
@@ -300,19 +394,20 @@ export class PostRepositoryPrisma implements PostRepository {
       prisma.user_like.findMany({
         where: {
           post_idpost: postId,
-          post_share_id: null, // Curtidas feitas no post original
+          post_share_id: null,
         },
       }),
       prisma.comment.findMany({
         where: {
           post_idpost: postId,
-          post_share_id: null, // Comentários feitos no post original
+          post_share_id: null,
           deleted: false,
         },
       }),
       prisma.event_attendance.findMany({
         where: {
           post_idpost: postId,
+          post_share_id: null,
         },
       }),
     ]);
@@ -598,54 +693,81 @@ export class PostRepositoryPrisma implements PostRepository {
 
     return count;
   }
-  
- async attendEvent(data: AttendEventDTO): Promise<void> {
-  const isShared = data.postShareId !== undefined && data.postShareId !== null;
 
-  const existing = isShared
-    ? await prisma.event_attendance.findUnique({
-        where: {
-          user_iduser_post_idpost_post_share_id: {
+  async attendEvent(data: AttendEventDTO): Promise<void> {
+    const isShared =
+      data.postShareId !== undefined && data.postShareId !== null;
+
+    const existing = isShared
+      ? await prisma.event_attendance.findUnique({
+          where: {
+            user_iduser_post_idpost_post_share_id: {
+              user_iduser: data.userId,
+              post_idpost: data.postId,
+              post_share_id: data.postShareId!,
+            },
+          },
+        })
+      : await prisma.event_attendance.findFirst({
+          where: {
             user_iduser: data.userId,
             post_idpost: data.postId,
-            post_share_id: data.postShareId!,
+            post_share_id: null,
           },
-        },
-      })
-    : await prisma.event_attendance.findFirst({
-        where: {
+        });
+
+    if (existing) {
+      await prisma.event_attendance.update({
+        where: { id: existing.id },
+        data: { status: data.status },
+      });
+    } else {
+      await prisma.event_attendance.create({
+        data: {
           user_iduser: data.userId,
           post_idpost: data.postId,
-          post_share_id: null,
+          post_share_id: isShared ? data.postShareId! : null,
+          status: data.status,
         },
       });
-
-  if (existing) {
-    await prisma.event_attendance.update({
-      where: { id: existing.id },
-      data: { status: data.status },
-    });
-  } else {
-    await prisma.event_attendance.create({
-      data: {
-        user_iduser: data.userId,
-        post_idpost: data.postId,
-        post_share_id: isShared ? data.postShareId! : null,
-        status: data.status,
-      },
-    });
+    }
   }
-}
 
-async findAttendance(
-  postId: number,
-  userId: number,
-  postShareId?: number | null
-) {
-  const isShared = postShareId !== undefined && postShareId !== null;
+  async findAttendance(
+    postId: number,
+    userId: number,
+    postShareId?: number | null
+  ) {
+    const isShared = postShareId !== undefined && postShareId !== null;
 
-  return isShared
-    ? prisma.event_attendance.findUnique({
+    return isShared
+      ? prisma.event_attendance.findUnique({
+          where: {
+            user_iduser_post_idpost_post_share_id: {
+              user_iduser: userId,
+              post_idpost: postId,
+              post_share_id: postShareId!,
+            },
+          },
+        })
+      : prisma.event_attendance.findFirst({
+          where: {
+            user_iduser: userId,
+            post_idpost: postId,
+            post_share_id: null,
+          },
+        });
+  }
+
+  async removeAttendance(
+    postId: number,
+    userId: number,
+    postShareId?: number | null
+  ) {
+    const isShared = postShareId !== undefined && postShareId !== null;
+
+    if (isShared) {
+      await prisma.event_attendance.delete({
         where: {
           user_iduser_post_idpost_post_share_id: {
             user_iduser: userId,
@@ -653,76 +775,50 @@ async findAttendance(
             post_share_id: postShareId!,
           },
         },
-      })
-    : prisma.event_attendance.findFirst({
+      });
+    } else {
+      await prisma.event_attendance.deleteMany({
         where: {
           user_iduser: userId,
           post_idpost: postId,
           post_share_id: null,
         },
       });
-}
-
-async removeAttendance(
-  postId: number,
-  userId: number,
-  postShareId?: number | null
-) {
-  const isShared = postShareId !== undefined && postShareId !== null;
-
-  if (isShared) {
-    await prisma.event_attendance.delete({
-      where: {
-        user_iduser_post_idpost_post_share_id: {
-          user_iduser: userId,
-          post_idpost: postId,
-          post_share_id: postShareId!,
-        },
-      },
-    });
-  } else {
-    await prisma.event_attendance.deleteMany({
-      where: {
-        user_iduser: userId,
-        post_idpost: postId,
-        post_share_id: null,
-      },
-    });
+    }
   }
-}
 
-async getAttendanceStatus({
-  postId,
-  postShareId,
-  userId,
-}: GetAttendanceStatusDTO): Promise<AttendanceStatusResponseDTO> {
-  const whereBase = {
-    post_idpost: postId,
-    post_share_id: postShareId ?? null,
-  };
+  async getAttendanceStatus({
+    postId,
+    postShareId,
+    userId,
+  }: GetAttendanceStatusDTO): Promise<AttendanceStatusResponseDTO> {
+    const whereBase = {
+      post_idpost: postId,
+      post_share_id: postShareId ?? null,
+    };
 
-  const [userRecord, interestedCount, confirmedCount] = await Promise.all([
-    prisma.event_attendance.findFirst({
-      where: {
-        ...whereBase,
-        user_iduser: userId,
-      },
-      select: { status: true },
-    }),
-    prisma.event_attendance.count({
-      where: { ...whereBase, status: "interested" },
-    }),
-    prisma.event_attendance.count({
-      where: { ...whereBase, status: "confirmed" },
-    }),
-  ]);
+    const [userRecord, interestedCount, confirmedCount] = await Promise.all([
+      prisma.event_attendance.findFirst({
+        where: {
+          ...whereBase,
+          user_iduser: userId,
+        },
+        select: { status: true },
+      }),
+      prisma.event_attendance.count({
+        where: { ...whereBase, status: 'interested' },
+      }),
+      prisma.event_attendance.count({
+        where: { ...whereBase, status: 'confirmed' },
+      }),
+    ]);
 
-  return {
-    userStatus: userRecord?.status ?? null,
-    interestedCount,
-    confirmedCount,
-  };
-}
+    return {
+      userStatus: userRecord?.status ?? null,
+      interestedCount,
+      confirmedCount,
+    };
+  }
 
   async findCategoryById(id: number): Promise<{
     idcategory: number;

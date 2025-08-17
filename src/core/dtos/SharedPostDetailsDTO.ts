@@ -1,3 +1,5 @@
+import { generateUniqueKey } from "../utils/generateUniqueKey";
+
 export class SharedPostDetailsDTO {
   static fromPrisma(data: any, userId: number) {
     if (!data || !data.idpost || !data.sharedBy) {
@@ -10,7 +12,10 @@ export class SharedPostDetailsDTO {
         : data.metadata;
 
     return {
-      uniqueKey: `shared:${data.sharedBy.id}:${data.idpost}:${new Date(data.sharedBy.sharedAt).getTime()}`,
+      uniqueKey: generateUniqueKey({
+        id: data.idpost,
+        sharedBy: data.sharedBy,
+      }),
       id: data.idpost,
       content: data.content,
       createdAt: data.time,
@@ -46,6 +51,8 @@ export class SharedPostDetailsDTO {
         (a: { user_iduser: number }) => a.user_iduser === userId
       ),
       sharedBy: {
+        shareId: data.sharedBy.shareId,
+        postId: data.sharedBy.postId,
         id: data.sharedBy.id,
         name: data.sharedBy.name,
         avatarUrl: data.sharedBy.avatarUrl ?? null,

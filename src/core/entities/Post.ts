@@ -123,7 +123,9 @@ export class Post {
     public readonly avatarUrl?: string | null,
     public readonly liked?: boolean,
     public readonly sharedBy?: {
-      id: number; // Mudar de userId para id
+      shareId: number; // ID do compartilhamento (share)
+      postId: number; // ID do post original
+      id: number;
       name: string; // Mudar de userName para name
       avatarUrl?: string | null;
       message?: string;

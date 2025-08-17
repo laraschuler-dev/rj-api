@@ -98,10 +98,11 @@ export class PostUseCases {
     return PostDetailsDTO.fromPrisma(post, userId);
   }
 
-  async getSharedPostById(shareId: number, userId: number) {
+  async getSharedPostById(shareId: number, userId: number, postId: number) {
     const sharedData = await this.postService.getSharedPostDetails(
       shareId,
-      userId
+      userId,
+      postId
     );
 
     if (!sharedData) {
@@ -109,9 +110,6 @@ export class PostUseCases {
     }
 
     return sharedData;
-  }
-  getPostByIdWithDetails(id: number) {
-    return this.postService.getPostByIdWithDetails(id);
   }
 
   async deletePost(data: DeletePostDTO): Promise<void> {

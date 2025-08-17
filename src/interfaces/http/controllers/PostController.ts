@@ -151,6 +151,7 @@ export class PostController {
       });
     } catch (err) {
       res.status(500).json({ error: 'Erro ao listar posts' });
+      console.log('Erro:', err);
     }
   }
 
@@ -166,10 +167,10 @@ export class PostController {
       }
 
       if (shareId) {
-        // Se shareId existir, busca post compartilhado pelo id do compartilhamento
         const sharedPost = await this.postUseCases.getSharedPostById(
           shareId,
-          userId
+          userId,
+          postId
         );
 
         if (!sharedPost) {

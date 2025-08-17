@@ -17,6 +17,8 @@ export class PostListItemDTO {
     public readonly createdAt: string,
     public readonly liked: boolean,
     public readonly sharedBy?: {
+      shareId: number;
+      postId: number;
       id: number;
       name: string;
       avatarUrl?: string;
@@ -25,7 +27,6 @@ export class PostListItemDTO {
     }
   ) {}
 
-  // PostListItemDTO.ts
   static fromDomain(post: Post, user: User, images: string[]): PostListItemDTO {
     return new PostListItemDTO(
       post.getUniqueIdentifier(),
@@ -43,11 +44,13 @@ export class PostListItemDTO {
       post.liked || false,
       post.sharedBy
         ? {
+            shareId: post.sharedBy.shareId,
+            postId: post.sharedBy.postId,
             id: post.sharedBy.id,
             name: post.sharedBy.name,
             avatarUrl: post.sharedBy.avatarUrl || undefined,
             message: post.sharedBy.message,
-            sharedAt: post.sharedBy.sharedAt.toISOString(), // Converter para string aqui
+            sharedAt: post.sharedBy.sharedAt.toISOString(),
           }
         : undefined
     );

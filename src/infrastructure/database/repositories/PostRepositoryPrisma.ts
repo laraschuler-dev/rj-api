@@ -890,6 +890,13 @@ export class PostRepositoryPrisma implements PostRepository {
     }
   }
 
+  async updateShare(shareId: number, data: { message: string }): Promise<void> {
+    await prisma.post_share.update({
+      where: { id: shareId },
+      data: { message: data.message },
+    });
+  }
+
   async findImageOwner(
     imageId: number
   ): Promise<{ userId: number; postId: number } | null> {

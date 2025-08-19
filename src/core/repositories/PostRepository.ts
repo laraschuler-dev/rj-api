@@ -129,6 +129,8 @@ export interface PostRepository {
 
   update(postId: number, data: Partial<Post>): Promise<void>;
 
+  updateShare(shareId: number, data: { message: string }): Promise<void>;
+
   deleteImage(postId: number, imageId: number): Promise<void>;
 
   findImageOwner(imageId: number): Promise<{

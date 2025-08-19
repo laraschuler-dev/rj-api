@@ -147,7 +147,12 @@ export class Post {
    */
   getUniqueIdentifier(): string {
     if (this.sharedBy) {
-      return `shared:${this.sharedBy.id}:${this.id}:${this.sharedBy.sharedAt.getTime()}`;
+      const timestamp =
+        this.sharedBy.sharedAt instanceof Date
+          ? this.sharedBy.sharedAt.getTime()
+          : new Date(this.sharedBy.sharedAt).getTime();
+
+      return `shared:${this.sharedBy.id}:${this.id}:${timestamp}`;
     }
     return `post:${this.id}`;
   }

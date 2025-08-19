@@ -1,7 +1,9 @@
 export interface UpdatePostDTO {
-  postId: number;
+  postId?: number;
+  shareId?: number;
   userId: number;
   content?: string;
+  message?: string;
   metadata?: Record<string, any>;
-  images?: string[]; // ✅ necessário para atualização
+  images?: string[];
 }

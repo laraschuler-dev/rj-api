@@ -545,6 +545,7 @@ export class PostController {
     try {
       const userId = req.user?.id;
       const postId = Number(req.params.id);
+      const shareId = req.query.shareId ? Number(req.query.shareId) : undefined;
 
       if (!userId) {
         res.status(401).json({ error: 'Não autenticado' });
@@ -560,14 +561,19 @@ export class PostController {
       const imageFilenames = imageFiles?.map((file) => file.filename) || [];
 
       await this.postUseCases.updatePost({
-        postId,
+        postId: shareId ? undefined : postId,
+        shareId,
         userId,
         content,
         metadata,
-        images: imageFilenames.length > 0 ? imageFilenames : undefined, // só envia se tiver imagens
+        images: imageFilenames.length > 0 ? imageFilenames : undefined,
       });
 
-      res.status(200).json({ message: 'Post atualizado com sucesso' });
+      res.status(200).json({
+        message: shareId
+          ? 'Compartilhamento atualizado com sucesso'
+          : 'Post atualizado com sucesso',
+      });
     } catch (error: any) {
       console.error('Erro ao atualizar post:', error);
       res.status(400).json({ error: error.message });

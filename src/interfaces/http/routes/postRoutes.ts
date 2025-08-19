@@ -886,24 +886,33 @@ postRoutes.get('/:id/attend-status', ensureAuthenticated, postController.getAtte
  *       properties:
  *         content:
  *           type: string
+ *           description: Conteúdo do post original (não usado em compartilhamentos)
  *           example: "Atualizei o conteúdo do post"
  *         metadata:
  *           type: string
  *           format: json
- *           description: Metadados do post como string JSON
+ *           description: Metadados do post original como string JSON (não usado em compartilhamentos)
  *           example: '{"title": "Nova campanha", "goal": "100 agasalhos"}'
  *         images:
  *           type: array
  *           items:
  *             type: string
  *             format: binary
- *           description: Arquivos de imagem atualizados para o post
+ *           description: Arquivos de imagem atualizados para o post original (não usado em compartilhamentos)
+ *         message:
+ *           type: string
+ *           description: Mensagem do compartilhamento (opcional; usado apenas em edição de compartilhamento)
+ *           example: "Adicionei uma mensagem ao compartilhar este post"
+ *         shareId:
+ *           type: integer
+ *           description: ID do compartilhamento (quando se edita um compartilhamento)
+ *           example: 12
  */
 /**
  * @swagger
  * /posts/{id}:
  *   put:
- *     summary: Atualiza um post existente
+ *     summary: Atualiza um post original ou um compartilhamento
  *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
@@ -915,7 +924,7 @@ postRoutes.get('/:id/attend-status', ensureAuthenticated, postController.getAtte
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID do post a ser editado
+ *         description: ID do post original
  *     requestBody:
  *       required: true
  *       content:
@@ -924,15 +933,15 @@ postRoutes.get('/:id/attend-status', ensureAuthenticated, postController.getAtte
  *             $ref: '#/components/schemas/UpdatePostRequest'
  *     responses:
  *       200:
- *         description: Post atualizado com sucesso
+ *         description: Post ou compartilhamento atualizado com sucesso
  *       400:
  *         description: Erro na requisição
  *       401:
  *         description: Não autenticado
  *       403:
- *         description: Usuário não autorizado a editar o post
+ *         description: Usuário não autorizado a editar o post ou compartilhamento
  *       404:
- *         description: Post não encontrado
+ *         description: Post ou compartilhamento não encontrado
  */
 postRoutes.put(
   '/:id',

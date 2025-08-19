@@ -117,29 +117,29 @@ export class PostService {
   }
 
   async getSharedPostDetails(shareId: number, userId: number, postId: number) {
-  // Valida existência do post
-  const post = await this.repository.findById(postId);
-  if (!post) {
-    return null; // Ou lance erro de post não encontrado
+    // Valida existência do post
+    const post = await this.repository.findById(postId);
+    if (!post) {
+      return null; // Ou lance erro de post não encontrado
+    }
+
+    // Valida existência do compartilhamento
+    const share = await this.repository.findPostShareById(shareId);
+    if (!share || share.post_idpost !== postId) {
+      // post_idpost deve existir no model post_share
+      return null; // Compartilhamento não encontrado ou não pertence ao post
+    }
+
+    // Agora busca os detalhes para montar o DTO completo
+    const sharedDetails =
+      await this.repository.getSharedPostByIdWithDetails(shareId);
+
+    if (!sharedDetails) {
+      return null;
+    }
+
+    return SharedPostDetailsDTO.fromPrisma(sharedDetails, userId);
   }
-
-  // Valida existência do compartilhamento
-  const share = await this.repository.findPostShareById(shareId);
-  if (!share || share.post_idpost !== postId) {
-    // post_idpost deve existir no model post_share
-    return null; // Compartilhamento não encontrado ou não pertence ao post
-  }
-
-  // Agora busca os detalhes para montar o DTO completo
-  const sharedDetails = await this.repository.getSharedPostByIdWithDetails(shareId);
-
-  if (!sharedDetails) {
-    return null;
-  }
-
-  return SharedPostDetailsDTO.fromPrisma(sharedDetails, userId);
-}
-
 
   async getPostByIdWithDetails(id: number) {
     const post = await this.repository.getPostByIdWithDetails(id);
@@ -413,9 +413,27 @@ export class PostService {
   }
 
   async updatePost(data: UpdatePostDTO): Promise<void> {
-    const errors: string[] = [];
+    if (data.shareId) {
+      // 👉 edição de compartilhamento
+      const share = await this.repository.findPostShareById(data.shareId);
+      if (!share) throw new Error('Compartilhamento não encontrado');
+      if (share.user_iduser !== data.userId) {
+        throw new Error(
+          'Usuário não autorizado a editar este compartilhamento'
+        );
+      }
 
-    const post = await this.repository.findById(data.postId);
+      if (data.content !== undefined) {
+        await this.repository.updateShare(data.shareId, {
+          message: data.content,
+        });
+      }
+      return;
+    }
+
+    // 👉 edição de post original (já existe)
+    const errors: string[] = [];
+    const post = await this.repository.findById(data.postId!);
     if (!post) {
       throw new Error('Post não encontrado');
     }
@@ -452,7 +470,7 @@ export class PostService {
       throw new Error(errors.join(', '));
     }
 
-    await this.repository.update(data.postId, {
+    await this.repository.update(data.postId!, {
       content: data.content,
       metadata: data.metadata,
       images: data.images,

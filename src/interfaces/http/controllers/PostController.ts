@@ -553,6 +553,7 @@ export class PostController {
       }
 
       const content = req.body.content;
+      const message = req.body.message;
       const metadata = req.body.metadata
         ? JSON.parse(req.body.metadata)
         : undefined;
@@ -565,6 +566,7 @@ export class PostController {
         shareId,
         userId,
         content,
+        message,
         metadata,
         images: imageFilenames.length > 0 ? imageFilenames : undefined,
       });
@@ -595,7 +597,13 @@ export class PostController {
 
       res.status(200).json({ message: 'Imagem removida com sucesso' });
     } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      if (error.message.includes('não encontrada')) {
+        res.status(404).json({ error: error.message });
+      } else if (error.message.includes('não permitido')) {
+        res.status(403).json({ error: error.message });
+      } else {
+        res.status(400).json({ error: error.message });
+      }
     }
   }
 

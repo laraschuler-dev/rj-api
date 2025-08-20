@@ -921,8 +921,8 @@ export class PostRepositoryPrisma implements PostRepository {
   }
 
   async deleteImage(postId: number, imageId: number): Promise<void> {
-    await prisma.image.delete({
-      where: { idimage: imageId },
+    await prisma.image.deleteMany({
+      where: { idimage: imageId, post_idpost: postId },
     });
   }
 

@@ -414,7 +414,7 @@ export class PostService {
 
   async updatePost(data: UpdatePostDTO): Promise<void> {
     if (data.shareId) {
-      // 👉 edição de compartilhamento
+      // edição de compartilhamento
       const share = await this.repository.findPostShareById(data.shareId);
       if (!share) throw new Error('Compartilhamento não encontrado');
       if (share.user_iduser !== data.userId) {
@@ -423,15 +423,15 @@ export class PostService {
         );
       }
 
-      if (data.content !== undefined) {
-        await this.repository.updateShare(data.shareId, {
-          message: data.content,
-        });
-      }
+      // Atualiza apenas a mensagem (vazia ou não)
+      await this.repository.updateShare(data.shareId, {
+        message: data.message ?? '',
+      });
+
       return;
     }
 
-    // 👉 edição de post original (já existe)
+    // edição de post original (já existe)
     const errors: string[] = [];
     const post = await this.repository.findById(data.postId!);
     if (!post) {

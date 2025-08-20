@@ -876,7 +876,6 @@ postRoutes.post('/:id/attend', ensureAuthenticated, postController.attendEvent);
  */
 postRoutes.get('/:id/attend-status', ensureAuthenticated, postController.getAttendanceStatus);
 
-
 /**
  * @swagger
  * components:
@@ -901,13 +900,10 @@ postRoutes.get('/:id/attend-status', ensureAuthenticated, postController.getAtte
  *           description: Arquivos de imagem atualizados para o post original (não usado em compartilhamentos)
  *         message:
  *           type: string
- *           description: Mensagem do compartilhamento (opcional; usado apenas em edição de compartilhamento)
+ *           description: Mensagem do compartilhamento (usada apenas na edição de compartilhamento)
  *           example: "Adicionei uma mensagem ao compartilhar este post"
- *         shareId:
- *           type: integer
- *           description: ID do compartilhamento (quando se edita um compartilhamento)
- *           example: 12
  */
+
 /**
  * @swagger
  * /posts/{id}:
@@ -925,6 +921,11 @@ postRoutes.get('/:id/attend-status', ensureAuthenticated, postController.getAtte
  *         schema:
  *           type: integer
  *         description: ID do post original
+ *       - in: query
+ *         name: shareId
+ *         schema:
+ *           type: integer
+ *         description: ID do compartilhamento (se informado, a edição será aplicada no compartilhamento)
  *     requestBody:
  *       required: true
  *       content:

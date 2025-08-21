@@ -15,7 +15,7 @@ export function makePostController(): PostController {
   const postRepository = new PostRepositoryPrisma();
   const userRepository = new UserRepositoryPrisma();
 
-  const postService = new PostService(postRepository);
+  const postService = new PostService(postRepository, userRepository);
   const postUseCases = new PostUseCases(postService);
 
   return new PostController(postUseCases, userRepository);

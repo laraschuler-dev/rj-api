@@ -21,6 +21,8 @@ import { SharedPostDetailsDTO } from '../../core/dtos/SharedPostDetailsDTO';
 import { CommentDetailDTO } from '../../core/dtos/CommentDetailDTO';
 import { AttendanceStatusResponseDTO } from '@/core/dtos/AttendEvent/AttendanceStatusResponseDTO';
 import { GetAttendanceStatusDTO } from '@/core/dtos/AttendEvent/GetAttendanceStatusDTO';
+import { PostListItemDTO } from '../../core/dtos/PostListItemDTO';
+import { UserRepository } from '../../core/repositories/UserRepository';
 /**
  * Serviço responsável por gerenciar posts.
  *
@@ -33,7 +35,10 @@ export class PostService {
    *
    * @param repository - Instância do repositório de posts.
    */
-  constructor(private readonly repository: PostRepository) {}
+  constructor(
+    private readonly repository: PostRepository,
+    private readonly userRepository: UserRepository
+  ) {}
 
   /**
    * Cria um novo post.
@@ -397,25 +402,36 @@ export class PostService {
     return this.repository.getAttendanceStatus({ postId, postShareId, userId });
   }
 
-  async getPostsByUser({ userId, page = 1, limit = 10 }: GetUserPostsDTO) {
+  // PostService.ts
+  async getPostsByUser(dto: GetUserPostsDTO) {
+    const { userId, page = 1, limit = 10 } = dto;
+
     if (page < 1 || limit < 1 || limit > 100) {
       throw new Error('Parâmetros de paginação inválidos');
     }
 
-    const userExists = await this.repository.findById(userId);
+    // Busca o usuário que fez os posts
+    const userExists = await this.userRepository.findById(userId);
     if (!userExists) {
       throw new Error('Usuário não encontrado');
     }
 
+    // Busca posts e compartilhamentos
     const { posts, totalCount } = await this.repository.findPostsByUser(
       userId,
       page,
       limit
     );
+
+    // Aqui transformamos os posts em DTOs
+    const postDTOs = posts.map((post) =>
+      PostListItemDTO.fromDomain(post, userExists, post.images)
+    );
+
     const totalPages = Math.ceil(totalCount / limit);
 
     return {
-      data: posts,
+      data: postDTOs,
       pagination: {
         currentPage: page,
         limit,

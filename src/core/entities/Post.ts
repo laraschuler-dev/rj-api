@@ -128,7 +128,7 @@ export class Post {
       id: number;
       name: string; // Mudar de userName para name
       avatarUrl?: string | null;
-      message?: string;
+      message?: string | null;
       sharedAt: Date; // Manter como Date
     }
   ) {

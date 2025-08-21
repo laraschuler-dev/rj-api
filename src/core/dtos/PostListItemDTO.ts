@@ -49,7 +49,10 @@ export class PostListItemDTO {
             id: post.sharedBy.id,
             name: post.sharedBy.name,
             avatarUrl: post.sharedBy.avatarUrl || undefined,
-            message: post.sharedBy.message,
+            message:
+              post.sharedBy.message !== null
+                ? post.sharedBy.message
+                : undefined,
             sharedAt: post.sharedBy.sharedAt.toISOString(),
           }
         : undefined

@@ -221,10 +221,6 @@ export class PostController {
         .json(
           LikePostResponseDTO.fromResult(
             result.liked,
-            result.postId,
-            result.postShareId,
-            result.sharedById,
-            result.sharedAt
           )
         );
     } catch (err) {

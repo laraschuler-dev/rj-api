@@ -946,6 +946,16 @@ export class PostRepositoryPrisma implements PostRepository {
     });
   }
 
+  async softDeleteShare(shareId: number): Promise<void> {
+  await prisma.post_share.update({
+    where: { id: shareId },
+    data: {
+      deleted: true,
+      deleted_at: new Date(),
+    },
+  });
+}
+
   async findPostAuthor(postId: number): Promise<number | null> {
     const post = await prisma.post.findUnique({
       where: { idpost: postId },

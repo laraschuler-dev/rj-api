@@ -987,13 +987,12 @@ postRoutes.delete(
   ensureAuthenticated,
   postController.deletePostImage
 );
-
 /**
  * @swagger
  * /posts/{postId}:
  *   delete:
- *     summary: Exclui logicamente um post
- *     description: Marca um post como excluído sem removê-lo fisicamente do banco de dados
+ *     summary: Exclui logicamente um post ou compartilhamento
+ *     description: Marca um post original ou compartilhamento como excluído sem removê-lo fisicamente do banco
  *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
@@ -1003,10 +1002,16 @@ postRoutes.delete(
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID do post a ser excluído
+ *         description: ID do post original (ignorado se for informado shareId)
+ *       - in: query
+ *         name: shareId
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: ID do compartilhamento (se informado, a exclusão será aplicada no compartilhamento)
  *     responses:
  *       200:
- *         description: Post excluído com sucesso
+ *         description: Post ou compartilhamento excluído com sucesso
  *       400:
  *         description: Requisição inválida
  *       401:
@@ -1014,7 +1019,7 @@ postRoutes.delete(
  *       403:
  *         description: Ação não permitida
  *       404:
- *         description: Post não encontrado
+ *         description: Post ou compartilhamento não encontrado
  */
 postRoutes.delete('/:postId', ensureAuthenticated, postController.deletePost);
 

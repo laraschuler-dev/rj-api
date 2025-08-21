@@ -151,5 +151,7 @@ export interface PostRepository {
 
   softDeletePost(postId: number): Promise<void>;
 
+  softDeleteShare(shareId: number): Promise<void>;
+
   findPostAuthor(postId: number): Promise<number | null>;
 }

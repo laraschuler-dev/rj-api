@@ -634,17 +634,28 @@ export class PostController {
     try {
       const userId = req.user?.id;
       const postId = Number(req.params.postId);
+      const shareId = req.query.shareId ? Number(req.query.shareId) : undefined;
 
       if (!userId) {
         res.status(401).json({ error: 'Não autenticado' });
         return;
       }
 
-      await this.postUseCases.deletePost({ postId, userId });
+      await this.postUseCases.deletePost({ postId, shareId, userId });
 
-      res.status(200).json({ message: 'Post excluído com sucesso' });
+      res.status(200).json({
+        message: shareId
+          ? 'Compartilhamento excluído com sucesso'
+          : 'Post excluído com sucesso',
+      });
     } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      if (error.message.includes('não encontrado')) {
+        res.status(404).json({ error: error.message });
+      } else if (error.message.includes('não autorizado')) {
+        res.status(403).json({ error: error.message });
+      } else {
+        res.status(400).json({ error: error.message });
+      }
     }
   }
 }

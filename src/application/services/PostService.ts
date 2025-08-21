@@ -77,13 +77,28 @@ export class PostService {
   }
 
   async deletePost(data: DeletePostDTO): Promise<void> {
-    const { postId, userId } = data;
+    const { postId, shareId, userId } = data;
 
-    const authorId = await this.repository.findPostAuthor(postId);
+    if (shareId) {
+      // Exclusão de compartilhamento
+      const share = await this.repository.findPostShareById(shareId);
+      if (!share) throw new Error('Compartilhamento não encontrado');
+      if (share.user_iduser !== userId) {
+        throw new Error(
+          'Usuário não autorizado a excluir este compartilhamento'
+        );
+      }
+
+      await this.repository.softDeleteShare(shareId);
+      return;
+    }
+
+    // Exclusão de post original
+    const authorId = await this.repository.findPostAuthor(postId!);
     if (!authorId) throw new Error('Post não encontrado');
     if (authorId !== userId) throw new Error('Usuário não autorizado');
 
-    await this.repository.softDeletePost(postId);
+    await this.repository.softDeletePost(postId!);
   }
 
   /**

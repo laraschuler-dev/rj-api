@@ -148,7 +148,10 @@ export class PostRepositoryPrisma implements PostRepository {
         category: true,
         user_like: userId
           ? {
-              where: { user_iduser: userId },
+              where: {
+                user_iduser: userId,
+                post_share_id: null,
+              },
               select: { user_iduser: true },
             }
           : false,
@@ -183,6 +186,15 @@ export class PostRepositoryPrisma implements PostRepository {
       where: { id: { in: ids } },
       include: {
         user: { include: { user_profile: true } },
+        user_like: userId
+          ? {
+              where: {
+                user_iduser: userId,
+                post_share_id: { not: null },
+              },
+              select: { user_iduser: true },
+            }
+          : false,
         post: {
           include: {
             user: { include: { user_profile: true } },
@@ -190,7 +202,10 @@ export class PostRepositoryPrisma implements PostRepository {
             category: true,
             user_like: userId
               ? {
-                  where: { user_iduser: userId },
+                  where: {
+                    user_iduser: userId,
+                    post_share_id: null, // Like apenas no post original
+                  },
                   select: { user_iduser: true },
                 }
               : false,
@@ -202,7 +217,10 @@ export class PostRepositoryPrisma implements PostRepository {
     return shares.map((share) => {
       const p = share.post;
       const images = p.image.map((img) => img.image);
-      const liked = userId ? p.user_like.length > 0 : false;
+
+      // AGORA: liked só é true se usuário curtiu ESTE compartilhamento específico
+      const liked = userId ? share.user_like.length > 0 : false;
+
       const avatarUrl = share.user.user_profile?.profile_photo ?? undefined;
 
       return new Post(
@@ -214,7 +232,7 @@ export class PostRepositoryPrisma implements PostRepository {
         p.time,
         images,
         p.user.user_profile?.profile_photo,
-        liked,
+        liked, // Agora reflete apenas like no share
         {
           id: share.user_iduser,
           shareId: share.id,
@@ -473,7 +491,7 @@ export class PostRepositoryPrisma implements PostRepository {
       shareInfo = await prisma.post_share.findUnique({
         where: { id: postShareId },
         include: {
-          user: true, // para pegar o sharedBy id e outras infos
+          user: true, // caso precise de info adicional
         },
       });
     }
@@ -494,26 +512,12 @@ export class PostRepositoryPrisma implements PostRepository {
       },
     });
 
-    // Montar uniqueKey para cada like, já que ela depende de dados do share
-    return likes.map((like) => {
-      let uniqueKey: string;
-      if (postShareId && shareInfo) {
-        const sharedById = shareInfo.user.iduser;
-        const sharedAtTimestamp = shareInfo.shared_at
-          ? new Date(shareInfo.shared_at).getTime()
-          : 0;
-        uniqueKey = `shared:${sharedById}:${postId}:${sharedAtTimestamp}`;
-      } else {
-        uniqueKey = `post:${postId}`;
-      }
-
-      return {
-        id: like.user.iduser,
-        name: like.user.name,
-        avatarUrl: like.user.user_profile?.profile_photo ?? null,
-        uniqueKey,
-      };
-    });
+    // Retorna os likes sem a uniqueKey
+    return likes.map((like) => ({
+      id: like.user.iduser,
+      name: like.user.name,
+      avatarUrl: like.user.user_profile?.profile_photo ?? null,
+    }));
   }
 
   async countLikesByPostId(
@@ -654,13 +658,6 @@ export class PostRepositoryPrisma implements PostRepository {
 
     if (!comment) return null;
 
-    const uniqueKey =
-      comment.post_share_id &&
-      comment.post_share &&
-      comment.post_share.shared_at
-        ? `shared:${comment.post_share.user_iduser}:${comment.post_idpost}:${comment.post_share.shared_at!.getTime()}`
-        : `post:${comment.post_idpost}`;
-
     return {
       id: comment.idcomment,
       comment: comment.comment,
@@ -670,7 +667,6 @@ export class PostRepositoryPrisma implements PostRepository {
         name: comment.user.name,
         avatarUrl: comment.user.user_profile?.profile_photo ?? null,
       },
-      uniqueKey,
     };
   }
 
@@ -786,21 +782,18 @@ export class PostRepositoryPrisma implements PostRepository {
     postShareId,
     userId,
   }: GetAttendanceStatusDTO): Promise<AttendanceStatusResponseDTO> {
+    if (!postId) throw new Error('postId is required');
+    if (!userId) throw new Error('userId is required');
+
     const whereBase = {
       post_idpost: postId,
       post_share_id: postShareId ?? null,
     };
 
-    const [userRecord, interestedCount, confirmedCount] = await Promise.all([
+    const [userRecord, confirmedCount] = await Promise.all([
       prisma.event_attendance.findFirst({
-        where: {
-          ...whereBase,
-          user_iduser: userId,
-        },
+        where: { ...whereBase, user_iduser: userId },
         select: { status: true },
-      }),
-      prisma.event_attendance.count({
-        where: { ...whereBase, status: 'interested' },
       }),
       prisma.event_attendance.count({
         where: { ...whereBase, status: 'confirmed' },
@@ -809,7 +802,6 @@ export class PostRepositoryPrisma implements PostRepository {
 
     return {
       userStatus: userRecord?.status ?? null,
-      interestedCount,
       confirmedCount,
     };
   }

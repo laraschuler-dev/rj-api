@@ -237,24 +237,18 @@ export class PostService {
     const post = await this.repository.findById(postId);
     if (!post) throw new Error('Post não encontrado');
 
-    const count = await this.repository.countLikesByPostId(postId, shareId);
+    let count: number;
 
     if (shareId) {
       const shareData = await this.repository.findPostShareById(shareId);
       if (!shareData) throw new Error('Compartilhamento não encontrado');
 
-      if (!shareData.shared_at) {
-        throw new Error('shared_at é obrigatório');
-      }
-
-      return PostLikeCountDTO.fromResult(postId, count, {
-        id: shareId,
-        userId: shareData.user_iduser,
-        sharedAt: shareData.shared_at,
-      });
+      count = await this.repository.countLikesByPostId(postId, shareId);
+    } else {
+      count = await this.repository.countLikesByPostId(postId);
     }
 
-    return PostLikeCountDTO.fromResult(postId, count);
+    return new PostLikeCountDTO(count);
   }
 
   async sharePost(sharePostDTO: SharePostDTO): Promise<void> {
@@ -279,15 +273,13 @@ export class PostService {
       throw new Error('Post não encontrado');
     }
     const count = await this.repository.countSharesByPostId(postId);
-    return PostShareCountDTO.fromResult(postId, count);
+    return PostShareCountDTO.fromResult(count);
   }
 
-  async createComment(
-    createCommentDTO: CreateCommentDTO
-  ): Promise<{ uniqueKey: string }> {
+  async createComment(createCommentDTO: CreateCommentDTO): Promise<void> {
     const { userId, postId, shareId } = createCommentDTO;
 
-    // Validação do post original (sempre obrigatória)
+    // Validação do post original
     const post = await this.repository.findById(postId);
     if (!post) throw new Error('Post não encontrado');
 
@@ -298,18 +290,7 @@ export class PostService {
     }
 
     // Criação do comentário
-    const comment = await this.repository.createComment(createCommentDTO);
-
-    const timestamp = comment.time
-      ? new Date(comment.time).getTime()
-      : Date.now();
-
-    // Geração da uniqueKey
-    const uniqueKey = shareId
-      ? `shared:${comment.user.iduser}:${comment.post_idpost}:${timestamp}`
-      : `post:${comment.user.iduser}:${comment.post_idpost}:${timestamp}`;
-
-    return { uniqueKey };
+    await this.repository.createComment(createCommentDTO);
   }
 
   async getCommentsByPostId(postId: number, postShareId?: number) {
@@ -350,49 +331,41 @@ export class PostService {
       postId,
       postShareId
     );
-    return CommentCountDTO.fromResult(postId, count);
+    return CommentCountDTO.fromResult(count);
   }
 
-  async attendEvent(
-    data: AttendEventDTO
-  ): Promise<'interested' | 'confirmed' | 'removed'> {
-    // converte null para undefined para evitar erro TS
-    const postShareId =
-      data.postShareId === null ? undefined : data.postShareId;
+  async attendEvent(data: AttendEventDTO): Promise<'confirmed' | 'removed'> {
+    const postShareId = data.postShareId ?? undefined;
 
     const post = await this.repository.findById(data.postId);
     if (!post) throw new Error('Post não encontrado');
 
-    const category = await this.repository.findCategoryById(
-      post.categoria_idcategoria
-    );
-    const EVENT_CATEGORY_ID = 8;
-
-    if (post.categoria_idcategoria !== EVENT_CATEGORY_ID) {
+    if (post.categoria_idcategoria !== 8) {
       throw new Error('Este post não permite confirmação de presença');
     }
 
     const currentAttendance = await this.repository.findAttendance(
       data.postId,
       data.userId,
-      postShareId // usa a variável declarada
+      postShareId
     );
 
-    if (currentAttendance?.status === data.status) {
+    if (currentAttendance?.status === 'confirmed') {
       await this.repository.removeAttendance(
         data.postId,
         data.userId,
-        postShareId // idem aqui
+        postShareId
       );
       return 'removed';
     }
 
     await this.repository.attendEvent({
       ...data,
-      postShareId, // idem aqui
+      postShareId,
+      status: 'confirmed',
     });
 
-    return data.status;
+    return 'confirmed';
   }
 
   async getAttendanceStatus(

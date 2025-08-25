@@ -414,13 +414,8 @@ postRoutes.get('/:id/likes', postController.listLikes);
  *             schema:
  *               type: object
  *               properties:
- *                 postId:
- *                   type: integer
  *                 totalLikes:
  *                   type: integer
- *                 uniqueKey:
- *                   type: string
- *                   example: post-17
  *       404:
  *         description: Post não encontrado
  *       500:
@@ -576,9 +571,6 @@ postRoutes.get('/:postId/comments/count', postController.getCommentCount);
  *                 message:
  *                   type: string
  *                   example: Comentário adicionado com sucesso
- *                 uniqueKey:
- *                   type: string
- *                   example: post:123:456:1678901234567
  *       400:
  *         description: Dados inválidos ou parâmetros ausentes
  *       401:
@@ -773,13 +765,6 @@ postRoutes.get('/:id/comments', postController.listComments);
  *                createdAt:
  *                  type: string
  *                  format: date-time
- *                uniqueKey:
- *                  type: string
- *                  description: >
- *                    Identificador único do comentário, com base no tipo (post ou compartilhamento).
- *                    Formatos possíveis:
- *                    - post:{userId}:{postId}:{timestamp}
- *                    - shared:{sharerId}:{postId}:{timestamp}
  *                author:
  *                  type: object
  *                  properties:
@@ -803,7 +788,7 @@ postRoutes.get('/comments/:id', postController.getSingleComment);
  * @swagger
  * /posts/{id}/attend:
  *   post:
- *     summary: Marcar interesse ou presença em um evento
+ *     summary: Confirmar ou remover presença em um evento
  *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
@@ -829,11 +814,11 @@ postRoutes.get('/comments/:id', postController.getSingleComment);
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [interested, confirmed]
- *                 description: Tipo de interesse/presença
+ *                 enum: [confirmed]
+ *                 description: Tipo de presença (apenas confirmado, toggle remove)
  *     responses:
  *       200:
- *         description: Presença registrada com sucesso
+ *         description: Presença registrada ou removida
  */
 postRoutes.post('/:id/attend', ensureAuthenticated, postController.attendEvent);
 

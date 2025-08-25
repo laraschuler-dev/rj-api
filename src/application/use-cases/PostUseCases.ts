@@ -139,9 +139,7 @@ export class PostUseCases {
     return this.postService.getShareCount(postId);
   }
 
-  async commentPost(
-    createCommentDTO: CreateCommentDTO
-  ): Promise<{ uniqueKey: string }> {
+  async commentPost(createCommentDTO: CreateCommentDTO): Promise<void> {
     return this.postService.createComment(createCommentDTO);
   }
 
@@ -163,7 +161,7 @@ export class PostUseCases {
 
   async attendEvent(
     data: AttendEventDTO
-  ): Promise<'interested' | 'confirmed' | 'removed'> {
+  ): Promise<'confirmed' | 'removed'> {
     return this.postService.attendEvent(data);
   }
 

@@ -1,6 +1,6 @@
 export interface AttendEventDTO {
   userId: number;
   postId: number;
-  status: 'interested' | 'confirmed';
+  status: 'confirmed';
   postShareId?: number | null;
 }

@@ -7,5 +7,4 @@ export type CommentDetailDTO = {
     name: string;
     avatarUrl: string | null;
   };
-  uniqueKey: string;
 };

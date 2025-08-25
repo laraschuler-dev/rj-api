@@ -1,5 +1,4 @@
 export interface AttendanceStatusResponseDTO {
-  userStatus: 'interested' | 'confirmed' | null;
-  interestedCount: number;
+  userStatus: 'confirmed' | null;
   confirmedCount: number;
 }

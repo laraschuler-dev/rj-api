@@ -216,13 +216,7 @@ export class PostController {
         shareId
       );
 
-      res
-        .status(200)
-        .json(
-          LikePostResponseDTO.fromResult(
-            result.liked,
-          )
-        );
+      res.status(200).json(LikePostResponseDTO.fromResult(result.liked));
     } catch (err) {
       res.status(500).json({ error: 'Erro ao curtir/descurtir o post.' });
     }
@@ -327,7 +321,6 @@ export class PostController {
 
       res.status(201).json({
         message: 'Comentário adicionado com sucesso',
-        uniqueKey: result.uniqueKey,
       });
     } catch (error: any) {
       console.error(error);
@@ -452,21 +445,13 @@ export class PostController {
       const userId = req.user?.id;
       const postId = Number(req.params.id);
       const status = req.body.status;
-      // Pega postShareId da query string (se existir)
       const postShareId = req.query.postShareId
         ? Number(req.query.postShareId)
         : undefined;
 
-      console.log('Request body:', req.body);
-      console.log('postShareId parsed:', postShareId);
-      console.log(
-        'Request body stringified:',
-        JSON.stringify(req.body, null, 2)
-      );
-
-      if (!['interested', 'confirmed'].includes(status)) {
+      if (status !== 'confirmed') {
         res.status(400).json({ error: 'Status inválido' });
-        return; // para garantir que a execução pare aqui
+        return;
       }
 
       if (!userId) {
@@ -477,12 +462,11 @@ export class PostController {
       const result = await this.postUseCases.attendEvent({
         postId,
         userId,
-        status,
+        status: 'confirmed',
         postShareId,
       });
 
-      const messages = {
-        interested: 'Interesse registrado com sucesso',
+      const messages: Record<'confirmed' | 'removed', string> = {
         confirmed: 'Presença confirmada com sucesso',
         removed: 'Presença desmarcada',
       };
@@ -498,6 +482,11 @@ export class PostController {
 
   async getAttendanceStatus(req: Request, res: Response): Promise<void> {
     const postId = Number(req.params.id);
+    if (isNaN(postId)) {
+      res.status(400).json({ error: 'postId inválido ou ausente' });
+      return;
+    }
+
     const postShareId = req.query.postShareId
       ? Number(req.query.postShareId)
       : undefined;

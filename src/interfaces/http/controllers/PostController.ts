@@ -93,7 +93,7 @@ export class PostController {
         imageFilenames
       );
 
-      const author = await this.userRepository.findById(post.user_iduser);
+      const author = await this.userRepository.findByIdUser(post.user_iduser);
       if (!author) {
         res.status(404).json({ error: 'Autor não encontrado' });
         return;
@@ -132,7 +132,7 @@ export class PostController {
 
       const postsWithUniqueKeys = await Promise.all(
         result.posts.map(async (post) => {
-          const author = await this.userRepository.findById(post.user_iduser);
+          const author = await this.userRepository.findByIdUser(post.user_iduser);
           if (!author) throw new Error('Autor não encontrado');
           return PostListItemDTO.fromDomain(post, author, post.images);
         })

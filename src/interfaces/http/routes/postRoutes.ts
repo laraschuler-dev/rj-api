@@ -688,51 +688,63 @@ postRoutes.delete(
 
 /**
  * @swagger
- * /posts/{postId}/comments/{commentId}:
- *   put:
- *     summary: Editar um comentário
- *     tags:
- *       - Posts
+ * /posts/{id}/comments:
+ *   get:
+ *     summary: Listar comentários de um post original ou compartilhado
+ *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: postId
+ *         name: id
  *         required: true
  *         schema:
  *           type: integer
- *       - in: path
- *         name: commentId
- *         required: true
- *         schema:
- *           type: integer
+ *         description: ID do post original
  *       - in: query
  *         name: postShareId
  *         required: false
  *         schema:
  *           type: integer
- *         description: ID do compartilhamento, caso o comentário pertença a um post compartilhado
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               content:
- *                 type: string
- *                 example: "Atualizei meu comentário anterior"
+ *         description: ID do compartilhamento, opcional. Se informado, lista apenas comentários desse compartilhamento.
  *     responses:
  *       200:
- *         description: Comentário atualizado com sucesso
+ *         description: Lista de comentários do post ou compartilhamento
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       content:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       author:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           name:
+ *                             type: string
+ *                           avatarUrl:
+ *                             type: string
+ *                             nullable: true
  *       400:
- *         description: Requisição inválida
+ *         description: ID do post inválido
  *       401:
- *         description: Não autenticado
- *       403:
- *         description: Ação não permitida
+ *         description: Usuário não autenticado
  *       404:
- *         description: Comentário não encontrado
+ *         description: Post ou compartilhamento não encontrado
+ *       500:
+ *         description: Erro interno do servidor
  */
 postRoutes.get('/:id/comments', postController.listComments);
 

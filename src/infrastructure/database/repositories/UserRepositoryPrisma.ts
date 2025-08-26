@@ -67,7 +67,7 @@ export class UserRepositoryPrisma implements UserRepository {
    * @param id - ID do usuário.
    * @returns O usuário encontrado ou `null` se não existir.
    */
-  async findById(id: number): Promise<User | null> {
+  async findByIdUser(id: number): Promise<User | null> {
     const foundUser = await prisma.user.findUnique({
       where: { iduser: id }, // Campo no banco de dados
     });

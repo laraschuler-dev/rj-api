@@ -81,6 +81,20 @@ export class PostService {
     return this.repository.save(post);
   }
 
+  async validatePostOrShare(postId: number, shareId?: number): Promise<void> {
+    const post = await this.repository.findById(postId);
+    if (!post) {
+      throw new Error('Post não encontrado');
+    }
+
+    if (shareId) {
+      const share = await this.repository.findPostShareById(shareId);
+      if (!share) {
+        throw new Error('Compartilhamento não encontrado');
+      }
+    }
+  }
+
   async deletePost(data: DeletePostDTO): Promise<void> {
     const { postId, shareId, userId } = data;
 
@@ -384,7 +398,7 @@ export class PostService {
     }
 
     // Busca o usuário que fez os posts
-    const userExists = await this.userRepository.findById(userId);
+    const userExists = await this.userRepository.findByIdUser(userId);
     if (!userExists) {
       throw new Error('Usuário não encontrado');
     }

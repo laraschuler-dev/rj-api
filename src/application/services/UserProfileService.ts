@@ -23,7 +23,7 @@ export class UserProfileService {
   }
 
   async getProfile(userId: number): Promise<any | null> {
-    const user = await this.userRepository.findById(userId);
+    const user = await this.userRepository.findByIdUser(userId);
     if (!user) return null;
 
     const userProfile = await this.userProfileRepository.findByUserId(userId);

@@ -124,6 +124,7 @@ export class PostRepositoryPrisma implements PostRepository {
 
       SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
       FROM post_share ps
+      WHERE ps.deleted = false
     ) AS combined_feed
     ORDER BY timestamp DESC
     LIMIT ${limit} OFFSET ${skip};
@@ -183,15 +184,16 @@ export class PostRepositoryPrisma implements PostRepository {
     if (ids.length === 0) return [];
 
     const shares = await prisma.post_share.findMany({
-      where: { id: { in: ids } },
+      where: {
+        id: { in: ids },
+        deleted: false, // share válido
+        // post: { deleted: false }, <- removido para incluir shares de posts deletados
+      },
       include: {
         user: { include: { user_profile: true } },
         user_like: userId
           ? {
-              where: {
-                user_iduser: userId,
-                post_share_id: { not: null },
-              },
+              where: { user_iduser: userId, post_share_id: { not: null } },
               select: { user_iduser: true },
             }
           : false,
@@ -202,10 +204,7 @@ export class PostRepositoryPrisma implements PostRepository {
             category: true,
             user_like: userId
               ? {
-                  where: {
-                    user_iduser: userId,
-                    post_share_id: null, // Like apenas no post original
-                  },
+                  where: { user_iduser: userId, post_share_id: null },
                   select: { user_iduser: true },
                 }
               : false,
@@ -216,11 +215,34 @@ export class PostRepositoryPrisma implements PostRepository {
 
     return shares.map((share) => {
       const p = share.post;
+
+      // Caso o post original tenha sido deletado
+      if (!p || p.deleted) {
+        return new Post(
+          share.id,
+          '', // conteúdo vazio
+          0, // categoria placeholder
+          share.user_iduser,
+          { isDeletedOriginal: true }as any,
+          share.shared_at || new Date(),
+          [],
+          undefined,
+          false,
+          {
+            id: share.user_iduser,
+            shareId: share.id,
+            postId: p?.idpost ?? 0, // postId placeholder
+            name: share.user.name,
+            avatarUrl: share.user.user_profile?.profile_photo ?? undefined,
+            message: share.message || undefined,
+            sharedAt: share.shared_at ? new Date(share.shared_at) : new Date(),
+          }
+        );
+      }
+
+      // Post original existe
       const images = p.image.map((img) => img.image);
-
-      // AGORA: liked só é true se usuário curtiu ESTE compartilhamento específico
       const liked = userId ? share.user_like.length > 0 : false;
-
       const avatarUrl = share.user.user_profile?.profile_photo ?? undefined;
 
       return new Post(
@@ -232,7 +254,7 @@ export class PostRepositoryPrisma implements PostRepository {
         p.time,
         images,
         p.user.user_profile?.profile_photo,
-        liked, // Agora reflete apenas like no share
+        liked,
         {
           id: share.user_iduser,
           shareId: share.id,
@@ -604,7 +626,10 @@ export class PostRepositoryPrisma implements PostRepository {
   async updateComment(commentId: number, content: string): Promise<void> {
     await prisma.comment.update({
       where: { idcomment: commentId },
-      data: { comment: content }, // corrigido aqui
+      data: {
+        comment: content,
+        updated_at: new Date(),
+      },
     });
   }
 
@@ -612,12 +637,21 @@ export class PostRepositoryPrisma implements PostRepository {
     postId: number,
     postShareId?: number
   ): Promise<CommentDTO[]> {
+    const whereClause =
+      postShareId !== undefined
+        ? {
+            post_idpost: postId,
+            post_share_id: postShareId,
+            deleted: false,
+          }
+        : {
+            post_idpost: postId,
+            post_share_id: null,
+            deleted: false,
+          };
+
     const comments = await prisma.comment.findMany({
-      where: {
-        post_idpost: postId,
-        post_share_id: postShareId ?? null,
-        deleted: false,
-      },
+      where: whereClause,
       orderBy: { time: 'asc' },
       include: {
         user: {
@@ -821,106 +855,73 @@ export class PostRepositoryPrisma implements PostRepository {
     });
   }
 
+  private async findUserFeedItemIdsPaginated(
+    userId: number,
+    page: number,
+    limit: number
+  ): Promise<{ type: 'post' | 'share'; id: number; timestamp: Date }[]> {
+    const skip = (page - 1) * limit;
+
+    return prisma.$queryRaw<
+      { type: 'post' | 'share'; id: number; timestamp: Date }[]
+    >`
+    SELECT * FROM (
+      SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
+      FROM post p
+      WHERE p.user_iduser = ${userId} AND p.deleted = false
+
+      UNION ALL
+
+      SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
+      FROM post_share ps
+      WHERE ps.user_iduser = ${userId} AND ps.deleted = false
+    ) AS combined
+    ORDER BY timestamp DESC
+    LIMIT ${limit} OFFSET ${skip};
+  `;
+  }
+
   async findPostsByUser(
     userId: number,
     page: number,
     limit: number
   ): Promise<{ posts: Post[]; totalCount: number }> {
-    const skip = (page - 1) * limit;
+    const items = await this.findUserFeedItemIdsPaginated(userId, page, limit);
 
-    const [rawPosts, rawShares, totalCountPosts, totalCountShares] =
-      await prisma.$transaction([
-        prisma.post.findMany({
-          where: { user_iduser: userId, deleted: false },
-          include: {
-            user: { include: { user_profile: true } },
-            image: true,
-            category: true,
-            user_like: {
-              where: { user_iduser: userId },
-              select: { user_iduser: true },
-            },
-          },
-          skip,
-          take: limit,
-          orderBy: { time: 'desc' },
-        }),
-        prisma.post_share.findMany({
-          where: { user_iduser: userId },
-          include: {
-            user: { include: { user_profile: true } },
-            post: {
-              include: {
-                user: { include: { user_profile: true } },
-                image: true,
-                category: true,
-                user_like: {
-                  where: { user_iduser: userId },
-                  select: { user_iduser: true },
-                },
-              },
-            },
-          },
-          skip,
-          take: limit,
-          orderBy: { shared_at: 'desc' },
-        }),
-        prisma.post.count({ where: { user_iduser: userId, deleted: false } }),
-        prisma.post_share.count({ where: { user_iduser: userId } }),
-      ]);
+    const postIds = items
+      .filter((i) => i.type === 'post')
+      .map((i) => Number(i.id));
+    const shareIds = items
+      .filter((i) => i.type === 'share')
+      .map((i) => Number(i.id));
 
-    // converte os posts
-    const mappedPosts = rawPosts.map((post) => {
-      const images = post.image.map((img) => img.image);
-      const liked = post.user_like.length > 0;
-      return new Post(
-        post.idpost,
-        post.content,
-        post.categoria_idcategoria,
-        post.user_iduser,
-        post.metadata ? JSON.parse(post.metadata) : {},
-        post.time,
-        images,
-        post.user.user_profile?.profile_photo,
-        liked
-      );
-    });
+    const [posts, shares, totalPosts, totalShares] = await Promise.all([
+      this.findPostsByIds(postIds, userId),
+      this.findSharesByIds(shareIds, userId),
+      prisma.post.count({ where: { user_iduser: userId, deleted: false } }),
+      prisma.post_share.count({
+        where: {
+          user_iduser: userId,
+          deleted: false,
+          post: { deleted: false },
+        },
+      }),
+    ]);
 
-    // converte os compartilhamentos
-    const mappedShares = rawShares.map((share) => {
-      const p = share.post;
-      const images = p.image.map((img) => img.image);
-      const liked = p.user_like.length > 0;
-      return new Post(
-        share.id,
-        p.content,
-        p.categoria_idcategoria,
-        p.user_iduser,
-        p.metadata ? JSON.parse(p.metadata) : {},
-        p.time,
-        images,
-        p.user.user_profile?.profile_photo,
-        liked,
-        {
-          id: share.user_iduser,
-          shareId: share.id,
-          postId: p.idpost,
-          name: share.user.name,
-          avatarUrl: share.user.user_profile?.profile_photo ?? undefined,
-          message: share.message || undefined,
-          sharedAt: share.shared_at ? new Date(share.shared_at) : new Date(),
-        }
-      );
-    });
+    const postMap = new Map(posts.map((p) => [p.id!, p]));
+    const shareMap = new Map(shares.map((s) => [s.id!, s]));
 
-    // junta tudo ordenando por data
-    const all = [...mappedPosts, ...mappedShares].sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-    );
+    const ordered = items
+      .map((i) =>
+        i.type === 'post'
+          ? postMap.get(Number(i.id))
+          : shareMap.get(Number(i.id))
+      )
+      .filter((x): x is Post => !!x);
 
     return {
-      posts: all,
-      totalCount: totalCountPosts + totalCountShares,
+      posts: ordered,
+      totalCount: totalPosts + totalShares,
     };
   }
 

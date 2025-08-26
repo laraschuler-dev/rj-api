@@ -143,7 +143,6 @@ export class PostUseCases {
     return this.postService.createComment(createCommentDTO);
   }
 
-  // usecase
   async listComments(postId: number, postShareId?: number) {
     return this.postService.getCommentsByPostId(postId, postShareId);
   }

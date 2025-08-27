@@ -102,6 +102,7 @@ export type PostMetadata = {
  */
 export class Post {
   images: string[];
+  user: any;
   /**
    * Construtor da classe Post.
    *

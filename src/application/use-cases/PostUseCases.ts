@@ -20,6 +20,7 @@ import { SharedPostDetailsDTO } from '../../core/dtos/SharedPostDetailsDTO';
 import { CommentDetailDTO } from '../../core/dtos/CommentDetailDTO';
 import { GetAttendanceStatusDTO } from '@/core/dtos/AttendEvent/GetAttendanceStatusDTO';
 import { AttendanceStatusResponseDTO } from '@/core/dtos/AttendEvent/AttendanceStatusResponseDTO';
+import { PostListItemDTO } from '@/core/dtos/PostListItemDTO';
 
 interface PaginatedPostsResult {
   posts: Post[];
@@ -131,8 +132,8 @@ export class PostUseCases {
     return this.postService.getLikeCount(postId, shareId);
   }
 
-  async sharePost(sharePostDTO: SharePostDTO): Promise<void> {
-    await this.postService.sharePost(sharePostDTO);
+  async sharePost(sharePostDTO: SharePostDTO): Promise<PostListItemDTO> {
+    return await this.postService.sharePost(sharePostDTO);
   }
 
   async getShareCount(postId: number): Promise<PostShareCountDTO> {
@@ -158,9 +159,7 @@ export class PostUseCases {
     return this.postService.getCommentCount(postId, postShareId);
   }
 
-  async attendEvent(
-    data: AttendEventDTO
-  ): Promise<'confirmed' | 'removed'> {
+  async attendEvent(data: AttendEventDTO): Promise<'confirmed' | 'removed'> {
     return this.postService.attendEvent(data);
   }
 

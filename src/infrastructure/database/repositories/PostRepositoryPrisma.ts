@@ -223,7 +223,7 @@ export class PostRepositoryPrisma implements PostRepository {
           '', // conteúdo vazio
           0, // categoria placeholder
           share.user_iduser,
-          { isDeletedOriginal: true }as any,
+          { isDeletedOriginal: true } as any,
           share.shared_at || new Date(),
           [],
           undefined,
@@ -565,18 +565,51 @@ export class PostRepositoryPrisma implements PostRepository {
     });
   }
 
-  async sharePost(
-    userId: number,
-    postId: number,
-    message?: string
-  ): Promise<void> {
-    await prisma.post_share.create({
+  async sharePost(userId: number, postId: number, message?: string) {
+    const shared = await prisma.post_share.create({
       data: {
         user_iduser: userId,
         post_idpost: postId,
         message: message || null,
+        shared_at: new Date(),
       },
     });
+
+    const post = await prisma.post.findUnique({
+      where: { idpost: postId },
+      include: {
+        user: {
+          include: {
+            user_profile: true,
+          },
+        },
+        image: true,
+      },
+    });
+
+    const user = await prisma.user.findUnique({
+      where: { iduser: userId },
+      include: {
+        user_profile: true,
+      },
+    });
+
+    const fullShared = await prisma.post_share.findUnique({
+      where: { id: shared.id },
+      include: {
+        user: {
+          include: {
+            user_profile: true,
+          },
+        },
+      },
+    });
+
+    return {
+      shared: fullShared,
+      post,
+      user,
+    };
   }
 
   async countSharesByPostId(postId: number): Promise<number> {

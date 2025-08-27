@@ -82,7 +82,7 @@ export interface PostRepository {
 
   findPostShareById(shareId: number): Promise<post_share | null>;
 
-  sharePost(userId: number, postId: number, message?: string): Promise<void>;
+  sharePost(userId: number, postId: number, message?: string): Promise<any>;
 
   countSharesByPostId(postId: number): Promise<number>;
 

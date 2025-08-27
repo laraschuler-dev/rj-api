@@ -21,7 +21,11 @@ import { SharedPostDetailsDTO } from '../../core/dtos/SharedPostDetailsDTO';
 import { CommentDetailDTO } from '../../core/dtos/CommentDetailDTO';
 import { AttendanceStatusResponseDTO } from '@/core/dtos/AttendEvent/AttendanceStatusResponseDTO';
 import { GetAttendanceStatusDTO } from '@/core/dtos/AttendEvent/GetAttendanceStatusDTO';
-import { PostListItemDTO } from '../../core/dtos/PostListItemDTO';
+import {
+  AuthorDTO,
+  PostListItemDTO,
+  SharedByDTO,
+} from '../../core/dtos/PostListItemDTO';
 import { UserRepository } from '../../core/repositories/UserRepository';
 /**
  * Serviço responsável por gerenciar posts.
@@ -265,20 +269,49 @@ export class PostService {
     return new PostLikeCountDTO(count);
   }
 
-  async sharePost(sharePostDTO: SharePostDTO): Promise<void> {
-    const { postId, userId, message } = sharePostDTO;
+  // Service: PostService.ts
+  async sharePost(dto: SharePostDTO): Promise<PostListItemDTO> {
+    const {
+      shared,
+      post: originalPost,
+      user: sharingUser,
+    } = await this.repository.sharePost(dto.userId, dto.postId, dto.message);
 
-    const post = await this.repository.findById(postId);
+    const images = originalPost.image.map(
+      (img: { image: string }) => img.image
+    );
 
-    if (!post) {
-      throw new Error('Post não encontrado ou foi removido.');
-    }
+    const author: AuthorDTO = {
+      id: originalPost.user.iduser, // ✅ Correto
+      name: originalPost.user.name, // ❌ Mude para 'name' (não 'nome')
+      avatarUrl: originalPost.user.avatarUrl || undefined, // ❌ Verifique se existe 'avatarUrl' no user
+    };
 
-    if (message && message.length > 500) {
-      throw new Error('A mensagem deve ter no máximo 500 caracteres');
-    }
+    const sharedBy: SharedByDTO = {
+      shareId: shared.id,
+      postId: originalPost.idpost,
+      id: sharingUser!.iduser,
+      name: sharingUser!.name,
+      avatarUrl: sharingUser!.avatarUrl || undefined,
+      message: shared.message ?? undefined,
+      sharedAt: shared.shared_at
+        ? shared.shared_at.toISOString()
+        : new Date().toISOString(),
+    };
 
-    await this.repository.sharePost(userId, postId, message);
+    // Cria o DTO manualmente usando o construtor
+    return new PostListItemDTO(
+     `shared:${sharingUser!.iduser}:${originalPost.idpost}:${new Date(shared.shared_at).getTime()}`,
+      originalPost.idpost,
+      originalPost.content,
+      originalPost.categoria_idcategoria,
+      author,
+      originalPost.metadata,
+      images,
+      originalPost.time.toISOString(),
+      false,
+      sharedBy
+    );
   }
 
   async getShareCount(postId: number): Promise<PostShareCountDTO> {

@@ -132,7 +132,9 @@ export class PostController {
 
       const postsWithUniqueKeys = await Promise.all(
         result.posts.map(async (post) => {
-          const author = await this.userRepository.findByIdUser(post.user_iduser);
+          const author = await this.userRepository.findByIdUser(
+            post.user_iduser
+          );
           if (!author) throw new Error('Autor não encontrado');
           return PostListItemDTO.fromDomain(post, author, post.images);
         })
@@ -256,22 +258,23 @@ export class PostController {
   async sharePost(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const { message } = req.body; // Recebe a mensagem do body
+      const { message } = req.body;
       const userId = req.user?.id;
 
+      if (!userId) {
+        res.status(401).json({ error: 'Usuário não autenticado' });
+        return;
+      }
+
       const sharePostDTO: SharePostDTO = {
-        userId: 0,
+        userId,
         postId: parseInt(id),
         message,
       };
 
-      if (!userId) {
-        res.status(401).json({ error: 'Usuário não autenticado' });
-      } else {
-        sharePostDTO.userId = userId;
-        await this.postUseCases.sharePost(sharePostDTO);
-        res.status(201).json({ message: 'Post compartilhado com sucesso' });
-      }
+      const postItem = await this.postUseCases.sharePost(sharePostDTO);
+
+      res.status(201).json(postItem);
     } catch (error: any) {
       console.error('Erro ao compartilhar post:', error);
       res.status(400).json({ error: error.message });

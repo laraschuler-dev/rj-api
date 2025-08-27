@@ -2,13 +2,13 @@ import { Post } from '../entities/Post';
 import { User } from '../entities/User';
 
 // Subtipos auxiliares para clareza
-interface AuthorDTO {
+export interface AuthorDTO {
   id: number;
   name: string;
   avatarUrl?: string;
 }
 
-interface SharedByDTO {
+export interface SharedByDTO {
   shareId: number;
   postId: number;
   id: number;

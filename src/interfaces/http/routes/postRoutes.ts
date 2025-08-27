@@ -428,6 +428,15 @@ postRoutes.get('/:id/likes/count', postController.getLikeCount);
  * /posts/{id}/share:
  *   post:
  *     summary: Compartilhar um post
+ *     description: |
+ *       Compartilha um post original. 
+ *       Para compartilhar um post que já foi compartilhado, 
+ *       deve-se usar sempre o ID do post original, não o ID do compartilhamento.
+ *       
+ *       Exemplo: 
+ *       - Post original: ID 32
+ *       - Compartilhamento: ID 27 (referencia o post 32)
+ *       - Para compartilhar o compartilhamento ID 27, use o postId original 32
  *     tags: [Posts]
  *     security:
  *       - bearerAuth: []
@@ -437,7 +446,10 @@ postRoutes.get('/:id/likes/count', postController.getLikeCount);
  *         required: true
  *         schema:
  *           type: integer
- *         description: ID do post
+ *         description: |
+ *           ID do post ORIGINAL a ser compartilhado.
+ *           Para compartilhar um compartilhamento, use o ID do post original, 
+ *           não o ID do compartilhamento.
  *     requestBody:
  *       required: true
  *       content:
@@ -452,6 +464,10 @@ postRoutes.get('/:id/likes/count', postController.getLikeCount);
  *     responses:
  *       201:
  *         description: Post compartilhado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PostListItemDTO'
  *       401:
  *         description: Usuário não autenticado
  *       404:

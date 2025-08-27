@@ -269,7 +269,6 @@ export class PostService {
     return new PostLikeCountDTO(count);
   }
 
-  // Service: PostService.ts
   async sharePost(dto: SharePostDTO): Promise<PostListItemDTO> {
     const {
       shared,
@@ -277,36 +276,46 @@ export class PostService {
       user: sharingUser,
     } = await this.repository.sharePost(dto.userId, dto.postId, dto.message);
 
+    if (!originalPost) {
+      throw new Error('Post original não encontrado');
+    }
+
+    if (!sharingUser) {
+      throw new Error('Usuário não encontrado');
+    }
+
     const images = originalPost.image.map(
       (img: { image: string }) => img.image
     );
 
+    const metadata =
+      typeof originalPost.metadata === 'string'
+        ? JSON.parse(originalPost.metadata)
+        : originalPost.metadata;
+
     const author: AuthorDTO = {
-      id: originalPost.user.iduser, // ✅ Correto
-      name: originalPost.user.name, // ❌ Mude para 'name' (não 'nome')
-      avatarUrl: originalPost.user.avatarUrl || undefined, // ❌ Verifique se existe 'avatarUrl' no user
+      id: originalPost.user.iduser,
+      name: originalPost.user.name,
+      avatarUrl: originalPost.user.user_profile?.profile_photo || undefined,
     };
 
     const sharedBy: SharedByDTO = {
       shareId: shared.id,
       postId: originalPost.idpost,
-      id: sharingUser!.iduser,
-      name: sharingUser!.name,
-      avatarUrl: sharingUser!.avatarUrl || undefined,
+      id: sharingUser.iduser,
+      name: sharingUser.name,
+      avatarUrl: sharingUser.user_profile?.profile_photo || undefined, // ✅ Correto
       message: shared.message ?? undefined,
-      sharedAt: shared.shared_at
-        ? shared.shared_at.toISOString()
-        : new Date().toISOString(),
+      sharedAt: shared.shared_at.toISOString(),
     };
 
-    // Cria o DTO manualmente usando o construtor
     return new PostListItemDTO(
-     `shared:${sharingUser!.iduser}:${originalPost.idpost}:${new Date(shared.shared_at).getTime()}`,
+      `shared:${sharingUser.iduser}:${originalPost.idpost}:${new Date(shared.shared_at).getTime()}`,
       originalPost.idpost,
       originalPost.content,
       originalPost.categoria_idcategoria,
       author,
-      originalPost.metadata,
+      metadata,
       images,
       originalPost.time.toISOString(),
       false,

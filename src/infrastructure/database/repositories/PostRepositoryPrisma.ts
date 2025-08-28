@@ -314,7 +314,6 @@ export class PostRepositoryPrisma implements PostRepository {
       }
     });
 
-    // Filtra undefined garantindo o tipo Post[]
     const filteredPosts: Post[] = allPostsWithUndefined.filter(
       (post): post is Post =>
         post !== undefined &&
@@ -322,18 +321,21 @@ export class PostRepositoryPrisma implements PostRepository {
         typeof post.user_iduser === 'number'
     );
 
+    // Contagem correta: apenas posts e shares válidos
     const [totalPosts, totalShares] = await Promise.all([
       prisma.post.count({ where: { deleted: false } }),
-      prisma.post_share.count(),
+      prisma.post_share.count({ where: { deleted: false } }),
     ]);
+
+    const total = totalPosts + totalShares;
 
     return {
       posts: filteredPosts,
-      total: totalPosts + totalShares,
+      total,
       currentPage: page,
       limit,
-      totalPages: Math.ceil((totalPosts + totalShares) / limit),
-      hasNext: page * limit < totalPosts + totalShares,
+      totalPages: Math.ceil(total / limit),
+      hasNext: page * limit < total,
     };
   }
 

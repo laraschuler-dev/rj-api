@@ -5,5 +5,5 @@ export interface UpdatePostDTO {
   content?: string;
   message?: string;
   metadata?: Record<string, any>;
-  images?: string[];
+  newImages?: string[]; 
 }

@@ -27,6 +27,7 @@ import {
   SharedByDTO,
 } from '../../core/dtos/PostListItemDTO';
 import { UserRepository } from '../../core/repositories/UserRepository';
+import { PostDetailsDTO } from '../../core/dtos/PostDetailsDTO';
 /**
  * Serviço responsável por gerenciar posts.
  *
@@ -472,9 +473,9 @@ export class PostService {
     };
   }
 
-  async updatePost(data: UpdatePostDTO): Promise<void> {
+  async updatePost(data: UpdatePostDTO): Promise<PostDetailsDTO | any> {
+    // Compartilhamento
     if (data.shareId) {
-      // edição de compartilhamento
       const share = await this.repository.findPostShareById(data.shareId);
       if (!share) throw new Error('Compartilhamento não encontrado');
       if (share.user_iduser !== data.userId) {
@@ -483,58 +484,61 @@ export class PostService {
         );
       }
 
-      // Atualiza apenas a mensagem (vazia ou não)
       await this.repository.updateShare(data.shareId, {
         message: data.message ?? '',
       });
 
-      return;
+      // Busca todos os detalhes do post compartilhado
+      const sharedPostDetails =
+        await this.repository.getSharedPostByIdWithDetails(data.shareId);
+      if (!sharedPostDetails)
+        throw new Error('Post compartilhado não encontrado');
+
+      // Retorna no formato padronizado
+      return SharedPostDetailsDTO.fromPrisma(sharedPostDetails, data.userId);
     }
 
-    // edição de post original (já existe)
-    const errors: string[] = [];
+    // Post original
     const post = await this.repository.findById(data.postId!);
-    if (!post) {
-      throw new Error('Post não encontrado');
-    }
-
+    if (!post) throw new Error('Post não encontrado');
     if (post.user_iduser !== data.userId) {
       throw new Error('Usuário não autorizado a editar este post');
     }
-
-    if (!data.content || data.content.trim().length === 0) {
-      errors.push('O conteúdo do post não pode estar vazio.');
+    if (!data.content || data.content.trim() === '') {
+      throw new Error('O conteúdo não pode estar vazio.');
     }
 
+    // Validação de campos obrigatórios da categoria
     const category = await prisma.category.findUnique({
       where: { idcategory: post.categoria_idcategoria },
     });
-
-    if (!category?.required_fields) {
-      errors.push('A categoria não possui definição de campos obrigatórios.');
-    } else {
-      try {
-        const requiredFields: string[] = JSON.parse(category.required_fields);
-        for (const field of requiredFields) {
-          const value = data.metadata?.[field];
-          if (value === undefined || value === null || value === '') {
-            errors.push(`Campo obrigatório ausente: ${field}`);
-          }
+    if (category?.required_fields) {
+      const requiredFields: string[] = JSON.parse(category.required_fields);
+      for (const field of requiredFields) {
+        const value = data.metadata?.[field];
+        if (value === undefined || value === null || value === '') {
+          throw new Error(`Campo obrigatório ausente: ${field}`);
         }
-      } catch {
-        errors.push('Formato inválido dos campos obrigatórios da categoria.');
       }
     }
 
-    if (errors.length > 0) {
-      throw new Error(errors.join(', '));
+    const currentImages = await this.repository.getImagesByPostId(data.postId!);
+    const totalImages = currentImages.length;
+    const newImgs = data.newImages ?? [];
+
+    if (totalImages + newImgs.length > 5) {
+      throw new Error(`O post já possui ${totalImages} imagens.`);
     }
 
-    await this.repository.update(data.postId!, {
+    // Atualiza post e imagens
+    const updatedPost = await this.repository.update(data.postId!, {
       content: data.content,
       metadata: data.metadata,
-      images: data.images,
+      newImages: data.newImages,
     });
+
+    // Mapeia para DTO final
+    return PostDetailsDTO.fromPrisma(updatedPost, data.userId);
   }
 
   async deleteImage(data: DeletePostImageDTO): Promise<void> {

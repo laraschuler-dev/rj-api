@@ -960,7 +960,15 @@ export class PostRepositoryPrisma implements PostRepository {
     };
   }
 
-  async update(postId: number, data: Partial<Post>): Promise<void> {
+  async update(
+    postId: number,
+    data: {
+      content?: string;
+      metadata?: Record<string, any>;
+      newImages?: string[];
+    }
+  ): Promise<any> {
+    // Atualiza conteúdo e metadata
     await prisma.post.update({
       where: { idpost: postId },
       data: {
@@ -969,27 +977,49 @@ export class PostRepositoryPrisma implements PostRepository {
       },
     });
 
-    // ✅ Atualizar imagens (se enviadas)
-    if (data.images && data.images.length > 0) {
-      // Remove imagens antigas (opcional, se quiser sobrescrever completamente)
-      await prisma.image.deleteMany({
-        where: { post_idpost: postId },
-      });
+    // Busca imagens atuais
+    const currentImages = await prisma.image.findMany({
+      where: { post_idpost: postId },
+      select: { idimage: true },
+    });
 
-      // Insere novas imagens
+    const totalImages = currentImages.length;
+    const newImgs = data.newImages ?? [];
+
+    // Adiciona novas imagens
+    if (newImgs.length > 0) {
       await prisma.image.createMany({
-        data: data.images.map((filename) => ({
-          image: filename, // ✅ Nome correto da coluna segundo o Prisma
+        data: newImgs.map((filename) => ({
+          image: filename,
           post_idpost: postId,
         })),
       });
     }
+
+    // Busca post atualizado com todas as relações
+    return prisma.post.findUnique({
+      where: { idpost: postId },
+      include: {
+        user: { include: { user_profile: true } },
+        image: true,
+        user_like: true,
+        comment: true,
+        event_attendance: true,
+      },
+    });
   }
 
   async updateShare(shareId: number, data: { message: string }): Promise<void> {
     await prisma.post_share.update({
       where: { id: shareId },
       data: { message: data.message },
+    });
+  }
+
+  async getImagesByPostId(postId: number): Promise<{ idimage: number }[]> {
+    return prisma.image.findMany({
+      where: { post_idpost: postId },
+      select: { idimage: true },
     });
   }
 

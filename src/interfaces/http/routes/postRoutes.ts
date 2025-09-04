@@ -303,7 +303,6 @@ postRoutes.get('/', ensureAuthenticated, postController.listPosts);
  *               type: string
  *               format: date-time
  */
-
 postRoutes.get('/:id', ensureAuthenticated, postController.getById);
 
 /**
@@ -1000,6 +999,7 @@ postRoutes.delete(
   ensureAuthenticated,
   postController.deletePostImage
 );
+
 /**
  * @swagger
  * /posts/{postId}:

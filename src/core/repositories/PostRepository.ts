@@ -127,9 +127,14 @@ export interface PostRepository {
     limit: number
   ): Promise<{ posts: Post[]; totalCount: number }>;
 
-  update(postId: number, data: Partial<Post>): Promise<void>;
+  update(
+    postId: number,
+    data: Partial<Post> & { existingImages?: string[]; newImages?: string[] }
+  ): Promise<Post>;
 
   updateShare(shareId: number, data: { message: string }): Promise<void>;
+
+  getImagesByPostId(postId: number): Promise<{ idimage: number }[]>;
 
   deleteImage(postId: number, imageId: number): Promise<void>;
 

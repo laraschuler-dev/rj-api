@@ -173,7 +173,7 @@ export class PostUseCases {
     return this.postService.getPostsByUser(dto);
   }
 
-  async updatePost(data: UpdatePostDTO): Promise<void> {
+  async updatePost(data: UpdatePostDTO): Promise<Post | any> {
     return this.postService.updatePost(data);
   }
 

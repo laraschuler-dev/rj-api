@@ -81,10 +81,10 @@ export class PostController {
         return;
       }
 
-      // ✅ Extrai nomes dos arquivos de imagem
+      // Extrai nomes dos arquivos de imagem
       const imageFilenames = dto?.images?.map((file) => file.filename) || [];
 
-      // ✅ Passa os nomes das imagens para o caso de uso
+      // Passa os nomes das imagens para o caso de uso
       const post = await this.postUseCases.execute(
         dto!.content,
         dto!.categoria_idcategoria,
@@ -546,24 +546,22 @@ export class PostController {
         ? JSON.parse(req.body.metadata)
         : undefined;
 
+      // Novas imagens (upload)
       const imageFiles = req.files as Express.Multer.File[] | undefined;
-      const imageFilenames = imageFiles?.map((file) => file.filename) || [];
+      const newImages = imageFiles?.map((file) => file.filename) || [];
 
-      await this.postUseCases.updatePost({
+      // Chama o use case para atualizar
+      const updated = await this.postUseCases.updatePost({
         postId: shareId ? undefined : postId,
         shareId,
         userId,
         content,
         message,
         metadata,
-        images: imageFilenames.length > 0 ? imageFilenames : undefined,
+        newImages,
       });
 
-      res.status(200).json({
-        message: shareId
-          ? 'Compartilhamento atualizado com sucesso'
-          : 'Post atualizado com sucesso',
-      });
+      res.status(200).json(updated);
     } catch (error: any) {
       console.error('Erro ao atualizar post:', error);
       res.status(400).json({ error: error.message });

@@ -187,11 +187,11 @@ export class AuthService {
       phone: user.phone,
     };
 
-    return jwt.sign(payload, this.jwtSecret, { expiresIn: '1h' });
+    return jwt.sign(payload, this.jwtSecret, { expiresIn: '24h' });
   }
 
   async getAuthenticatedUser(userId: number): Promise<Omit<User, 'password'>> {
-    const user = await this.userRepository.findById(userId);
+    const user = await this.userRepository.findByIdUser(userId);
     if (!user) throw new Error('Usuário não encontrado');
 
     // Remove o campo de senha antes de retornar
@@ -204,7 +204,7 @@ export class AuthService {
   }
 
   async updatePassword(userId: number, dto: UpdatePasswordDTO): Promise<void> {
-    const user = await this.userRepository.findById(userId);
+    const user = await this.userRepository.findByIdUser(userId);
     if (!user) throw new Error('Usuário não encontrado.');
 
     const passwordMatch = await bcrypt.compare(dto.currentPassword, user.password);

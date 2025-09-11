@@ -31,7 +31,7 @@ export interface UserRepository {
    * @param id - ID do usuário.
    * @returns O usuário encontrado ou `null` se não existir.
    */
-  findById(id: number): Promise<User | null>;
+  findByIdUser(id: number): Promise<User | null>;
 
   /**
    * Salva o token de recuperação de senha para um usuário.

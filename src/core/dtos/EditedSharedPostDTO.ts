@@ -1,9 +1,10 @@
+// src/core/dtos/EditedSharedPostDTO.ts
 import { generateUniqueKey } from '../utils/generateUniqueKey';
 
-export class SharedPostDetailsDTO {
+export class EditedSharedPostDTO {
   static fromPrisma(data: any, userId: number) {
     if (!data || !data.idpost || !data.sharedBy) {
-      throw new Error('[SharedPostDetailsDTO] Dados inválidos ou ausentes.');
+      throw new Error('[EditedSharedPostDTO] Dados inválidos ou ausentes.');
     }
 
     const metadata =
@@ -11,33 +12,33 @@ export class SharedPostDetailsDTO {
         ? JSON.parse(data.metadata)
         : data.metadata;
 
+    // agora passa o shareId também
+    const uniqueKey = generateUniqueKey({
+      id: data.idpost,
+      sharedBy: {
+        id: data.sharedBy.id,
+        shareId: data.sharedBy.shareId, // 🔑 aqui!
+        sharedAt: data.sharedBy.sharedAt,
+      },
+    });
+
     return {
-      uniqueKey: generateUniqueKey({
-        id: data.idpost,
-        sharedBy: {
-          id: data.sharedBy.id,
-          shareId: data.sharedBy.shareId, // 🔑 agora garantido
-          sharedAt: data.sharedBy.sharedAt,
-        },
-      }),
+      uniqueKey,
       id: data.idpost,
       content: data.content,
       createdAt: data.time,
       metadata,
       categoryId: data.categoria_idcategoria,
-      author: {
+      user: {
         id: data.user.iduser,
         name: data.user.name,
         avatarUrl: data.user.avatarUrl ?? null,
       },
-      images: data.image.map((img: { idimage: any; image: any }) => ({
-        id: img.idimage,
-        url: img.image,
-      })),
-      likesCount: data.user_like.length,
-      likedByUser: data.user_like.some(
+      images: data.image.map((img: { image: string }) => img.image),
+      liked: data.user_like.some(
         (like: { user_iduser: number }) => like.user_iduser === userId
       ),
+      likesCount: data.user_like.length,
       comments: data.comment.map(
         (c: { user_iduser: any; comment: any; time: any }) => ({
           userId: c.user_iduser,

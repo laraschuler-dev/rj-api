@@ -18,6 +18,11 @@ export interface SharedByDTO {
   sharedAt: string;
 }
 
+export interface EventAttendanceDTO {
+  userId: number;
+  status: string; // ou event_attendance_status se quiser tipar melhor
+}
+
 export class PostListItemDTO {
   constructor(
     public readonly uniqueKey: string,
@@ -29,7 +34,9 @@ export class PostListItemDTO {
     public readonly images: string[],
     public readonly createdAt: string,
     public readonly liked: boolean,
-    public readonly sharedBy?: SharedByDTO
+    public readonly sharedBy?: SharedByDTO,
+    public readonly eventAttendance?: EventAttendanceDTO[],
+    public readonly attending?: boolean
   ) {}
 
   static fromDomain(post: Post, user: User, images: string[]): PostListItemDTO {
@@ -51,9 +58,14 @@ export class PostListItemDTO {
         }
       : undefined;
 
+    // Use apenas os eventAttendance do post ou do share
+    const eventAttendance = post.eventAttendance || [];
+
+    const attending = eventAttendance.some((a) => a.userId === user.id);
+
     return new PostListItemDTO(
       post.getUniqueIdentifier(),
-      post.id!,
+      post.sharedBy ? post.sharedBy.postId : post.id!,
       post.content,
       post.categoria_idcategoria,
       author,
@@ -61,7 +73,9 @@ export class PostListItemDTO {
       images,
       post.createdAt.toISOString(),
       post.liked || false,
-      sharedBy
+      sharedBy,
+      eventAttendance,
+      attending
     );
   }
 }

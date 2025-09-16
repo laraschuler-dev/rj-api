@@ -156,6 +156,11 @@ export class PostRepositoryPrisma implements PostRepository {
               select: { user_iduser: true },
             }
           : false,
+        event_attendance: userId
+          ? {
+              where: { post_share_id: null },
+            }
+          : true,
       },
     });
 
@@ -172,7 +177,12 @@ export class PostRepositoryPrisma implements PostRepository {
         post.time,
         images,
         post.user.user_profile?.profile_photo,
-        liked
+        liked,
+        undefined,
+        post.event_attendance.map((a) => ({
+          userId: a.user_iduser,
+          status: a.status,
+        }))
       );
     });
   }
@@ -187,7 +197,6 @@ export class PostRepositoryPrisma implements PostRepository {
       where: {
         id: { in: ids },
         deleted: false, // share válido
-        // post: { deleted: false }, <- removido para incluir shares de posts deletados
       },
       include: {
         user: { include: { user_profile: true } },
@@ -208,12 +217,13 @@ export class PostRepositoryPrisma implements PostRepository {
                   select: { user_iduser: true },
                 }
               : false,
+            event_attendance: true, // pega todos e filtra depois
           },
         },
       },
     });
 
-    return shares.map((share) => {
+    return shares.map((share: any) => {
       const p = share.post;
 
       // Caso o post original tenha sido deletado
@@ -236,14 +246,23 @@ export class PostRepositoryPrisma implements PostRepository {
             avatarUrl: share.user.user_profile?.profile_photo ?? undefined,
             message: share.message || undefined,
             sharedAt: share.shared_at ? new Date(share.shared_at) : new Date(),
-          }
+          },
+          [] // sem eventAttendance
         );
       }
 
       // Post original existe
-      const images = p.image.map((img) => img.image);
+      const images = p.image.map((img: any) => img.image);
       const liked = userId ? share.user_like.length > 0 : false;
       const avatarUrl = share.user.user_profile?.profile_photo ?? undefined;
+
+      // filtra eventAttendance só deste share
+      const eventAttendance = (p.event_attendance ?? [])
+        .filter((a: any) => a.post_share_id === share.id)
+        .map((a: any) => ({
+          userId: a.user_iduser,
+          status: a.status,
+        }));
 
       return new Post(
         share.id,
@@ -263,7 +282,8 @@ export class PostRepositoryPrisma implements PostRepository {
           avatarUrl: avatarUrl,
           message: share.message || undefined,
           sharedAt: share.shared_at ? new Date(share.shared_at) : new Date(),
-        }
+        },
+        eventAttendance
       );
     });
   }

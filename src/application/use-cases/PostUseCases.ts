@@ -59,7 +59,7 @@ export class PostUseCases {
     user_iduser: number,
     metadata: PostMetadata,
     imageFilenames: string[] = []
-  ): Promise<Post> {
+  ): Promise<{ post: Post; images: string[] }> {
     const post = new Post(
       null,
       content,
@@ -67,7 +67,8 @@ export class PostUseCases {
       user_iduser,
       metadata
     );
-    (post as any).images = imageFilenames; // temporário para passar dados ao repositório
+    (post as any).images = imageFilenames;
+
     return this.postService.createPost(post);
   }
 
@@ -83,7 +84,7 @@ export class PostUseCases {
     limit: number,
     userId?: number
   ): Promise<{
-    posts: Post[];
+    posts: PostListItemDTO[];
     total: number;
     currentPage: number;
     limit: number;
@@ -94,7 +95,7 @@ export class PostUseCases {
   }
 
   async getPostById(postId: number, userId: number) {
-    const post = await this.postService.getPostByIdWithDetails(postId);
+    const post = await this.postService.getPostByIdWithDetails(postId, userId);
     if (!post) return null;
     return PostDetailsDTO.fromPrisma(post, userId);
   }

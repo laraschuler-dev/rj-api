@@ -40,10 +40,18 @@ export class PostListItemDTO {
   ) {}
 
   static fromDomain(post: Post, user: User, images: string[]): PostListItemDTO {
+    // Verifica se é anônimo
+    const isAnonymous = post.metadata?.isAnonymous === true;
+
+    // Define o avatarUrl baseado no anonimato
+    const avatarUrl = isAnonymous
+      ? '/default-avatar.png' // Avatar padrão para anônimos
+      : post.avatarUrl || user.avatarUrl; // Avatar normal
+
     const author: AuthorDTO = {
-      id: user.id,
-      name: user.name,
-      avatarUrl: post.avatarUrl || user.avatarUrl,
+      id: isAnonymous ? 0 : user.id, // Anonimiza ID se necessário
+      name: isAnonymous ? 'Usuário Anônimo' : user.name, // Anonimiza nome
+      avatarUrl: avatarUrl,
     };
 
     const sharedBy: SharedByDTO | undefined = post.sharedBy
@@ -58,9 +66,7 @@ export class PostListItemDTO {
         }
       : undefined;
 
-    // Use apenas os eventAttendance do post ou do share
     const eventAttendance = post.eventAttendance || [];
-
     const attending = eventAttendance.some((a) => a.userId === user.id);
 
     return new PostListItemDTO(

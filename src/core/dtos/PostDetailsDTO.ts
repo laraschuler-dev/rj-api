@@ -2,21 +2,34 @@ import { generateUniqueKey } from '../utils/generateUniqueKey';
 
 export class PostDetailsDTO {
   static fromPrisma(post: any, userId: number) {
+    const metadata =
+      typeof post.metadata === 'string'
+        ? JSON.parse(post.metadata)
+        : post.metadata;
+
+    const isAnonymous = metadata?.isAnonymous === true;
+
+    // Aplica anonimização se necessário
+    const author = isAnonymous
+      ? {
+          id: 0,
+          name: 'Usuário Anônimo',
+          avatarUrl: '/default-avatar.png',
+        }
+      : {
+          id: post.user.iduser,
+          name: post.user.name,
+          avatarUrl: post.user.avatarUrl ?? null,
+        };
+
     return {
       uniqueKey: generateUniqueKey({ id: post.idpost }),
       id: post.idpost,
       content: post.content,
       createdAt: post.time,
-      metadata:
-        typeof post.metadata === 'string'
-          ? JSON.parse(post.metadata)
-          : post.metadata,
+      metadata: metadata, // Use a variável já processada
       categoryId: post.categoria_idcategoria,
-      author: {
-        id: post.user.iduser,
-        name: post.user.name,
-        avatarUrl: post.user.avatarUrl ?? null,
-      },
+      author: author, // ← CORREÇÃO: Use a variável `author` aqui!
       images: post.image.map((img: { idimage: any; image: any }) => ({
         id: img.idimage,
         url: img.image,

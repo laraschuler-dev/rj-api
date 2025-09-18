@@ -9,6 +9,7 @@ import { PrismaClient, post_share } from '@prisma/client';
 import { CommentDetailDTO } from '../dtos/CommentDetailDTO';
 import { GetAttendanceStatusDTO } from '../dtos/AttendEvent/GetAttendanceStatusDTO';
 import { AttendanceStatusResponseDTO } from '../dtos/AttendEvent/AttendanceStatusResponseDTO';
+import { User } from '../entities/User';
 
 type CommentWithUser = Prisma.commentGetPayload<{ include: { user: true } }>;
 
@@ -34,7 +35,7 @@ export interface PostRepository {
    * @param post - Post a ser salvo.
    * @returns O post salvo.
    */
-  save(post: Post): Promise<Post>;
+  save(post: Post): Promise<{ post: Post; images: string[] }>;
   /**
    * Método para buscar um post por ID.
    *

@@ -154,7 +154,6 @@ export class Post {
           ? this.sharedBy.sharedAt.getTime()
           : new Date(this.sharedBy.sharedAt).getTime();
 
-      // Agora usando o shareId no lugar do postId
       return `shared:${this.sharedBy.id}:${this.sharedBy.shareId}:${timestamp}`;
     }
     return `post:${this.id}`;

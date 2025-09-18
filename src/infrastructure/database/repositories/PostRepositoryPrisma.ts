@@ -12,6 +12,7 @@ import { Prisma } from '@prisma/client';
 import { CommentDetailDTO } from '@/core/dtos/CommentDetailDTO';
 import { GetAttendanceStatusDTO } from '@/core/dtos/AttendEvent/GetAttendanceStatusDTO';
 import { AttendanceStatusResponseDTO } from '@/core/dtos/AttendEvent/AttendanceStatusResponseDTO';
+import { User } from '../../../core/entities/User';
 type CommentWithUser = Prisma.commentGetPayload<{ include: { user: true } }>;
 
 /**
@@ -24,7 +25,7 @@ export class PostRepositoryPrisma implements PostRepository {
    * @param post - Instância de Post a ser salva.
    * @returns O post salvo, como instância de Post.
    */
-  async save(post: Post): Promise<Post> {
+  async save(post: Post): Promise<{ post: Post; images: string[] }> {
     const metadataString = post.metadata ? JSON.stringify(post.metadata) : null;
 
     const saved = await prisma.post.create({
@@ -38,7 +39,8 @@ export class PostRepositoryPrisma implements PostRepository {
       include: { user: true },
     });
 
-    // ✅ ADICIONADO: salva imagens na tabela `image`, se existirem
+    // Salva imagens na tabela `image`, se existirem
+    let images: string[] = [];
     if ((post as any).images && Array.isArray((post as any).images)) {
       const imageFilenames = (post as any).images as string[];
 
@@ -47,16 +49,21 @@ export class PostRepositoryPrisma implements PostRepository {
         post_idpost: saved.idpost,
       }));
 
-      await prisma.image.createMany({
-        data: imageData,
+      await prisma.image.createMany({ data: imageData });
+
+      images = imageFilenames;
+    } else {
+      const existingImages = await prisma.image.findMany({
+        where: { post_idpost: saved.idpost },
       });
+      images = existingImages.map((img) => img.image);
     }
 
     const metadata = saved.metadata
       ? (JSON.parse(saved.metadata) as PostMetadata)
       : {};
 
-    return new Post(
+    const domainPost = new Post(
       saved.idpost,
       saved.content,
       saved.categoria_idcategoria,
@@ -64,6 +71,8 @@ export class PostRepositoryPrisma implements PostRepository {
       metadata,
       saved.time
     );
+
+    return { post: domainPost, images };
   }
 
   /**

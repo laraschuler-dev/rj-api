@@ -11,6 +11,9 @@ import { DeleteCommentDTO } from '../../../core/dtos/DeleteCommentDTO';
 import { User } from '../../../core/entities/User';
 import { Post } from '../../../core/entities/Post';
 import { PostService } from '../../../application/services/PostService';
+import { UserProfileRepositoryPrisma } from '@/infrastructure/database/repositories/UserProfileRepositoryPrisma';
+import { UserMapper } from '../../../core/mappers/UserMapper';
+import { CreatedPostDTO } from '../../../core/dtos/CreatePostResponseDTO';
 
 /**
  * Controlador responsável por lidar com requisições relacionadas a posts.
@@ -27,7 +30,8 @@ export class PostController {
 
   constructor(
     private readonly postUseCases: PostUseCases,
-    private readonly userRepository: UserRepository
+    private readonly userRepository: UserRepository,
+    private userProfileRepository: UserProfileRepositoryPrisma
   ) {
     this.create = this.create.bind(this);
     this.listPosts = this.listPosts.bind(this);
@@ -81,11 +85,10 @@ export class PostController {
         return;
       }
 
-      // Extrai nomes dos arquivos de imagem
       const imageFilenames = dto?.images?.map((file) => file.filename) || [];
 
-      // Passa os nomes das imagens para o caso de uso
-      const post = await this.postUseCases.execute(
+      // Criação do post
+      const { post, images } = await this.postUseCases.execute(
         dto!.content,
         dto!.categoria_idcategoria,
         dto!.user_iduser,
@@ -93,13 +96,21 @@ export class PostController {
         imageFilenames
       );
 
+      // Busca User e UserProfile separadamente
       const author = await this.userRepository.findByIdUser(post.user_iduser);
       if (!author) {
         res.status(404).json({ error: 'Autor não encontrado' });
         return;
       }
 
-      const response = PostResponseDTO.fromDomain(post, author);
+      const profile = await this.userProfileRepository.findByUserId(author.id);
+
+      // Usa o mapper para montar AuthorDTO
+      const authorDTO = UserMapper.toAuthorDTO(author, profile ?? undefined);
+
+      // Cria DTO final do post (compatível com feed, mas sem sharedBy)
+      const response = CreatedPostDTO.fromDomain(post, authorDTO, images);
+
       res.status(201).json(response);
     } catch (err) {
       const errorMessage =
@@ -130,15 +141,8 @@ export class PostController {
         req.user?.id
       );
 
-      const postsWithUniqueKeys = await Promise.all(
-        result.posts.map(async (post) => {
-          const author = await this.userRepository.findByIdUser(
-            post.user_iduser
-          );
-          if (!author) throw new Error('Autor não encontrado');
-          return PostListItemDTO.fromDomain(post, author, post.images);
-        })
-      );
+      // posts já vêm como DTOs do service, com anonimato aplicado
+      const postsWithUniqueKeys = result.posts;
 
       res.json({
         posts: postsWithUniqueKeys,

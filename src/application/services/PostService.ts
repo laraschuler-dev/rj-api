@@ -30,6 +30,7 @@ import { UserRepository } from '../../core/repositories/UserRepository';
 import { PostDetailsDTO } from '../../core/dtos/PostDetailsDTO';
 import { EditedPostDTO } from '../../core/dtos/EditedPostDTO';
 import { EditedSharedPostDTO } from '../../core/dtos/EditedSharedPostDTO';
+
 /**
  * Serviço responsável por gerenciar posts.
  *
@@ -54,7 +55,7 @@ export class PostService {
    * @returns O post criado.
    * @throws Erro caso os campos sejam inválidos ou campos obrigatórios faltando.
    */
-  async createPost(post: Post): Promise<Post> {
+  async createPost(post: Post): Promise<{ post: Post; images: string[] }> {
     const errors: string[] = [];
 
     if (!post.content || post.content.trim().length === 0) {
@@ -139,7 +140,7 @@ export class PostService {
     limit: number,
     userId?: number
   ): Promise<{
-    posts: Post[];
+    posts: PostListItemDTO[];
     total: number;
     currentPage: number;
     limit: number;
@@ -148,8 +149,22 @@ export class PostService {
   }> {
     const result = await this.repository.findManyPaginated(page, limit, userId);
 
+    const postsWithUniqueKeys = await Promise.all(
+      result.posts.map(async (post) => {
+        const author = await this.userRepository.findByIdUser(post.user_iduser);
+        if (!author) throw new Error('Autor não encontrado');
+
+        return PostListItemDTO.fromDomain(
+          post,
+          author, // Passa o autor original, o DTO cuida da anonimização
+          post.images
+        );
+      })
+    );
+
     return {
-      ...result,
+      posts: postsWithUniqueKeys,
+      total: result.total,
       currentPage: page,
       limit,
       totalPages: Math.ceil(result.total / limit),
@@ -182,14 +197,14 @@ export class PostService {
     return SharedPostDetailsDTO.fromPrisma(sharedDetails, userId);
   }
 
-  async getPostByIdWithDetails(id: number) {
+  async getPostByIdWithDetails(id: number, userId: number) {
     const post = await this.repository.getPostByIdWithDetails(id);
 
     if (!post || post.deleted) {
       return null;
     }
 
-    return post;
+    return post; // Retorna o post cru, o DTO cuida da transformação
   }
 
   async toggleLike(

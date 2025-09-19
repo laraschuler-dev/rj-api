@@ -171,12 +171,12 @@ export class PostUseCases {
   }
 
   async getPostsByUser(dto: GetUserPostsDTO) {
-    // Adiciona o requestingUserId ao DTO
-    return this.postService.getPostsByUser({
-      ...dto,
-      requestingUserId: dto.requestingUserId, // Será passado pelo controller
-    });
-  }
+  console.log('📋 UseCase - dto recebido:', dto);
+  console.log('👤 UseCase - requestingUserId:', dto.requestingUserId);
+  
+  const result = await this.postService.getPostsByUser(dto);
+  return result;
+}
 
   async updatePost(data: UpdatePostDTO): Promise<Post | any> {
     return this.postService.updatePost(data);

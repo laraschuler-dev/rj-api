@@ -34,24 +34,39 @@ export class PostListItemDTO {
     public readonly images: string[],
     public readonly createdAt: string,
     public readonly liked: boolean,
+    public readonly isPostOwner: boolean, // 👈 se o usuário logado é o dono do post original
+    public readonly isShareOwner: boolean, // 👈 se o usuário logado é o dono do compartilhamento
     public readonly sharedBy?: SharedByDTO,
     public readonly eventAttendance?: EventAttendanceDTO[],
     public readonly attending?: boolean
   ) {}
 
-  static fromDomain(post: Post, user: User, images: string[]): PostListItemDTO {
-    // Verifica se é anônimo
-    const isAnonymous = post.metadata?.isAnonymous === true;
+  static fromDomain(
+    post: Post,
+    user: User,
+    images: string[],
+    requestingUserId?: number
+  ): PostListItemDTO {
+    const metadata =
+      typeof post.metadata === 'string'
+        ? JSON.parse(post.metadata)
+        : post.metadata;
 
-    // Define o avatarUrl baseado no anonimato
-    const avatarUrl = isAnonymous
-      ? '/default-avatar.png' // Avatar padrão para anônimos
-      : post.avatarUrl || user.avatarUrl; // Avatar normal
+    const isAnonymous = metadata?.isAnonymous === true;
+    const isPostOwner = post.user_iduser === requestingUserId;
+    const isShareOwner = post.sharedBy?.id === requestingUserId || false;
+
+    const shouldAnonymize = isAnonymous;
+
+    // 👇 só mexemos aqui
+    const avatarUrl = shouldAnonymize
+      ? '/default-avatar.png'
+      : post.avatarUrl || user.avatarUrl;
 
     const author: AuthorDTO = {
-      id: isAnonymous ? 0 : user.id, // Anonimiza ID se necessário
-      name: isAnonymous ? 'Usuário Anônimo' : user.name, // Anonimiza nome
-      avatarUrl: avatarUrl,
+      id: shouldAnonymize ? 0 : user.id,
+      name: shouldAnonymize ? 'Usuário Anônimo' : user.name,
+      avatarUrl,
     };
 
     const sharedBy: SharedByDTO | undefined = post.sharedBy
@@ -79,6 +94,8 @@ export class PostListItemDTO {
       images,
       post.createdAt.toISOString(),
       post.liked || false,
+      isPostOwner, // 👈
+      isShareOwner, // 👈
       sharedBy,
       eventAttendance,
       attending

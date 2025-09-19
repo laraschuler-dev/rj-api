@@ -336,7 +336,9 @@ export class PostService {
       metadata,
       images,
       originalPost.time.toISOString(),
-      false,
+      false, // liked
+      false, // isPostOwner (quem compartilha não é dono do post original)
+      true, // isShareOwner (quem compartilha é dono deste compartilhamento)
       sharedBy
     );
   }
@@ -451,6 +453,8 @@ export class PostService {
 
   // PostService.ts
   async getPostsByUser(dto: GetUserPostsDTO) {
+    console.log('📋 Service - dto recebido:', dto);
+    console.log('👤 Service - requestingUserId:', dto.requestingUserId);
     const { userId, requestingUserId, page = 1, limit = 10 } = dto;
 
     if (page < 1 || limit < 1 || limit > 100) {
@@ -466,13 +470,21 @@ export class PostService {
     // 👇 Passa o requestingUserId para o repository
     const { posts, totalCount } = await this.repository.findPostsByUser(
       userId,
-      requestingUserId, // 👈 Novo parâmetro
+      requestingUserId,
       page,
       limit
     );
 
-    const postDTOs = posts.map((post) =>
-      PostListItemDTO.fromDomain(post, userExists, post.images)
+    // 👇 CORREÇÃO: Passe requestingUserId para o DTO
+    const postDTOs = posts.map(
+      (post) =>
+        PostListItemDTO.fromDomain(
+          post,
+          userExists,
+          post.images,
+          requestingUserId
+        )
+      // 👆👆👆 FALTANDO este parâmetro! 👆👆👆
     );
 
     const totalPages = Math.ceil(totalCount / limit);

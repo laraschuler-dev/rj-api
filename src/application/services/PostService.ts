@@ -451,7 +451,7 @@ export class PostService {
 
   // PostService.ts
   async getPostsByUser(dto: GetUserPostsDTO) {
-    const { userId, page = 1, limit = 10 } = dto;
+    const { userId, requestingUserId, page = 1, limit = 10 } = dto;
 
     if (page < 1 || limit < 1 || limit > 100) {
       throw new Error('Parâmetros de paginação inválidos');
@@ -463,14 +463,14 @@ export class PostService {
       throw new Error('Usuário não encontrado');
     }
 
-    // Busca posts e compartilhamentos
+    // 👇 Passa o requestingUserId para o repository
     const { posts, totalCount } = await this.repository.findPostsByUser(
       userId,
+      requestingUserId, // 👈 Novo parâmetro
       page,
       limit
     );
 
-    // Aqui transformamos os posts em DTOs
     const postDTOs = posts.map((post) =>
       PostListItemDTO.fromDomain(post, userExists, post.images)
     );

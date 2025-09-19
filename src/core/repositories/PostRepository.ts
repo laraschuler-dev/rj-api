@@ -124,6 +124,7 @@ export interface PostRepository {
 
   findPostsByUser(
     userId: number,
+    requestingUserId: number | undefined, // 👈 Novo parâmetro
     page: number,
     limit: number
   ): Promise<{ posts: Post[]; totalCount: number }>;

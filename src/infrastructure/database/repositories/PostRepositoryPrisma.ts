@@ -921,36 +921,94 @@ export class PostRepositoryPrisma implements PostRepository {
 
   private async findUserFeedItemIdsPaginated(
     userId: number,
+    requestingUserId: number | undefined,
     page: number,
     limit: number
   ): Promise<{ type: 'post' | 'share'; id: number; timestamp: Date }[]> {
     const skip = (page - 1) * limit;
+    const isOwnProfile = userId === requestingUserId;
 
-    return prisma.$queryRaw<
-      { type: 'post' | 'share'; id: number; timestamp: Date }[]
-    >`
-    SELECT * FROM (
-      SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
-      FROM post p
-      WHERE p.user_iduser = ${userId} AND p.deleted = false
+    console.log(`📊 isOwnProfile: ${isOwnProfile}, userId: ${userId}, requestingUserId: ${requestingUserId}`);
 
-      UNION ALL
+    if (isOwnProfile) {
+      // Próprio usuário - mostra tudo
+      return prisma.$queryRaw<
+        { type: 'post' | 'share'; id: number; timestamp: Date }[]
+      >`
+      SELECT * FROM (
+        SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
+        FROM post p
+        WHERE p.user_iduser = ${userId} AND p.deleted = false
 
-      SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
-      FROM post_share ps
-      WHERE ps.user_iduser = ${userId} AND ps.deleted = false
-    ) AS combined
-    ORDER BY timestamp DESC
-    LIMIT ${limit} OFFSET ${skip};
-  `;
+        UNION ALL
+
+        SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
+        FROM post_share ps
+        INNER JOIN post p ON ps.post_idpost = p.idpost
+        WHERE ps.user_iduser = ${userId} AND ps.deleted = false AND p.deleted = false
+      ) AS combined
+      ORDER BY timestamp DESC
+      LIMIT ${limit} OFFSET ${skip};
+    `;
+    } else {
+      // Outro usuário - filtra posts anônimos
+      // 👇 SINTAXE SIMPLIFICADA para MariaDB
+      return prisma.$queryRaw<
+        { type: 'post' | 'share'; id: number; timestamp: Date }[]
+      >`
+      SELECT * FROM (
+        SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
+        FROM post p
+        WHERE p.user_iduser = ${userId} 
+          AND p.deleted = false
+          AND (
+            p.metadata IS NULL 
+            OR p.metadata = '{}'
+            OR p.metadata NOT LIKE '%"isAnonymous":true%'
+            OR JSON_VALUE(p.metadata, '$.isAnonymous') IS NULL
+            OR JSON_VALUE(p.metadata, '$.isAnonymous') = 'false'
+          )
+
+        UNION ALL
+
+        SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
+        FROM post_share ps
+        INNER JOIN post p ON ps.post_idpost = p.idpost
+        WHERE ps.user_iduser = ${userId} 
+          AND ps.deleted = false
+          AND p.deleted = false
+          AND (
+            p.metadata IS NULL 
+            OR p.metadata = '{}'
+            OR p.metadata NOT LIKE '%"isAnonymous":true%'
+            OR JSON_VALUE(p.metadata, '$.isAnonymous') IS NULL
+            OR JSON_VALUE(p.metadata, '$.isAnonymous') = 'false'
+          )
+      ) AS combined
+      ORDER BY timestamp DESC
+      LIMIT ${limit} OFFSET ${skip};
+    `;
+    }
   }
 
   async findPostsByUser(
     userId: number,
+    requestingUserId: number | undefined,
     page: number,
     limit: number
   ): Promise<{ posts: Post[]; totalCount: number }> {
-    const items = await this.findUserFeedItemIdsPaginated(userId, page, limit);
+    console.log(
+      `🔍 Buscando posts para userId: ${userId}, requestingUserId: ${requestingUserId}`
+    );
+
+    const items = await this.findUserFeedItemIdsPaginated(
+      userId,
+      requestingUserId,
+      page,
+      limit
+    );
+
+    console.log(`📦 Items encontrados:`, items);
 
     const postIds = items
       .filter((i) => i.type === 'post')
@@ -959,18 +1017,63 @@ export class PostRepositoryPrisma implements PostRepository {
       .filter((i) => i.type === 'share')
       .map((i) => Number(i.id));
 
-    const [posts, shares, totalPosts, totalShares] = await Promise.all([
+    console.log(`📝 Post IDs:`, postIds);
+    console.log(`🔄 Share IDs:`, shareIds);
+
+    const [posts, shares, allPosts, allShares] = await Promise.all([
       this.findPostsByIds(postIds, userId),
       this.findSharesByIds(shareIds, userId),
-      prisma.post.count({ where: { user_iduser: userId, deleted: false } }),
-      prisma.post_share.count({
+      prisma.post.findMany({
+        where: {
+          user_iduser: userId,
+          deleted: false,
+        },
+      }),
+      prisma.post_share.findMany({
         where: {
           user_iduser: userId,
           deleted: false,
           post: { deleted: false },
         },
+        include: { post: true },
       }),
     ]);
+
+    console.log(`✅ Posts encontrados:`, posts.length);
+    console.log(`✅ Shares encontrados:`, shares.length);
+    console.log(`✅ Todos posts:`, allPosts.length);
+    console.log(`✅ Todos shares:`, allShares.length);
+
+    // 👇 Filtra na aplicação para as contagens
+    const isOwnProfile = userId === requestingUserId;
+
+    const totalPosts = isOwnProfile
+      ? allPosts.length
+      : allPosts.filter((post) => {
+          try {
+            const metadata =
+              typeof post.metadata === 'string'
+                ? JSON.parse(post.metadata)
+                : post.metadata;
+            return metadata?.isAnonymous !== true;
+          } catch {
+            return true; // Se der erro no parse, inclui o post
+          }
+        }).length;
+
+    const totalShares = isOwnProfile
+      ? allShares.length
+      : allShares.filter((share) => {
+          try {
+            const metadata =
+              typeof share.post.metadata === 'string'
+                ? JSON.parse(share.post.metadata)
+                : share.post.metadata;
+            return metadata?.isAnonymous !== true;
+          } catch {
+            return true; // Se der erro no parse, inclui o share
+          }
+        }).length;
 
     const postMap = new Map(posts.map((p) => [p.id!, p]));
     const shareMap = new Map(shares.map((s) => [s.id!, s]));

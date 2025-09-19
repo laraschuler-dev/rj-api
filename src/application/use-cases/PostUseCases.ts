@@ -171,7 +171,11 @@ export class PostUseCases {
   }
 
   async getPostsByUser(dto: GetUserPostsDTO) {
-    return this.postService.getPostsByUser(dto);
+    // Adiciona o requestingUserId ao DTO
+    return this.postService.getPostsByUser({
+      ...dto,
+      requestingUserId: dto.requestingUserId, // Será passado pelo controller
+    });
   }
 
   async updatePost(data: UpdatePostDTO): Promise<Post | any> {

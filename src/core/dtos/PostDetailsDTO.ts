@@ -8,6 +8,8 @@ export class PostDetailsDTO {
         : post.metadata;
 
     const isAnonymous = metadata?.isAnonymous === true;
+    const isPostOwner = post.user.iduser === userId;
+    const isShareOwner = false;
 
     // Aplica anonimização se necessário
     const author = isAnonymous
@@ -27,9 +29,9 @@ export class PostDetailsDTO {
       id: post.idpost,
       content: post.content,
       createdAt: post.time,
-      metadata: metadata, // Use a variável já processada
+      metadata: metadata,
       categoryId: post.categoria_idcategoria,
-      author: author, // ← CORREÇÃO: Use a variável `author` aqui!
+      author: author,
       images: post.image.map((img: { idimage: any; image: any }) => ({
         id: img.idimage,
         url: img.image,
@@ -54,6 +56,8 @@ export class PostDetailsDTO {
       attending: post.event_attendance.some(
         (a: { user_iduser: number }) => a.user_iduser === userId
       ),
+      isPostOwner,
+      isShareOwner,
     };
   }
 }

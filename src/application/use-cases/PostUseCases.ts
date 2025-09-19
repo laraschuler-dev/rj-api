@@ -97,7 +97,9 @@ export class PostUseCases {
   async getPostById(postId: number, userId: number) {
     const post = await this.postService.getPostByIdWithDetails(postId, userId);
     if (!post) return null;
-    return PostDetailsDTO.fromPrisma(post, userId);
+
+    // Se o service já retornar o DTO, não precisa converter novamente
+    return post;
   }
 
   async getSharedPostById(shareId: number, userId: number, postId: number) {
@@ -171,12 +173,9 @@ export class PostUseCases {
   }
 
   async getPostsByUser(dto: GetUserPostsDTO) {
-  console.log('📋 UseCase - dto recebido:', dto);
-  console.log('👤 UseCase - requestingUserId:', dto.requestingUserId);
-  
-  const result = await this.postService.getPostsByUser(dto);
-  return result;
-}
+    const result = await this.postService.getPostsByUser(dto);
+    return result;
+  }
 
   async updatePost(data: UpdatePostDTO): Promise<Post | any> {
     return this.postService.updatePost(data);

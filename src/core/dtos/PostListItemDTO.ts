@@ -34,8 +34,8 @@ export class PostListItemDTO {
     public readonly images: string[],
     public readonly createdAt: string,
     public readonly liked: boolean,
-    public readonly isPostOwner: boolean, // 👈 se o usuário logado é o dono do post original
-    public readonly isShareOwner: boolean, // 👈 se o usuário logado é o dono do compartilhamento
+    public readonly isPostOwner: boolean,
+    public readonly isShareOwner: boolean,
     public readonly sharedBy?: SharedByDTO,
     public readonly eventAttendance?: EventAttendanceDTO[],
     public readonly attending?: boolean
@@ -94,8 +94,8 @@ export class PostListItemDTO {
       images,
       post.createdAt.toISOString(),
       post.liked || false,
-      isPostOwner, // 👈
-      isShareOwner, // 👈
+      isPostOwner,
+      isShareOwner,
       sharedBy,
       eventAttendance,
       attending

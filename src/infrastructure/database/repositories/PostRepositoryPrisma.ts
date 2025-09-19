@@ -951,8 +951,6 @@ export class PostRepositoryPrisma implements PostRepository {
       LIMIT ${limit} OFFSET ${skip};
     `;
     } else {
-      // Outro usuário - filtra posts anônimos
-      // 👇 SINTAXE SIMPLIFICADA para MariaDB
       return prisma.$queryRaw<
         { type: 'post' | 'share'; id: number; timestamp: Date }[]
       >`
@@ -1008,17 +1006,12 @@ export class PostRepositoryPrisma implements PostRepository {
       limit
     );
 
-    console.log(`📦 Items encontrados:`, items);
-
     const postIds = items
       .filter((i) => i.type === 'post')
       .map((i) => Number(i.id));
     const shareIds = items
       .filter((i) => i.type === 'share')
       .map((i) => Number(i.id));
-
-    console.log(`📝 Post IDs:`, postIds);
-    console.log(`🔄 Share IDs:`, shareIds);
 
     const [posts, shares, allPosts, allShares] = await Promise.all([
       this.findPostsByIds(postIds, userId),
@@ -1039,12 +1032,6 @@ export class PostRepositoryPrisma implements PostRepository {
       }),
     ]);
 
-    console.log(`✅ Posts encontrados:`, posts.length);
-    console.log(`✅ Shares encontrados:`, shares.length);
-    console.log(`✅ Todos posts:`, allPosts.length);
-    console.log(`✅ Todos shares:`, allShares.length);
-
-    // 👇 Filtra na aplicação para as contagens
     const isOwnProfile = userId === requestingUserId;
 
     const totalPosts = isOwnProfile

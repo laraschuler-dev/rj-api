@@ -108,8 +108,13 @@ export class PostController {
       // Usa o mapper para montar AuthorDTO
       const authorDTO = UserMapper.toAuthorDTO(author, profile ?? undefined);
 
-      // Cria DTO final do post (compatível com feed, mas sem sharedBy)
-      const response = CreatedPostDTO.fromDomain(post, authorDTO, images);
+      // Cria DTO final do post - passa o requestingUserId também
+      const response = CreatedPostDTO.fromDomain(
+        post,
+        authorDTO,
+        images,
+        req.user.id // 👈 Novo parâmetro
+      );
 
       res.status(201).json(response);
     } catch (err) {

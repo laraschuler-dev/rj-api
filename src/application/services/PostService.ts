@@ -154,11 +154,7 @@ export class PostService {
         const author = await this.userRepository.findByIdUser(post.user_iduser);
         if (!author) throw new Error('Autor não encontrado');
 
-        return PostListItemDTO.fromDomain(
-          post,
-          author, // Passa o autor original, o DTO cuida da anonimização
-          post.images
-        );
+        return PostListItemDTO.fromDomain(post, author, post.images, userId);
       })
     );
 
@@ -172,31 +168,6 @@ export class PostService {
     };
   }
 
-  async getSharedPostDetails(shareId: number, userId: number, postId: number) {
-    // Valida existência do post
-    const post = await this.repository.findById(postId);
-    if (!post) {
-      return null; // Ou lance erro de post não encontrado
-    }
-
-    // Valida existência do compartilhamento
-    const share = await this.repository.findPostShareById(shareId);
-    if (!share || share.post_idpost !== postId) {
-      // post_idpost deve existir no model post_share
-      return null; // Compartilhamento não encontrado ou não pertence ao post
-    }
-
-    // Agora busca os detalhes para montar o DTO completo
-    const sharedDetails =
-      await this.repository.getSharedPostByIdWithDetails(shareId);
-
-    if (!sharedDetails) {
-      return null;
-    }
-
-    return SharedPostDetailsDTO.fromPrisma(sharedDetails, userId);
-  }
-
   async getPostByIdWithDetails(id: number, userId: number) {
     const post = await this.repository.getPostByIdWithDetails(id);
 
@@ -204,7 +175,28 @@ export class PostService {
       return null;
     }
 
-    return post; // Retorna o post cru, o DTO cuida da transformação
+    // 👇 Converta para DTO aqui mesmo no service
+    return PostDetailsDTO.fromPrisma(post, userId);
+  }
+
+  async getSharedPostDetails(shareId: number, userId: number, postId: number) {
+    const post = await this.repository.findById(postId);
+    if (!post) {
+      return null;
+    }
+
+    const share = await this.repository.findPostShareById(shareId);
+    if (!share || share.post_idpost !== postId) {
+      return null;
+    }
+
+    const sharedDetails =
+      await this.repository.getSharedPostByIdWithDetails(shareId);
+    if (!sharedDetails) {
+      return null;
+    }
+
+    return SharedPostDetailsDTO.fromPrisma(sharedDetails, userId);
   }
 
   async toggleLike(
@@ -451,10 +443,7 @@ export class PostService {
     return this.repository.getAttendanceStatus({ postId, postShareId, userId });
   }
 
-  // PostService.ts
   async getPostsByUser(dto: GetUserPostsDTO) {
-    console.log('📋 Service - dto recebido:', dto);
-    console.log('👤 Service - requestingUserId:', dto.requestingUserId);
     const { userId, requestingUserId, page = 1, limit = 10 } = dto;
 
     if (page < 1 || limit < 1 || limit > 100) {
@@ -484,7 +473,6 @@ export class PostService {
           post.images,
           requestingUserId
         )
-      // 👆👆👆 FALTANDO este parâmetro! 👆👆👆
     );
 
     const totalPages = Math.ceil(totalCount / limit);

@@ -11,12 +11,16 @@ export class SharedPostDetailsDTO {
         ? JSON.parse(data.metadata)
         : data.metadata;
 
+    const isAnonymous = metadata?.isAnonymous === true;
+    const isPostOwner = data.user.iduser === userId;
+    const isShareOwner = data.sharedBy.id === userId;
+
     return {
       uniqueKey: generateUniqueKey({
         id: data.idpost,
         sharedBy: {
           id: data.sharedBy.id,
-          shareId: data.sharedBy.shareId, // 🔑 agora garantido
+          shareId: data.sharedBy.shareId,
           sharedAt: data.sharedBy.sharedAt,
         },
       }),
@@ -26,9 +30,11 @@ export class SharedPostDetailsDTO {
       metadata,
       categoryId: data.categoria_idcategoria,
       author: {
-        id: data.user.iduser,
-        name: data.user.name,
-        avatarUrl: data.user.avatarUrl ?? null,
+        id: isAnonymous ? 0 : data.user.iduser, // 👈 Anonimização
+        name: isAnonymous ? 'Usuário Anônimo' : data.user.name,
+        avatarUrl: isAnonymous
+          ? '/default-avatar.png'
+          : (data.user.avatarUrl ?? null),
       },
       images: data.image.map((img: { idimage: any; image: any }) => ({
         id: img.idimage,
@@ -63,6 +69,8 @@ export class SharedPostDetailsDTO {
         message: data.sharedBy.message,
         sharedAt: data.sharedBy.sharedAt,
       },
+      isPostOwner, // 👈 NOVO
+      isShareOwner, // 👈 NOVO
     };
   }
 }

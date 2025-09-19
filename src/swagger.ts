@@ -12,9 +12,9 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'API de Autenticação',
+      title: 'API-RJ',
       version: '1.0.0',
-      description: 'Documentação da API de autenticação',
+      description: 'Documentação da API da Rede Social Solidária de Apoio a Pessoas em Situação de Rua "Redefinindo Jornadas"',
     },
     servers: [
       {

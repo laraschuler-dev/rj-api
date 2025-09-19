@@ -1,4 +1,3 @@
-// src/core/dtos/EditedSharedPostDTO.ts
 import { generateUniqueKey } from '../utils/generateUniqueKey';
 
 export class EditedSharedPostDTO {
@@ -12,12 +11,14 @@ export class EditedSharedPostDTO {
         ? JSON.parse(data.metadata)
         : data.metadata;
 
-    // agora passa o shareId também
+    const isPostOwner = data.user.iduser === userId;
+    const isShareOwner = data.sharedBy.id === userId;
+
     const uniqueKey = generateUniqueKey({
       id: data.idpost,
       sharedBy: {
         id: data.sharedBy.id,
-        shareId: data.sharedBy.shareId, // 🔑 aqui!
+        shareId: data.sharedBy.shareId,
         sharedAt: data.sharedBy.sharedAt,
       },
     });
@@ -29,8 +30,8 @@ export class EditedSharedPostDTO {
       createdAt: data.time,
       metadata,
       categoryId: data.categoria_idcategoria,
-      user: {
-        id: data.user.iduser,
+      author: {
+        id: data.user.iduser, // 👈 Sempre info real (compartilhamento)
         name: data.user.name,
         avatarUrl: data.user.avatarUrl ?? null,
       },
@@ -64,6 +65,8 @@ export class EditedSharedPostDTO {
         message: data.sharedBy.message,
         sharedAt: data.sharedBy.sharedAt,
       },
+      isPostOwner,
+      isShareOwner,
     };
   }
 }

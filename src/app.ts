@@ -19,10 +19,7 @@ const app = express();
 // Middlewares
 const allowedOrigins = [
   'https://redefinindojornadas.infocimol.com.br',
-<<<<<<< HEAD
-=======
   'http://localhost:5173',
->>>>>>> upstream/main
   'http://localhost:3000',
 ];
 

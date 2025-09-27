@@ -175,4 +175,62 @@ router.post('/reset', authController.resetPassword);
  */
 router.get('/me', ensureAuthenticated, authController.getSession);
 
+/**
+ * @swagger
+ * /auth/account:
+ *   put:
+ *     summary: Atualiza dados da conta do usuário autenticado
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Conta atualizada com sucesso
+ *       400:
+ *         description: Erro na atualização
+ *       401:
+ *         description: Não autenticado
+ */
+router.put('/account', ensureAuthenticated, authController.updateAccount);
+
+/**
+ * @swagger
+ * /auth/password:
+ *   put:
+ *     summary: Atualiza a senha do usuário autenticado
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Senha atualizada com sucesso
+ *       400:
+ *         description: Erro na atualização
+ *       401:
+ *         description: Não autenticado
+ */
+router.put('/password', ensureAuthenticated, authController.updatePassword);
+
 export default router;

@@ -10,6 +10,8 @@ import jwt from 'jsonwebtoken';
 import validator from 'validator';
 import { LoginResponseDTO } from '../../core/dtos/LoginResponseDTO';
 import { RegisterResponseDTO } from '../../core/dtos/RegisterResponseDTO';
+import { UpdateAccountDTO } from '@/core/dtos/UpdateAccountDTO';
+import { UpdatePasswordDTO } from '@/core/dtos/UpdatePasswordDTO';
 
 /**
  * Serviço responsável por autenticação e gerenciamento de usuários.
@@ -185,15 +187,30 @@ export class AuthService {
       phone: user.phone,
     };
 
-    return jwt.sign(payload, this.jwtSecret, { expiresIn: '1h' });
+    return jwt.sign(payload, this.jwtSecret, { expiresIn: '24h' });
   }
 
   async getAuthenticatedUser(userId: number): Promise<Omit<User, 'password'>> {
-    const user = await this.userRepository.findById(userId);
+    const user = await this.userRepository.findByIdUser(userId);
     if (!user) throw new Error('Usuário não encontrado');
 
     // Remove o campo de senha antes de retornar
     const { password, ...userWithoutPassword } = user;
     return userWithoutPassword;
+  }
+
+  async updateAccount(userId: number, data: UpdateAccountDTO): Promise<User> {
+    return this.userRepository.updateUserData(userId, data);
+  }
+
+  async updatePassword(userId: number, dto: UpdatePasswordDTO): Promise<void> {
+    const user = await this.userRepository.findByIdUser(userId);
+    if (!user) throw new Error('Usuário não encontrado.');
+
+    const passwordMatch = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!passwordMatch) throw new Error('Senha atual incorreta.');
+
+    const newPasswordHash = await bcrypt.hash(dto.newPassword, 10);
+    await this.userRepository.updatePassword(userId, newPasswordHash);
   }
 }

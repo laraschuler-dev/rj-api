@@ -3,7 +3,9 @@ export class User {
    * Data de expiração do token de recuperação de senha (opcional).
    */
   passwordResetTokenExpiresAt?: Date | null;
-    avatarUrl: string | undefined;
+  avatarUrl: string | undefined;
+  fone: any;
+  iduser: any;
 
   /**
    * Construtor da entidade User.

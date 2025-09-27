@@ -19,8 +19,6 @@ const app = express();
 // Middlewares
 const allowedOrigins = [
   'https://redefinindojornadas.infocimol.com.br',
-  'http://localhost:5173',
-  'http://localhost:3000',
 ];
 
 app.use(cors({

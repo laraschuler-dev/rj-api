@@ -18,6 +18,11 @@ export interface SharedByDTO {
   sharedAt: string;
 }
 
+export interface EventAttendanceDTO {
+  userId: number;
+  status: string; // ou event_attendance_status se quiser tipar melhor
+}
+
 export class PostListItemDTO {
   constructor(
     public readonly uniqueKey: string,
@@ -29,14 +34,39 @@ export class PostListItemDTO {
     public readonly images: string[],
     public readonly createdAt: string,
     public readonly liked: boolean,
-    public readonly sharedBy?: SharedByDTO
+    public readonly isPostOwner: boolean,
+    public readonly isShareOwner: boolean,
+    public readonly sharedBy?: SharedByDTO,
+    public readonly eventAttendance?: EventAttendanceDTO[],
+    public readonly attending?: boolean
   ) {}
 
-  static fromDomain(post: Post, user: User, images: string[]): PostListItemDTO {
+  static fromDomain(
+    post: Post,
+    user: User,
+    images: string[],
+    requestingUserId?: number
+  ): PostListItemDTO {
+    const metadata =
+      typeof post.metadata === 'string'
+        ? JSON.parse(post.metadata)
+        : post.metadata;
+
+    const isAnonymous = metadata?.isAnonymous === true;
+    const isPostOwner = post.user_iduser === requestingUserId;
+    const isShareOwner = post.sharedBy?.id === requestingUserId || false;
+
+    const shouldAnonymize = isAnonymous;
+
+    // 👇 só mexemos aqui
+    const avatarUrl = shouldAnonymize
+      ? '/default-avatar.png'
+      : post.avatarUrl || user.avatarUrl;
+
     const author: AuthorDTO = {
-      id: user.id,
-      name: user.name,
-      avatarUrl: post.avatarUrl || user.avatarUrl,
+      id: shouldAnonymize ? 0 : user.id,
+      name: shouldAnonymize ? 'Usuário Anônimo' : user.name,
+      avatarUrl,
     };
 
     const sharedBy: SharedByDTO | undefined = post.sharedBy
@@ -51,9 +81,12 @@ export class PostListItemDTO {
         }
       : undefined;
 
+    const eventAttendance = post.eventAttendance || [];
+    const attending = eventAttendance.some((a) => a.userId === user.id);
+
     return new PostListItemDTO(
       post.getUniqueIdentifier(),
-      post.id!,
+      post.sharedBy ? post.sharedBy.postId : post.id!,
       post.content,
       post.categoria_idcategoria,
       author,
@@ -61,7 +94,11 @@ export class PostListItemDTO {
       images,
       post.createdAt.toISOString(),
       post.liked || false,
-      sharedBy
+      isPostOwner,
+      isShareOwner,
+      sharedBy,
+      eventAttendance,
+      attending
     );
   }
 }

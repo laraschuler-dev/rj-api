@@ -19,8 +19,8 @@ import { CommentCountDTO } from '../../core/dtos/CommentCountDTO';
 import { PostShareCountDTO } from '../../core/dtos/PostShareCountDTO';
 import { SharedPostDetailsDTO } from '../../core/dtos/SharedPostDetailsDTO';
 import { CommentDetailDTO } from '../../core/dtos/CommentDetailDTO';
-import { AttendanceStatusResponseDTO } from '@/core/dtos/AttendEvent/AttendanceStatusResponseDTO';
-import { GetAttendanceStatusDTO } from '@/core/dtos/AttendEvent/GetAttendanceStatusDTO';
+import { AttendanceStatusResponseDTO } from '../../core/dtos/AttendEvent/AttendanceStatusResponseDTO';
+import { GetAttendanceStatusDTO } from '../../core/dtos/AttendEvent/GetAttendanceStatusDTO';
 import {
   AuthorDTO,
   PostListItemDTO,
@@ -28,6 +28,9 @@ import {
 } from '../../core/dtos/PostListItemDTO';
 import { UserRepository } from '../../core/repositories/UserRepository';
 import { PostDetailsDTO } from '../../core/dtos/PostDetailsDTO';
+import { EditedPostDTO } from '../../core/dtos/EditedPostDTO';
+import { EditedSharedPostDTO } from '../../core/dtos/EditedSharedPostDTO';
+
 /**
  * Serviço responsável por gerenciar posts.
  *
@@ -52,7 +55,7 @@ export class PostService {
    * @returns O post criado.
    * @throws Erro caso os campos sejam inválidos ou campos obrigatórios faltando.
    */
-  async createPost(post: Post): Promise<Post> {
+  async createPost(post: Post): Promise<{ post: Post; images: string[] }> {
     const errors: string[] = [];
 
     if (!post.content || post.content.trim().length === 0) {
@@ -137,7 +140,7 @@ export class PostService {
     limit: number,
     userId?: number
   ): Promise<{
-    posts: Post[];
+    posts: PostListItemDTO[];
     total: number;
     currentPage: number;
     limit: number;
@@ -146,8 +149,18 @@ export class PostService {
   }> {
     const result = await this.repository.findManyPaginated(page, limit, userId);
 
+    const postsWithUniqueKeys = await Promise.all(
+      result.posts.map(async (post) => {
+        const author = await this.userRepository.findByIdUser(post.user_iduser);
+        if (!author) throw new Error('Autor não encontrado');
+
+        return PostListItemDTO.fromDomain(post, author, post.images, userId);
+      })
+    );
+
     return {
-      ...result,
+      posts: postsWithUniqueKeys,
+      total: result.total,
       currentPage: page,
       limit,
       totalPages: Math.ceil(result.total / limit),
@@ -155,39 +168,35 @@ export class PostService {
     };
   }
 
-  async getSharedPostDetails(shareId: number, userId: number, postId: number) {
-    // Valida existência do post
-    const post = await this.repository.findById(postId);
-    if (!post) {
-      return null; // Ou lance erro de post não encontrado
-    }
-
-    // Valida existência do compartilhamento
-    const share = await this.repository.findPostShareById(shareId);
-    if (!share || share.post_idpost !== postId) {
-      // post_idpost deve existir no model post_share
-      return null; // Compartilhamento não encontrado ou não pertence ao post
-    }
-
-    // Agora busca os detalhes para montar o DTO completo
-    const sharedDetails =
-      await this.repository.getSharedPostByIdWithDetails(shareId);
-
-    if (!sharedDetails) {
-      return null;
-    }
-
-    return SharedPostDetailsDTO.fromPrisma(sharedDetails, userId);
-  }
-
-  async getPostByIdWithDetails(id: number) {
+  async getPostByIdWithDetails(id: number, userId: number) {
     const post = await this.repository.getPostByIdWithDetails(id);
 
     if (!post || post.deleted) {
       return null;
     }
 
-    return post;
+    // 👇 Converta para DTO aqui mesmo no service
+    return PostDetailsDTO.fromPrisma(post, userId);
+  }
+
+  async getSharedPostDetails(shareId: number, userId: number, postId: number) {
+    const post = await this.repository.findById(postId);
+    if (!post) {
+      return null;
+    }
+
+    const share = await this.repository.findPostShareById(shareId);
+    if (!share || share.post_idpost !== postId) {
+      return null;
+    }
+
+    const sharedDetails =
+      await this.repository.getSharedPostByIdWithDetails(shareId);
+    if (!sharedDetails) {
+      return null;
+    }
+
+    return SharedPostDetailsDTO.fromPrisma(sharedDetails, userId);
   }
 
   async toggleLike(
@@ -319,7 +328,9 @@ export class PostService {
       metadata,
       images,
       originalPost.time.toISOString(),
-      false,
+      false, // liked
+      false, // isPostOwner (quem compartilha não é dono do post original)
+      true, // isShareOwner (quem compartilha é dono deste compartilhamento)
       sharedBy
     );
   }
@@ -432,9 +443,8 @@ export class PostService {
     return this.repository.getAttendanceStatus({ postId, postShareId, userId });
   }
 
-  // PostService.ts
   async getPostsByUser(dto: GetUserPostsDTO) {
-    const { userId, page = 1, limit = 10 } = dto;
+    const { userId, requestingUserId, page = 1, limit = 10 } = dto;
 
     if (page < 1 || limit < 1 || limit > 100) {
       throw new Error('Parâmetros de paginação inválidos');
@@ -446,16 +456,23 @@ export class PostService {
       throw new Error('Usuário não encontrado');
     }
 
-    // Busca posts e compartilhamentos
+    // 👇 Passa o requestingUserId para o repository
     const { posts, totalCount } = await this.repository.findPostsByUser(
       userId,
+      requestingUserId,
       page,
       limit
     );
 
-    // Aqui transformamos os posts em DTOs
-    const postDTOs = posts.map((post) =>
-      PostListItemDTO.fromDomain(post, userExists, post.images)
+    // 👇 CORREÇÃO: Passe requestingUserId para o DTO
+    const postDTOs = posts.map(
+      (post) =>
+        PostListItemDTO.fromDomain(
+          post,
+          userExists,
+          post.images,
+          requestingUserId
+        )
     );
 
     const totalPages = Math.ceil(totalCount / limit);
@@ -473,8 +490,7 @@ export class PostService {
     };
   }
 
-  async updatePost(data: UpdatePostDTO): Promise<PostDetailsDTO | any> {
-    // Compartilhamento
+  async updatePost(data: UpdatePostDTO): Promise<any> {
     if (data.shareId) {
       const share = await this.repository.findPostShareById(data.shareId);
       if (!share) throw new Error('Compartilhamento não encontrado');
@@ -488,38 +504,23 @@ export class PostService {
         message: data.message ?? '',
       });
 
-      // Busca todos os detalhes do post compartilhado
       const sharedPostDetails =
         await this.repository.getSharedPostByIdWithDetails(data.shareId);
       if (!sharedPostDetails)
         throw new Error('Post compartilhado não encontrado');
 
-      // Retorna no formato padronizado
-      return SharedPostDetailsDTO.fromPrisma(sharedPostDetails, data.userId);
+      // 👇 usar o novo DTO
+      return EditedSharedPostDTO.fromPrisma(sharedPostDetails, data.userId);
     }
 
-    // Post original
     const post = await this.repository.findById(data.postId!);
     if (!post) throw new Error('Post não encontrado');
     if (post.user_iduser !== data.userId) {
       throw new Error('Usuário não autorizado a editar este post');
     }
+
     if (!data.content || data.content.trim() === '') {
       throw new Error('O conteúdo não pode estar vazio.');
-    }
-
-    // Validação de campos obrigatórios da categoria
-    const category = await prisma.category.findUnique({
-      where: { idcategory: post.categoria_idcategoria },
-    });
-    if (category?.required_fields) {
-      const requiredFields: string[] = JSON.parse(category.required_fields);
-      for (const field of requiredFields) {
-        const value = data.metadata?.[field];
-        if (value === undefined || value === null || value === '') {
-          throw new Error(`Campo obrigatório ausente: ${field}`);
-        }
-      }
     }
 
     const currentImages = await this.repository.getImagesByPostId(data.postId!);
@@ -530,15 +531,14 @@ export class PostService {
       throw new Error(`O post já possui ${totalImages} imagens.`);
     }
 
-    // Atualiza post e imagens
     const updatedPost = await this.repository.update(data.postId!, {
       content: data.content,
       metadata: data.metadata,
       newImages: data.newImages,
     });
 
-    // Mapeia para DTO final
-    return PostDetailsDTO.fromPrisma(updatedPost, data.userId);
+    // 👇 usar o novo DTO
+    return EditedPostDTO.fromPrisma(updatedPost, data.userId);
   }
 
   async deleteImage(data: DeletePostImageDTO): Promise<void> {

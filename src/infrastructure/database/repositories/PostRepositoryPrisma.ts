@@ -12,6 +12,7 @@ import { Prisma } from '@prisma/client';
 import { CommentDetailDTO } from '@/core/dtos/CommentDetailDTO';
 import { GetAttendanceStatusDTO } from '@/core/dtos/AttendEvent/GetAttendanceStatusDTO';
 import { AttendanceStatusResponseDTO } from '@/core/dtos/AttendEvent/AttendanceStatusResponseDTO';
+import { User } from '../../../core/entities/User';
 type CommentWithUser = Prisma.commentGetPayload<{ include: { user: true } }>;
 
 /**
@@ -24,7 +25,7 @@ export class PostRepositoryPrisma implements PostRepository {
    * @param post - Instância de Post a ser salva.
    * @returns O post salvo, como instância de Post.
    */
-  async save(post: Post): Promise<Post> {
+  async save(post: Post): Promise<{ post: Post; images: string[] }> {
     const metadataString = post.metadata ? JSON.stringify(post.metadata) : null;
 
     const saved = await prisma.post.create({
@@ -38,7 +39,8 @@ export class PostRepositoryPrisma implements PostRepository {
       include: { user: true },
     });
 
-    // ✅ ADICIONADO: salva imagens na tabela `image`, se existirem
+    // Salva imagens na tabela `image`, se existirem
+    let images: string[] = [];
     if ((post as any).images && Array.isArray((post as any).images)) {
       const imageFilenames = (post as any).images as string[];
 
@@ -47,16 +49,23 @@ export class PostRepositoryPrisma implements PostRepository {
         post_idpost: saved.idpost,
       }));
 
-      await prisma.image.createMany({
-        data: imageData,
+      await prisma.image.createMany({ data: imageData });
+
+      images = imageFilenames;
+    } else {
+      const existingImages = await prisma.image.findMany({
+        where: { post_idpost: saved.idpost },
       });
+      images = existingImages
+        .map((img) => img.image)
+        .filter((img): img is string => img !== null); // Filtra valores null
     }
 
     const metadata = saved.metadata
       ? (JSON.parse(saved.metadata) as PostMetadata)
       : {};
 
-    return new Post(
+    const domainPost = new Post(
       saved.idpost,
       saved.content,
       saved.categoria_idcategoria,
@@ -64,6 +73,8 @@ export class PostRepositoryPrisma implements PostRepository {
       metadata,
       saved.time
     );
+
+    return { post: domainPost, images };
   }
 
   /**
@@ -156,11 +167,19 @@ export class PostRepositoryPrisma implements PostRepository {
               select: { user_iduser: true },
             }
           : false,
+        event_attendance: userId
+          ? {
+              where: { post_share_id: null },
+            }
+          : true,
       },
     });
 
     return posts.map((post) => {
-      const images = post.image.map((img) => img.image);
+      const images = post.image
+        .map((img) => img.image)
+        .filter((img): img is string => img !== null); // Filtra valores null
+
       const liked = userId ? post.user_like.length > 0 : false;
 
       return new Post(
@@ -170,9 +189,14 @@ export class PostRepositoryPrisma implements PostRepository {
         post.user_iduser,
         post.metadata ? JSON.parse(post.metadata) : {},
         post.time,
-        images,
+        images, // Agora é string[] sem valores null
         post.user.user_profile?.profile_photo,
-        liked
+        liked,
+        undefined,
+        post.event_attendance.map((a) => ({
+          userId: a.user_iduser,
+          status: a.status,
+        }))
       );
     });
   }
@@ -187,7 +211,6 @@ export class PostRepositoryPrisma implements PostRepository {
       where: {
         id: { in: ids },
         deleted: false, // share válido
-        // post: { deleted: false }, <- removido para incluir shares de posts deletados
       },
       include: {
         user: { include: { user_profile: true } },
@@ -208,12 +231,13 @@ export class PostRepositoryPrisma implements PostRepository {
                   select: { user_iduser: true },
                 }
               : false,
+            event_attendance: true, // pega todos e filtra depois
           },
         },
       },
     });
 
-    return shares.map((share) => {
+    return shares.map((share: any) => {
       const p = share.post;
 
       // Caso o post original tenha sido deletado
@@ -236,14 +260,23 @@ export class PostRepositoryPrisma implements PostRepository {
             avatarUrl: share.user.user_profile?.profile_photo ?? undefined,
             message: share.message || undefined,
             sharedAt: share.shared_at ? new Date(share.shared_at) : new Date(),
-          }
+          },
+          [] // sem eventAttendance
         );
       }
 
       // Post original existe
-      const images = p.image.map((img) => img.image);
+      const images = p.image.map((img: any) => img.image);
       const liked = userId ? share.user_like.length > 0 : false;
       const avatarUrl = share.user.user_profile?.profile_photo ?? undefined;
+
+      // filtra eventAttendance só deste share
+      const eventAttendance = (p.event_attendance ?? [])
+        .filter((a: any) => a.post_share_id === share.id)
+        .map((a: any) => ({
+          userId: a.user_iduser,
+          status: a.status,
+        }));
 
       return new Post(
         share.id,
@@ -263,7 +296,8 @@ export class PostRepositoryPrisma implements PostRepository {
           avatarUrl: avatarUrl,
           message: share.message || undefined,
           sharedAt: share.shared_at ? new Date(share.shared_at) : new Date(),
-        }
+        },
+        eventAttendance
       );
     });
   }
@@ -892,36 +926,92 @@ export class PostRepositoryPrisma implements PostRepository {
 
   private async findUserFeedItemIdsPaginated(
     userId: number,
+    requestingUserId: number | undefined,
     page: number,
     limit: number
   ): Promise<{ type: 'post' | 'share'; id: number; timestamp: Date }[]> {
     const skip = (page - 1) * limit;
+    const isOwnProfile = userId === requestingUserId;
 
-    return prisma.$queryRaw<
-      { type: 'post' | 'share'; id: number; timestamp: Date }[]
-    >`
-    SELECT * FROM (
-      SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
-      FROM post p
-      WHERE p.user_iduser = ${userId} AND p.deleted = false
+    console.log(
+      `📊 isOwnProfile: ${isOwnProfile}, userId: ${userId}, requestingUserId: ${requestingUserId}`
+    );
 
-      UNION ALL
+    if (isOwnProfile) {
+      // Próprio usuário - mostra tudo
+      return prisma.$queryRaw<
+        { type: 'post' | 'share'; id: number; timestamp: Date }[]
+      >`
+      SELECT * FROM (
+        SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
+        FROM post p
+        WHERE p.user_iduser = ${userId} AND p.deleted = false
 
-      SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
-      FROM post_share ps
-      WHERE ps.user_iduser = ${userId} AND ps.deleted = false
-    ) AS combined
-    ORDER BY timestamp DESC
-    LIMIT ${limit} OFFSET ${skip};
-  `;
+        UNION ALL
+
+        SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
+        FROM post_share ps
+        INNER JOIN post p ON ps.post_idpost = p.idpost
+        WHERE ps.user_iduser = ${userId} AND ps.deleted = false AND p.deleted = false
+      ) AS combined
+      ORDER BY timestamp DESC
+      LIMIT ${limit} OFFSET ${skip};
+    `;
+    } else {
+      return prisma.$queryRaw<
+        { type: 'post' | 'share'; id: number; timestamp: Date }[]
+      >`
+      SELECT * FROM (
+        SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
+        FROM post p
+        WHERE p.user_iduser = ${userId} 
+          AND p.deleted = false
+          AND (
+            p.metadata IS NULL 
+            OR p.metadata = '{}'
+            OR p.metadata NOT LIKE '%"isAnonymous":true%'
+            OR JSON_VALUE(p.metadata, '$.isAnonymous') IS NULL
+            OR JSON_VALUE(p.metadata, '$.isAnonymous') = 'false'
+          )
+
+        UNION ALL
+
+        SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
+        FROM post_share ps
+        INNER JOIN post p ON ps.post_idpost = p.idpost
+        WHERE ps.user_iduser = ${userId} 
+          AND ps.deleted = false
+          AND p.deleted = false
+          AND (
+            p.metadata IS NULL 
+            OR p.metadata = '{}'
+            OR p.metadata NOT LIKE '%"isAnonymous":true%'
+            OR JSON_VALUE(p.metadata, '$.isAnonymous') IS NULL
+            OR JSON_VALUE(p.metadata, '$.isAnonymous') = 'false'
+          )
+      ) AS combined
+      ORDER BY timestamp DESC
+      LIMIT ${limit} OFFSET ${skip};
+    `;
+    }
   }
 
   async findPostsByUser(
     userId: number,
+    requestingUserId: number | undefined,
     page: number,
     limit: number
   ): Promise<{ posts: Post[]; totalCount: number }> {
-    const items = await this.findUserFeedItemIdsPaginated(userId, page, limit);
+    console.log(
+      `🔍 Buscando posts para userId: ${userId}, requestingUserId: ${requestingUserId}`
+    );
+
+    const items = await this.findUserFeedItemIdsPaginated(
+      userId,
+      requestingUserId,
+      page,
+      limit
+    );
 
     const postIds = items
       .filter((i) => i.type === 'post')
@@ -930,18 +1020,54 @@ export class PostRepositoryPrisma implements PostRepository {
       .filter((i) => i.type === 'share')
       .map((i) => Number(i.id));
 
-    const [posts, shares, totalPosts, totalShares] = await Promise.all([
+    const [posts, shares, allPosts, allShares] = await Promise.all([
       this.findPostsByIds(postIds, userId),
       this.findSharesByIds(shareIds, userId),
-      prisma.post.count({ where: { user_iduser: userId, deleted: false } }),
-      prisma.post_share.count({
+      prisma.post.findMany({
+        where: {
+          user_iduser: userId,
+          deleted: false,
+        },
+      }),
+      prisma.post_share.findMany({
         where: {
           user_iduser: userId,
           deleted: false,
           post: { deleted: false },
         },
+        include: { post: true },
       }),
     ]);
+
+    const isOwnProfile = userId === requestingUserId;
+
+    const totalPosts = isOwnProfile
+      ? allPosts.length
+      : allPosts.filter((post) => {
+          try {
+            const metadata =
+              typeof post.metadata === 'string'
+                ? JSON.parse(post.metadata)
+                : post.metadata;
+            return metadata?.isAnonymous !== true;
+          } catch {
+            return true; // Se der erro no parse, inclui o post
+          }
+        }).length;
+
+    const totalShares = isOwnProfile
+      ? allShares.length
+      : allShares.filter((share) => {
+          try {
+            const metadata =
+              typeof share.post.metadata === 'string'
+                ? JSON.parse(share.post.metadata)
+                : share.post.metadata;
+            return metadata?.isAnonymous !== true;
+          } catch {
+            return true; // Se der erro no parse, inclui o share
+          }
+        }).length;
 
     const postMap = new Map(posts.map((p) => [p.id!, p]));
     const shareMap = new Map(shares.map((s) => [s.id!, s]));
@@ -1000,7 +1126,11 @@ export class PostRepositoryPrisma implements PostRepository {
     return prisma.post.findUnique({
       where: { idpost: postId },
       include: {
-        user: { include: { user_profile: true } },
+        user: {
+          include: {
+            user_profile: true, // 👈 trás o profile completo
+          },
+        },
         image: true,
         user_like: true,
         comment: true,

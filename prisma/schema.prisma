@@ -34,10 +34,10 @@ model comment {
 }
 
 model image {
-  idimage     Int    @id @unique(map: "idimage_UNIQUE") @default(autoincrement()) @db.UnsignedInt
-  image       String @db.VarChar(45)
-  post_idpost Int    @db.UnsignedInt
-  post        post   @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: "fk_image_post1")
+  idimage     Int     @id @unique(map: "idimage_UNIQUE") @default(autoincrement()) @db.UnsignedInt
+  image       String? @db.VarChar(255)
+  post_idpost Int     @db.UnsignedInt
+  post        post    @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: "fk_image_post1")
 
   @@index([post_idpost], map: "fk_image_post1_idx")
 }

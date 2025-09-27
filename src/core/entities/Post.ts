@@ -131,7 +131,8 @@ export class Post {
       avatarUrl?: string | null;
       message?: string | null;
       sharedAt: Date; // Manter como Date
-    }
+    },
+    public readonly eventAttendance?: { userId: number; status: string }[],
   ) {
     this.images = images;
   }
@@ -153,7 +154,7 @@ export class Post {
           ? this.sharedBy.sharedAt.getTime()
           : new Date(this.sharedBy.sharedAt).getTime();
 
-      return `shared:${this.sharedBy.id}:${this.id}:${timestamp}`;
+      return `shared:${this.sharedBy.id}:${this.sharedBy.shareId}:${timestamp}`;
     }
     return `post:${this.id}`;
   }

@@ -1,6 +1,6 @@
 import { generateUniqueKey } from '../utils/generateUniqueKey';
 
-export class PostDetailsDTO {
+export class EditedPostDTO {
   static fromPrisma(post: any, userId: number) {
     const metadata =
       typeof post.metadata === 'string'
@@ -9,7 +9,7 @@ export class PostDetailsDTO {
 
     const isAnonymous = metadata?.isAnonymous === true;
     const isPostOwner = post.user.iduser === userId;
-    const isShareOwner = false;
+    const isShareOwner = false; // Post original não tem share
 
     // Aplica anonimização se necessário
     const author = isAnonymous
@@ -21,7 +21,7 @@ export class PostDetailsDTO {
       : {
           id: post.user.iduser,
           name: post.user.name,
-          avatarUrl: post.user.avatarUrl ?? null,
+          avatarUrl: post.user.user_profile?.profile_photo ?? null,
         };
 
     return {
@@ -32,14 +32,11 @@ export class PostDetailsDTO {
       metadata: metadata,
       categoryId: post.categoria_idcategoria,
       author: author,
-      images: post.image.map((img: { idimage: any; image: any }) => ({
-        id: img.idimage,
-        url: img.image,
-      })),
-      likesCount: post.user_like.length,
-      likedByUser: post.user_like.some(
+      images: post.image.map((img: { image: string }) => img.image),
+      liked: post.user_like.some(
         (like: { user_iduser: number }) => like.user_iduser === userId
       ),
+      likesCount: post.user_like.length,
       comments: post.comment.map(
         (c: { user_iduser: any; comment: any; time: any }) => ({
           userId: c.user_iduser,

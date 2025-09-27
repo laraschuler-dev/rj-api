@@ -56,7 +56,9 @@ export class PostRepositoryPrisma implements PostRepository {
       const existingImages = await prisma.image.findMany({
         where: { post_idpost: saved.idpost },
       });
-      images = existingImages.map((img) => img.image);
+      images = existingImages
+        .map((img) => img.image)
+        .filter((img): img is string => img !== null); // Filtra valores null
     }
 
     const metadata = saved.metadata
@@ -174,7 +176,10 @@ export class PostRepositoryPrisma implements PostRepository {
     });
 
     return posts.map((post) => {
-      const images = post.image.map((img) => img.image);
+      const images = post.image
+        .map((img) => img.image)
+        .filter((img): img is string => img !== null); // Filtra valores null
+
       const liked = userId ? post.user_like.length > 0 : false;
 
       return new Post(
@@ -184,7 +189,7 @@ export class PostRepositoryPrisma implements PostRepository {
         post.user_iduser,
         post.metadata ? JSON.parse(post.metadata) : {},
         post.time,
-        images,
+        images, // Agora é string[] sem valores null
         post.user.user_profile?.profile_photo,
         liked,
         undefined,
@@ -928,7 +933,9 @@ export class PostRepositoryPrisma implements PostRepository {
     const skip = (page - 1) * limit;
     const isOwnProfile = userId === requestingUserId;
 
-    console.log(`📊 isOwnProfile: ${isOwnProfile}, userId: ${userId}, requestingUserId: ${requestingUserId}`);
+    console.log(
+      `📊 isOwnProfile: ${isOwnProfile}, userId: ${userId}, requestingUserId: ${requestingUserId}`
+    );
 
     if (isOwnProfile) {
       // Próprio usuário - mostra tudo
@@ -1119,7 +1126,11 @@ export class PostRepositoryPrisma implements PostRepository {
     return prisma.post.findUnique({
       where: { idpost: postId },
       include: {
-        user: { include: { user_profile: true } },
+        user: {
+          include: {
+            user_profile: true, // 👈 trás o profile completo
+          },
+        },
         image: true,
         user_like: true,
         comment: true,

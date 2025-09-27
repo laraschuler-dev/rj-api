@@ -21,7 +21,7 @@ export class EditedPostDTO {
       : {
           id: post.user.iduser,
           name: post.user.name,
-          avatarUrl: post.user.avatarUrl ?? null,
+          avatarUrl: post.user.user_profile?.profile_photo ?? null,
         };
 
     return {
@@ -53,8 +53,8 @@ export class EditedPostDTO {
       attending: post.event_attendance.some(
         (a: { user_iduser: number }) => a.user_iduser === userId
       ),
-      isPostOwner, // 👈 NOVO
-      isShareOwner, // 👈 NOVO
+      isPostOwner,
+      isShareOwner,
     };
   }
 }

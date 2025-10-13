@@ -205,4 +205,67 @@ export class UserRepositoryPrisma implements UserRepository {
       data: { passwordHash: newPasswordHash },
     });
   }
+
+  // Versão com busca mais inteligente
+  async searchUsers(
+    searchTerm: string,
+    page: number,
+    limit: number
+  ): Promise<{
+    users: Array<{
+      id: number;
+      name: string;
+      email: string;
+      avatarUrl?: string;
+      profileType?: string;
+    }>;
+    totalCount: number;
+  }> {
+    const offset = (page - 1) * limit;
+
+    const [users, totalCount] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          OR: [
+            { name: { startsWith: searchTerm } },
+            { name: { contains: searchTerm } },
+          ],
+        },
+        include: {
+          user_profile: {
+            select: {
+              profile_type: true,
+              profile_photo: true,
+            },
+          },
+        },
+        orderBy: [
+          // 👈 ORDENAÇÃO INTELIGENTE: prioriza startsWith
+          { name: 'asc' }, // Você pode ordenar por relevância se quiser
+        ],
+        skip: offset,
+        take: limit,
+      }),
+
+      prisma.user.count({
+        where: {
+          OR: [
+            { name: { startsWith: searchTerm } },
+            { name: { contains: searchTerm } },
+          ],
+        },
+      }),
+    ]);
+
+    return {
+      users: users.map((user) => ({
+        id: user.iduser,
+        name: user.name,
+        email: user.e_mail,
+        avatarUrl: user.user_profile?.profile_photo || undefined,
+        profileType: user.user_profile?.profile_type || undefined,
+      })),
+      totalCount,
+    };
+  }
 }

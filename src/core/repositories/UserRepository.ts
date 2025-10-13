@@ -70,4 +70,19 @@ export interface UserRepository {
   ): Promise<User>;
 
   updatePassword(userId: number, newPasswordHash: string): Promise<void>;
+
+  searchUsers(
+    searchTerm: string,
+    page: number,
+    limit: number
+  ): Promise<{
+    users: Array<{
+      id: number;
+      name: string;
+      email: string;
+      avatarUrl?: string;
+      profileType?: string;
+    }>;
+    totalCount: number;
+  }>;
 }

@@ -456,7 +456,6 @@ export class PostService {
       throw new Error('Usuário não encontrado');
     }
 
-    // 👇 Passa o requestingUserId para o repository
     const { posts, totalCount } = await this.repository.findPostsByUser(
       userId,
       requestingUserId,
@@ -464,15 +463,35 @@ export class PostService {
       limit
     );
 
-    // 👇 CORREÇÃO: Passe requestingUserId para o DTO
-    const postDTOs = posts.map(
-      (post) =>
-        PostListItemDTO.fromDomain(
+    // 👇 CORREÇÃO: Busca o autor CORRETO para cada post
+    const postDTOs = await Promise.all(
+      posts.map(async (post) => {
+        // Para posts compartilhados, busca o autor do post ORIGINAL
+        let author = userExists;
+
+        if (post.sharedBy) {
+          // É um compartilhamento - busca o autor do post original
+          const originalPost = await this.repository.findById(
+            post.sharedBy.postId
+          );
+          if (originalPost) {
+            const originalAuthor = await this.userRepository.findByIdUser(
+              originalPost.user_iduser
+            );
+            if (originalAuthor) {
+              author = originalAuthor;
+            }
+          }
+        }
+        // Para posts originais, mantém o userExists como autor
+
+        return PostListItemDTO.fromDomain(
           post,
-          userExists,
+          author, // 👈 Agora usa o autor CORRETO
           post.images,
           requestingUserId
-        )
+        );
+      })
     );
 
     const totalPages = Math.ceil(totalCount / limit);

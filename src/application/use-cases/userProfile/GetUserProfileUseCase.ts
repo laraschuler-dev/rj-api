@@ -1,9 +1,43 @@
-import { UserProfileRepository } from '../../../core/repositories/UserProfileRepository';
+// src/core/useCases/userProfile/GetPublicUserProfileUseCase.ts
 
-export class GetUserProfileUseCase {
-  constructor(private userProfileRepository: UserProfileRepository) {}
+import { PublicUserProfileDTO } from "../../../core/dtos/userProfile/PublicUserProfileDTO";
+import { UserProfileRepository } from "../../../core/repositories/UserProfileRepository";
+import { UserRepository } from "../../../core/repositories/UserRepository";
 
-  async execute(userId: number) {
-    return this.userProfileRepository.findByUserId(userId);
+
+export class GetPublicUserProfileUseCase {
+  constructor(
+    private userProfileRepository: UserProfileRepository,
+    private userRepository: UserRepository
+  ) {}
+
+  private translateProfileType(type: string | undefined | null): string {
+    if (!type) return 'Não informado';
+
+    const map: Record<string, string> = {
+      psr: 'Pessoa em situação de rua',
+      volunteer: 'Voluntário(a)',
+      ong: 'ONG',
+      company: 'Empresa',
+      public_institution: 'Instituição Pública',
+    };
+
+    return map[type] || 'Tipo não reconhecido';
+  }
+
+  async execute(userId: number): Promise<PublicUserProfileDTO | null> {
+    const user = await this.userRepository.findByIdUser(userId);
+    if (!user) return null;
+
+    const userProfile = await this.userProfileRepository.findByUserId(userId);
+
+    return new PublicUserProfileDTO(user.iduser, user.name, {
+      profile_type: userProfile?.profile_type || null,
+      translated_type: this.translateProfileType(userProfile?.profile_type),
+      profile_photo: userProfile?.profile_photo || null,
+      bio: userProfile?.bio || null,
+      city: userProfile?.city || null,
+      state: userProfile?.state || null,
+    });
   }
 }

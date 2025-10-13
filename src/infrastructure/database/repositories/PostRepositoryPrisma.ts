@@ -148,7 +148,7 @@ export class PostRepositoryPrisma implements PostRepository {
 
   private async findPostsByIds(
     ids: number[],
-    userId?: number
+    requestingUserId?: number // 👈 MUDE O NOME para ficar claro
   ): Promise<Post[]> {
     if (ids.length === 0) return [];
 
@@ -158,16 +158,16 @@ export class PostRepositoryPrisma implements PostRepository {
         user: { include: { user_profile: true } },
         image: true,
         category: true,
-        user_like: userId
+        user_like: requestingUserId // 👈 USA requestingUserId
           ? {
               where: {
-                user_iduser: userId,
+                user_iduser: requestingUserId, // 👈 Usuário LOGADO
                 post_share_id: null,
               },
               select: { user_iduser: true },
             }
           : false,
-        event_attendance: userId
+        event_attendance: requestingUserId // 👈 USA requestingUserId
           ? {
               where: { post_share_id: null },
             }
@@ -178,9 +178,9 @@ export class PostRepositoryPrisma implements PostRepository {
     return posts.map((post) => {
       const images = post.image
         .map((img) => img.image)
-        .filter((img): img is string => img !== null); // Filtra valores null
+        .filter((img): img is string => img !== null);
 
-      const liked = userId ? post.user_like.length > 0 : false;
+      const liked = requestingUserId ? post.user_like.length > 0 : false; // 👈 USA requestingUserId
 
       return new Post(
         post.idpost,
@@ -189,7 +189,7 @@ export class PostRepositoryPrisma implements PostRepository {
         post.user_iduser,
         post.metadata ? JSON.parse(post.metadata) : {},
         post.time,
-        images, // Agora é string[] sem valores null
+        images,
         post.user.user_profile?.profile_photo,
         liked,
         undefined,
@@ -203,20 +203,23 @@ export class PostRepositoryPrisma implements PostRepository {
 
   private async findSharesByIds(
     ids: number[],
-    userId?: number
+    requestingUserId?: number
   ): Promise<Post[]> {
     if (ids.length === 0) return [];
 
     const shares = await prisma.post_share.findMany({
       where: {
         id: { in: ids },
-        deleted: false, // share válido
+        deleted: false,
       },
       include: {
         user: { include: { user_profile: true } },
-        user_like: userId
+        user_like: requestingUserId
           ? {
-              where: { user_iduser: userId, post_share_id: { not: null } },
+              where: {
+                user_iduser: requestingUserId,
+                post_share_id: { not: null },
+              },
               select: { user_iduser: true },
             }
           : false,
@@ -225,13 +228,16 @@ export class PostRepositoryPrisma implements PostRepository {
             user: { include: { user_profile: true } },
             image: true,
             category: true,
-            user_like: userId
+            user_like: requestingUserId
               ? {
-                  where: { user_iduser: userId, post_share_id: null },
+                  where: {
+                    user_iduser: requestingUserId,
+                    post_share_id: null,
+                  },
                   select: { user_iduser: true },
                 }
               : false,
-            event_attendance: true, // pega todos e filtra depois
+            event_attendance: true,
           },
         },
       },
@@ -240,37 +246,34 @@ export class PostRepositoryPrisma implements PostRepository {
     return shares.map((share: any) => {
       const p = share.post;
 
-      // Caso o post original tenha sido deletado
       if (!p || p.deleted) {
         return new Post(
           share.id,
-          '', // conteúdo vazio
-          0, // categoria placeholder
+          '',
+          0,
           share.user_iduser,
           { isDeletedOriginal: true } as any,
           share.shared_at || new Date(),
           [],
           undefined,
-          false,
+          false, // 👈 liked = false para post deletado
           {
             id: share.user_iduser,
             shareId: share.id,
-            postId: p?.idpost ?? 0, // postId placeholder
+            postId: p?.idpost ?? 0,
             name: share.user.name,
             avatarUrl: share.user.user_profile?.profile_photo ?? undefined,
             message: share.message || undefined,
             sharedAt: share.shared_at ? new Date(share.shared_at) : new Date(),
           },
-          [] // sem eventAttendance
+          []
         );
       }
 
-      // Post original existe
       const images = p.image.map((img: any) => img.image);
-      const liked = userId ? share.user_like.length > 0 : false;
+      const liked = requestingUserId ? share.user_like.length > 0 : false; // 👈 USA requestingUserId
       const avatarUrl = share.user.user_profile?.profile_photo ?? undefined;
 
-      // filtra eventAttendance só deste share
       const eventAttendance = (p.event_attendance ?? [])
         .filter((a: any) => a.post_share_id === share.id)
         .map((a: any) => ({
@@ -998,7 +1001,7 @@ export class PostRepositoryPrisma implements PostRepository {
 
   async findPostsByUser(
     userId: number,
-    requestingUserId: number | undefined,
+    requestingUserId: number | undefined, // 👈 Já está correto aqui
     page: number,
     limit: number
   ): Promise<{ posts: Post[]; totalCount: number }> {
@@ -1021,8 +1024,8 @@ export class PostRepositoryPrisma implements PostRepository {
       .map((i) => Number(i.id));
 
     const [posts, shares, allPosts, allShares] = await Promise.all([
-      this.findPostsByIds(postIds, userId),
-      this.findSharesByIds(shareIds, userId),
+    this.findPostsByIds(postIds, requestingUserId),
+    this.findSharesByIds(shareIds, requestingUserId),
       prisma.post.findMany({
         where: {
           user_iduser: userId,

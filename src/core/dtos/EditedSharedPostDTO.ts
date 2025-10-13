@@ -11,8 +11,21 @@ export class EditedSharedPostDTO {
         ? JSON.parse(data.metadata)
         : data.metadata;
 
+    const isAnonymous = metadata?.isAnonymous === true;
     const isPostOwner = data.user.iduser === userId;
     const isShareOwner = data.sharedBy.id === userId;
+
+    const author = isAnonymous
+      ? {
+          id: 0,
+          name: 'Usuário Anônimo',
+          avatarUrl: '/default-avatar.png',
+        }
+      : {
+          id: data.user.iduser,
+          name: data.user.name,
+          avatarUrl: data.user.avatarUrl ?? null,
+        };
 
     const uniqueKey = generateUniqueKey({
       id: data.idpost,
@@ -30,11 +43,7 @@ export class EditedSharedPostDTO {
       createdAt: data.time,
       metadata,
       categoryId: data.categoria_idcategoria,
-      author: {
-        id: data.user.iduser, // 👈 Sempre info real (compartilhamento)
-        name: data.user.name,
-        avatarUrl: data.user.avatarUrl ?? null,
-      },
+      author: author,
       images: data.image.map((img: { image: string }) => img.image),
       liked: data.user_like.some(
         (like: { user_iduser: number }) => like.user_iduser === userId

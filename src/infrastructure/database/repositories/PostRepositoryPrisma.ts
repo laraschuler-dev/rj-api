@@ -141,14 +141,12 @@ export class PostRepositoryPrisma implements PostRepository {
     LIMIT ${limit} OFFSET ${skip};
   `;
 
-    console.log(result);
-
     return result;
   }
 
   private async findPostsByIds(
     ids: number[],
-    requestingUserId?: number // 👈 MUDE O NOME para ficar claro
+    requestingUserId?: number
   ): Promise<Post[]> {
     if (ids.length === 0) return [];
 
@@ -158,16 +156,16 @@ export class PostRepositoryPrisma implements PostRepository {
         user: { include: { user_profile: true } },
         image: true,
         category: true,
-        user_like: requestingUserId // 👈 USA requestingUserId
+        user_like: requestingUserId
           ? {
               where: {
-                user_iduser: requestingUserId, // 👈 Usuário LOGADO
+                user_iduser: requestingUserId,
                 post_share_id: null,
               },
               select: { user_iduser: true },
             }
           : false,
-        event_attendance: requestingUserId // 👈 USA requestingUserId
+        event_attendance: requestingUserId
           ? {
               where: { post_share_id: null },
             }
@@ -180,7 +178,7 @@ export class PostRepositoryPrisma implements PostRepository {
         .map((img) => img.image)
         .filter((img): img is string => img !== null);
 
-      const liked = requestingUserId ? post.user_like.length > 0 : false; // 👈 USA requestingUserId
+      const liked = requestingUserId ? post.user_like.length > 0 : false;
 
       return new Post(
         post.idpost,
@@ -256,7 +254,7 @@ export class PostRepositoryPrisma implements PostRepository {
           share.shared_at || new Date(),
           [],
           undefined,
-          false, // 👈 liked = false para post deletado
+          false,
           {
             id: share.user_iduser,
             shareId: share.id,
@@ -271,7 +269,7 @@ export class PostRepositoryPrisma implements PostRepository {
       }
 
       const images = p.image.map((img: any) => img.image);
-      const liked = requestingUserId ? share.user_like.length > 0 : false; // 👈 USA requestingUserId
+      const liked = requestingUserId ? share.user_like.length > 0 : false;
       const avatarUrl = share.user.user_profile?.profile_photo ?? undefined;
 
       const eventAttendance = (p.event_attendance ?? [])
@@ -552,7 +550,7 @@ export class PostRepositoryPrisma implements PostRepository {
       shareInfo = await prisma.post_share.findUnique({
         where: { id: postShareId },
         include: {
-          user: true, // caso precise de info adicional
+          user: true,
         },
       });
     }
@@ -573,7 +571,6 @@ export class PostRepositoryPrisma implements PostRepository {
       },
     });
 
-    // Retorna os likes sem a uniqueKey
     return likes.map((like) => ({
       id: like.user.iduser,
       name: like.user.name,
@@ -1001,7 +998,7 @@ export class PostRepositoryPrisma implements PostRepository {
 
   async findPostsByUser(
     userId: number,
-    requestingUserId: number | undefined, // 👈 Já está correto aqui
+    requestingUserId: number | undefined,
     page: number,
     limit: number
   ): Promise<{ posts: Post[]; totalCount: number }> {
@@ -1024,8 +1021,8 @@ export class PostRepositoryPrisma implements PostRepository {
       .map((i) => Number(i.id));
 
     const [posts, shares, allPosts, allShares] = await Promise.all([
-    this.findPostsByIds(postIds, requestingUserId),
-    this.findSharesByIds(shareIds, requestingUserId),
+      this.findPostsByIds(postIds, requestingUserId),
+      this.findSharesByIds(shareIds, requestingUserId),
       prisma.post.findMany({
         where: {
           user_iduser: userId,
@@ -1054,7 +1051,7 @@ export class PostRepositoryPrisma implements PostRepository {
                 : post.metadata;
             return metadata?.isAnonymous !== true;
           } catch {
-            return true; // Se der erro no parse, inclui o post
+            return true;
           }
         }).length;
 
@@ -1068,7 +1065,7 @@ export class PostRepositoryPrisma implements PostRepository {
                 : share.post.metadata;
             return metadata?.isAnonymous !== true;
           } catch {
-            return true; // Se der erro no parse, inclui o share
+            return true;
           }
         }).length;
 
@@ -1125,13 +1122,12 @@ export class PostRepositoryPrisma implements PostRepository {
       });
     }
 
-    // Busca post atualizado com todas as relações
     return prisma.post.findUnique({
       where: { idpost: postId },
       include: {
         user: {
           include: {
-            user_profile: true, // 👈 trás o profile completo
+            user_profile: true,
           },
         },
         image: true,
@@ -1222,5 +1218,134 @@ export class PostRepositoryPrisma implements PostRepository {
     });
 
     return post?.user_iduser ?? null;
+  }
+
+  async findByCategoryPaginated(
+    categoryId: number,
+    page: number,
+    limit: number,
+    userId?: number
+  ): Promise<{ posts: Post[]; total: number }> {
+    const skip = (page - 1) * limit;
+
+    // Busca apenas posts originais da categoria específica
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({
+        where: {
+          categoria_idcategoria: categoryId,
+          deleted: false,
+        },
+        include: {
+          user: { include: { user_profile: true } },
+          image: true,
+          user_like: userId
+            ? {
+                where: { user_iduser: userId, post_share_id: null },
+                select: { user_iduser: true },
+              }
+            : false,
+          event_attendance: userId ? { where: { post_share_id: null } } : true,
+        },
+        orderBy: { time: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.post.count({
+        where: {
+          categoria_idcategoria: categoryId,
+          deleted: false,
+        },
+      }),
+    ]);
+
+    const domainPosts = posts.map((post) => {
+      const images = post.image
+        .map((img) => img.image)
+        .filter((img): img is string => img !== null);
+      const liked = userId ? post.user_like.length > 0 : false;
+
+      return new Post(
+        post.idpost,
+        post.content,
+        post.categoria_idcategoria,
+        post.user_iduser,
+        post.metadata ? JSON.parse(post.metadata) : {},
+        post.time,
+        images,
+        post.user.user_profile?.profile_photo,
+        liked,
+        undefined,
+        post.event_attendance?.map((a) => ({
+          userId: a.user_iduser,
+          status: a.status,
+        }))
+      );
+    });
+
+    return { posts: domainPosts, total };
+  }
+
+  async findByCategoriesPaginated(
+    categoryIds: number[],
+    page: number,
+    limit: number,
+    userId?: number
+  ): Promise<{ posts: Post[]; total: number }> {
+    const skip = (page - 1) * limit;
+
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({
+        where: {
+          categoria_idcategoria: { in: categoryIds },
+          deleted: false,
+        },
+        include: {
+          user: { include: { user_profile: true } },
+          image: true,
+          user_like: userId
+            ? {
+                where: { user_iduser: userId, post_share_id: null },
+                select: { user_iduser: true },
+              }
+            : false,
+          event_attendance: userId ? { where: { post_share_id: null } } : true,
+        },
+        orderBy: { time: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.post.count({
+        where: {
+          categoria_idcategoria: { in: categoryIds },
+          deleted: false,
+        },
+      }),
+    ]);
+
+    const domainPosts = posts.map((post) => {
+      const images = post.image
+        .map((img) => img.image)
+        .filter((img): img is string => img !== null);
+      const liked = userId ? post.user_like.length > 0 : false;
+
+      return new Post(
+        post.idpost,
+        post.content,
+        post.categoria_idcategoria,
+        post.user_iduser,
+        post.metadata ? JSON.parse(post.metadata) : {},
+        post.time,
+        images,
+        post.user.user_profile?.profile_photo,
+        liked,
+        undefined,
+        post.event_attendance?.map((a) => ({
+          userId: a.user_iduser,
+          status: a.status,
+        }))
+      );
+    });
+
+    return { posts: domainPosts, total };
   }
 }

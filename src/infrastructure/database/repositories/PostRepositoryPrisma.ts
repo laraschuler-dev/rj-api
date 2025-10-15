@@ -86,7 +86,8 @@ export class PostRepositoryPrisma implements PostRepository {
     const post = await prisma.post.findFirst({
       where: {
         idpost: id,
-        deleted: false, // só retorna se não estiver deletado
+        deleted: false,
+        user: { deleted: false }, // FILTRO ADICIONADO: apenas posts de usuários não excluídos
       },
       include: { user: true },
     });
@@ -129,13 +130,20 @@ export class PostRepositoryPrisma implements PostRepository {
     SELECT * FROM (
       SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
       FROM post p
-      WHERE p.deleted = false
+      INNER JOIN user u ON p.user_iduser = u.iduser
+      WHERE p.deleted = false AND u.deleted = false
 
       UNION ALL
 
       SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
       FROM post_share ps
-      WHERE ps.deleted = false
+      INNER JOIN post p ON ps.post_idpost = p.idpost
+      INNER JOIN user share_user ON ps.user_iduser = share_user.iduser
+      INNER JOIN user post_user ON p.user_iduser = post_user.iduser
+      WHERE ps.deleted = false 
+        AND p.deleted = false 
+        AND share_user.deleted = false
+        AND post_user.deleted = false
     ) AS combined_feed
     ORDER BY timestamp DESC
     LIMIT ${limit} OFFSET ${skip};
@@ -143,7 +151,6 @@ export class PostRepositoryPrisma implements PostRepository {
 
     return result;
   }
-
   private async findPostsByIds(
     ids: number[],
     requestingUserId?: number
@@ -151,9 +158,15 @@ export class PostRepositoryPrisma implements PostRepository {
     if (ids.length === 0) return [];
 
     const posts = await prisma.post.findMany({
-      where: { idpost: { in: ids }, deleted: false },
+      where: {
+        idpost: { in: ids },
+        deleted: false,
+        user: { deleted: false },
+      },
       include: {
-        user: { include: { user_profile: true } },
+        user: {
+          include: { user_profile: true },
+        },
         image: true,
         category: true,
         user_like: requestingUserId
@@ -209,6 +222,11 @@ export class PostRepositoryPrisma implements PostRepository {
       where: {
         id: { in: ids },
         deleted: false,
+        user: { deleted: false }, // FILTRO ADICIONADO: apenas shares de usuários não excluídos
+        post: {
+          deleted: false,
+          user: { deleted: false }, // FILTRO ADICIONADO: apenas posts originais de usuários não excluídos
+        },
       },
       include: {
         user: { include: { user_profile: true } },
@@ -244,7 +262,8 @@ export class PostRepositoryPrisma implements PostRepository {
     return shares.map((share: any) => {
       const p = share.post;
 
-      if (!p || p.deleted) {
+      // Se o post original foi excluído ou seu autor foi excluído
+      if (!p || p.deleted || !p.user) {
         return new Post(
           share.id,
           '',
@@ -302,6 +321,30 @@ export class PostRepositoryPrisma implements PostRepository {
       );
     });
   }
+  private async countValidFeedItems(): Promise<number> {
+    const result = await prisma.$queryRaw<{ count: bigint }[]>`
+    SELECT COUNT(*) as count FROM (
+      SELECT p.idpost
+      FROM post p
+      INNER JOIN user u ON p.user_iduser = u.iduser
+      WHERE p.deleted = false AND u.deleted = false
+
+      UNION ALL
+
+      SELECT ps.id
+      FROM post_share ps
+      INNER JOIN post p ON ps.post_idpost = p.idpost
+      INNER JOIN user share_user ON ps.user_iduser = share_user.iduser
+      INNER JOIN user post_user ON p.user_iduser = post_user.iduser
+      WHERE ps.deleted = false 
+        AND p.deleted = false 
+        AND share_user.deleted = false
+        AND post_user.deleted = false
+    ) AS valid_feed
+  `;
+
+    return Number(result[0].count);
+  }
 
   async findManyPaginated(
     page: number,
@@ -315,6 +358,10 @@ export class PostRepositoryPrisma implements PostRepository {
     totalPages: number;
     hasNext: boolean;
   }> {
+    // PRIMEIRO: Buscar a contagem TOTAL de itens válidos
+    const totalValidItems = await this.countValidFeedItems();
+
+    // SEGUNDO: Buscar os itens paginados
     const feedItems = await this.findFeedItemIdsPaginated(page, limit);
 
     const feedItemsSafe = feedItems.map((item) => ({
@@ -356,27 +403,27 @@ export class PostRepositoryPrisma implements PostRepository {
         typeof post.user_iduser === 'number'
     );
 
-    // Contagem correta: apenas posts e shares válidos
-    const [totalPosts, totalShares] = await Promise.all([
-      prisma.post.count({ where: { deleted: false } }),
-      prisma.post_share.count({ where: { deleted: false } }),
-    ]);
-
-    const total = totalPosts + totalShares;
-
     return {
       posts: filteredPosts,
-      total,
+      total: totalValidItems,
       currentPage: page,
       limit,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page * limit < total,
+      totalPages: Math.ceil(totalValidItems / limit),
+      hasNext: page * limit < totalValidItems,
     };
   }
 
   async getSharedPostByIdWithDetails(shareId: number) {
     const shared = await prisma.post_share.findUnique({
-      where: { id: shareId },
+      where: {
+        id: shareId,
+        deleted: false, // FILTRO ADICIONADO
+        user: { deleted: false }, // FILTRO ADICIONADO
+        post: {
+          deleted: false,
+          user: { deleted: false }, // FILTRO ADICIONADO
+        },
+      },
       include: {
         post: {
           include: {
@@ -445,7 +492,11 @@ export class PostRepositoryPrisma implements PostRepository {
 
   async getPostByIdWithDetails(postId: number) {
     const post = await prisma.post.findUnique({
-      where: { idpost: postId },
+      where: {
+        idpost: postId,
+        deleted: false, // FILTRO ADICIONADO
+        user: { deleted: false }, // FILTRO ADICIONADO: apenas posts de usuários não excluídos
+      },
       include: {
         user: {
           include: {
@@ -597,6 +648,11 @@ export class PostRepositoryPrisma implements PostRepository {
       where: {
         id: shareId,
         deleted: false,
+        user: { deleted: false }, // FILTRO ADICIONADO: apenas shares de usuários não excluídos
+        post: {
+          deleted: false,
+          user: { deleted: false }, // FILTRO ADICIONADO: apenas posts originais de usuários não excluídos
+        },
       },
     });
   }
@@ -612,7 +668,11 @@ export class PostRepositoryPrisma implements PostRepository {
     });
 
     const post = await prisma.post.findUnique({
-      where: { idpost: postId },
+      where: {
+        idpost: postId,
+        deleted: false,
+        user: { deleted: false }, // FILTRO ADICIONADO
+      },
       include: {
         user: {
           include: {
@@ -623,12 +683,24 @@ export class PostRepositoryPrisma implements PostRepository {
       },
     });
 
+    if (!post) {
+      throw new Error('Post não encontrado ou não disponível');
+    }
+
+    // Verifica se o usuário que está compartilhando existe
     const user = await prisma.user.findUnique({
-      where: { iduser: userId },
+      where: {
+        iduser: userId,
+        deleted: false, // FILTRO ADICIONADO
+      },
       include: {
         user_profile: true,
       },
     });
+
+    if (!user) {
+      throw new Error('Usuário não encontrado');
+    }
 
     const fullShared = await prisma.post_share.findUnique({
       where: { id: shared.id },
@@ -1094,6 +1166,17 @@ export class PostRepositoryPrisma implements PostRepository {
       newImages?: string[];
     }
   ): Promise<any> {
+    const existingPost = await prisma.post.findFirst({
+      where: {
+        idpost: postId,
+        deleted: false,
+        user: { deleted: false }, // FILTRO ADICIONADO
+      },
+    });
+
+    if (!existingPost) {
+      throw new Error('Post não encontrado ou não disponível');
+    }
     // Atualiza conteúdo e metadata
     await prisma.post.update({
       where: { idpost: postId },
@@ -1234,6 +1317,7 @@ export class PostRepositoryPrisma implements PostRepository {
         where: {
           categoria_idcategoria: categoryId,
           deleted: false,
+          user: { deleted: false }, // FILTRO ADICIONADO: apenas posts de usuários não excluídos
         },
         include: {
           user: { include: { user_profile: true } },
@@ -1254,6 +1338,7 @@ export class PostRepositoryPrisma implements PostRepository {
         where: {
           categoria_idcategoria: categoryId,
           deleted: false,
+          user: { deleted: false }, // FILTRO ADICIONADO: apenas posts de usuários não excluídos
         },
       }),
     ]);
@@ -1298,6 +1383,7 @@ export class PostRepositoryPrisma implements PostRepository {
         where: {
           categoria_idcategoria: { in: categoryIds },
           deleted: false,
+          user: { deleted: false }, // FILTRO ADICIONADO: apenas posts de usuários não excluídos
         },
         include: {
           user: { include: { user_profile: true } },
@@ -1318,6 +1404,7 @@ export class PostRepositoryPrisma implements PostRepository {
         where: {
           categoria_idcategoria: { in: categoryIds },
           deleted: false,
+          user: { deleted: false }, // FILTRO ADICIONADO: apenas posts de usuários não excluídos
         },
       }),
     ]);

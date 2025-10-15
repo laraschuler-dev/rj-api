@@ -149,17 +149,30 @@ export class PostService {
   }> {
     const result = await this.repository.findManyPaginated(page, limit, userId);
 
-    const postsWithUniqueKeys = await Promise.all(
-      result.posts.map(async (post) => {
-        const author = await this.userRepository.findByIdUser(post.user_iduser);
-        if (!author) throw new Error('Autor não encontrado');
+    const validPosts = [];
 
-        return PostListItemDTO.fromDomain(post, author, post.images, userId);
-      })
-    );
+    for (const post of result.posts) {
+      try {
+        const author = await this.userRepository.findByIdUser(post.user_iduser);
+        if (author) {
+          const postDTO = PostListItemDTO.fromDomain(
+            post,
+            author,
+            post.images,
+            userId
+          );
+          validPosts.push(postDTO);
+        }
+      } catch (error) {
+        console.warn(
+          `Post ${post.id} ignorado devido a autor inválido:`,
+          error instanceof Error ? error.message : 'Erro desconhecido'
+        );
+      }
+    }
 
     return {
-      posts: postsWithUniqueKeys,
+      posts: validPosts,
       total: result.total,
       currentPage: page,
       limit,
@@ -455,6 +468,12 @@ export class PostService {
     if (!userExists) {
       throw new Error('Usuário não encontrado');
     }
+
+    // VERIFICAÇÃO OPCIONAL: usuário excluído
+  const isUserDeleted = await this.userRepository.isUserDeleted(userId);
+  if (isUserDeleted) {
+    throw new Error('Usuário não encontrado');
+  }
 
     const { posts, totalCount } = await this.repository.findPostsByUser(
       userId,

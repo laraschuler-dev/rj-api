@@ -1,9 +1,8 @@
 // src/core/useCases/userProfile/GetPublicUserProfileUseCase.ts
 
-import { PublicUserProfileDTO } from "../../../core/dtos/userProfile/PublicUserProfileDTO";
-import { UserProfileRepository } from "../../../core/repositories/UserProfileRepository";
-import { UserRepository } from "../../../core/repositories/UserRepository";
-
+import { PublicUserProfileDTO } from '../../../core/dtos/userProfile/PublicUserProfileDTO';
+import { UserProfileRepository } from '../../../core/repositories/UserProfileRepository';
+import { UserRepository } from '../../../core/repositories/UserRepository';
 
 export class GetPublicUserProfileUseCase {
   constructor(
@@ -28,6 +27,12 @@ export class GetPublicUserProfileUseCase {
   async execute(userId: number): Promise<PublicUserProfileDTO | null> {
     const user = await this.userRepository.findByIdUser(userId);
     if (!user) return null;
+
+    // VERIFICAÇÃO ÚNICA: usuário excluído
+    const isUserDeleted = await this.userRepository.isUserDeleted(userId);
+    if (isUserDeleted) {
+      return null;
+    }
 
     const userProfile = await this.userProfileRepository.findByUserId(userId);
 

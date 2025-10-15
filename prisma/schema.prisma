@@ -73,6 +73,8 @@ model user {
   updatedAt                   DateTime           @default(now()) @db.DateTime(0)
   passwordResetToken          String?            @db.VarChar(255)
   passwordResetTokenExpiresAt DateTime?          @db.DateTime(0)
+  deleted                     Boolean?           @default(false)
+  deletedAt                   DateTime?          @db.DateTime(0)
   comment                     comment[]
   event_attendance            event_attendance[]
   post                        post[]

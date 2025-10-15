@@ -7,7 +7,7 @@ const router = express.Router();
 
 /**
  * Rotas de autenticação.
- * 
+ *
  * Esse arquivo define as rotas de autenticação para o aplicativo.
  */
 
@@ -174,6 +174,35 @@ router.post('/reset', authController.resetPassword);
  *         description: Token inválido ou ausente
  */
 router.get('/me', ensureAuthenticated, authController.getSession);
+
+/**
+ * @swagger
+ * /auth/account:
+ *   delete:
+ *     summary: Exclui logicamente a conta do usuário autenticado
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 description: Senha atual para confirmação
+ *             required:
+ *               - password
+ *     responses:
+ *       200:
+ *         description: Conta excluída com sucesso
+ *       400:
+ *         description: Erro na exclusão (senha incorreta, etc.)
+ *       401:
+ *         description: Não autenticado
+ */
+router.delete('/account', ensureAuthenticated, authController.deleteAccount);
 
 /**
  * @swagger

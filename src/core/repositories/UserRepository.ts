@@ -85,4 +85,19 @@ export interface UserRepository {
     }>;
     totalCount: number;
   }>;
+
+  /**
+   * Realiza a exclusão lógica de uma conta de usuário.
+   * @param userId - ID do usuário.
+   * @param reason - Motivo opcional para exclusão.
+   * @returns Uma promessa resolvida quando a operação for concluída.
+   */
+  softDeleteUser(userId: number): Promise<void>;
+
+  /**
+   * Verifica se um usuário está marcado como excluído.
+   * @param userId - ID do usuário.
+   * @returns `true` se o usuário estiver excluído, caso contrário `false`.
+   */
+  isUserDeleted(userId: number): Promise<boolean>;
 }

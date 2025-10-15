@@ -34,6 +34,36 @@ export class UserRepositoryPrisma implements UserRepository {
   }
 
   /**
+   * Realiza a exclusão lógica de uma conta de usuário.
+   * @param userId - ID do usuário.
+   * @param reason - Motivo opcional para exclusão.
+   * @returns Uma promessa resolvida quando a operação for concluída.
+   */
+  async softDeleteUser(userId: number, reason?: string): Promise<void> {
+    await prisma.user.update({
+      where: { iduser: userId },
+      data: {
+        deleted: true,
+        deletedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Verifica se um usuário está marcado como excluído.
+   * @param userId - ID do usuário.
+   * @returns `true` se o usuário estiver excluído, caso contrário `false`.
+   */
+  async isUserDeleted(userId: number): Promise<boolean> {
+    const user = await prisma.user.findUnique({
+      where: { iduser: userId },
+      select: { deleted: true },
+    });
+
+    return user?.deleted || false;
+  }
+
+  /**
    * Busca um usuário pelo e-mail ou telefone.
    * @param emailOrPhone - E-mail ou telefone do usuário.
    * @returns O usuário encontrado ou `null` se não existir.
@@ -41,10 +71,8 @@ export class UserRepositoryPrisma implements UserRepository {
   async findByEmailOrPhone(emailOrPhone: string): Promise<User | null> {
     const foundUser = await prisma.user.findFirst({
       where: {
-        OR: [
-          { e_mail: emailOrPhone }, // Campo no banco de dados
-          { fone: emailOrPhone }, // Campo no banco de dados
-        ],
+        OR: [{ e_mail: emailOrPhone }, { fone: emailOrPhone }],
+        deleted: false, // Apenas usuários não excluídos
       },
     });
 
@@ -68,7 +96,10 @@ export class UserRepositoryPrisma implements UserRepository {
    */
   async findByIdUser(id: number): Promise<User | null> {
     const foundUser = await prisma.user.findUnique({
-      where: { iduser: id }, // Campo no banco de dados
+      where: {
+        iduser: id,
+        deleted: false, // Apenas usuários não excluídos (CORREÇÃO AQUI)
+      },
     });
 
     if (!foundUser) {
@@ -91,7 +122,10 @@ export class UserRepositoryPrisma implements UserRepository {
    */
   async findByEmail(email: string): Promise<User | null> {
     const foundUser = await prisma.user.findUnique({
-      where: { e_mail: email }, // Campo no banco de dados
+      where: {
+        e_mail: email,
+        deleted: false, // Apenas usuários não excluídos (CORREÇÃO AQUI)
+      },
     });
 
     if (!foundUser) {
@@ -140,6 +174,7 @@ export class UserRepositoryPrisma implements UserRepository {
         passwordResetTokenExpiresAt: {
           gte: new Date(),
         },
+        deleted: false, // Apenas usuários não excluídos (ADICIONADO)
       },
     });
 
@@ -230,6 +265,7 @@ export class UserRepositoryPrisma implements UserRepository {
             { name: { startsWith: searchTerm } },
             { name: { contains: searchTerm } },
           ],
+          deleted: false, // Apenas usuários não excluídos (ADICIONADO)
         },
         include: {
           user_profile: {
@@ -239,10 +275,7 @@ export class UserRepositoryPrisma implements UserRepository {
             },
           },
         },
-        orderBy: [
-          // 👈 ORDENAÇÃO INTELIGENTE: prioriza startsWith
-          { name: 'asc' }, // Você pode ordenar por relevância se quiser
-        ],
+        orderBy: [{ name: 'asc' }],
         skip: offset,
         take: limit,
       }),
@@ -253,6 +286,7 @@ export class UserRepositoryPrisma implements UserRepository {
             { name: { startsWith: searchTerm } },
             { name: { contains: searchTerm } },
           ],
+          deleted: false, // Apenas usuários não excluídos (ADICIONADO)
         },
       }),
     ]);

@@ -494,8 +494,8 @@ export class PostRepositoryPrisma implements PostRepository {
     const post = await prisma.post.findUnique({
       where: {
         idpost: postId,
-        deleted: false, // FILTRO ADICIONADO
-        user: { deleted: false }, // FILTRO ADICIONADO: apenas posts de usuários não excluídos
+        deleted: false,
+        user: { deleted: false },
       },
       include: {
         user: {
@@ -512,7 +512,12 @@ export class PostRepositoryPrisma implements PostRepository {
 
     if (!post) return null;
 
+    // 👇 ADICIONE ESTA LINHA para mapear o avatarUrl
+    (post as any).user.avatarUrl =
+      post.user.user_profile?.profile_photo ?? null;
+
     const [user_like, comment, event_attendance] = await Promise.all([
+      // ... resto do código permanece igual
       prisma.user_like.findMany({
         where: {
           post_idpost: postId,
@@ -648,10 +653,10 @@ export class PostRepositoryPrisma implements PostRepository {
       where: {
         id: shareId,
         deleted: false,
-        user: { deleted: false }, // FILTRO ADICIONADO: apenas shares de usuários não excluídos
+        user: { deleted: false },
         post: {
           deleted: false,
-          user: { deleted: false }, // FILTRO ADICIONADO: apenas posts originais de usuários não excluídos
+          user: { deleted: false },
         },
       },
     });
@@ -691,7 +696,7 @@ export class PostRepositoryPrisma implements PostRepository {
     const user = await prisma.user.findUnique({
       where: {
         iduser: userId,
-        deleted: false, // FILTRO ADICIONADO
+        deleted: false,
       },
       include: {
         user_profile: true,
@@ -1005,10 +1010,6 @@ export class PostRepositoryPrisma implements PostRepository {
     const skip = (page - 1) * limit;
     const isOwnProfile = userId === requestingUserId;
 
-    console.log(
-      `📊 isOwnProfile: ${isOwnProfile}, userId: ${userId}, requestingUserId: ${requestingUserId}`
-    );
-
     if (isOwnProfile) {
       // Próprio usuário - mostra tudo
       return prisma.$queryRaw<
@@ -1074,9 +1075,6 @@ export class PostRepositoryPrisma implements PostRepository {
     page: number,
     limit: number
   ): Promise<{ posts: Post[]; totalCount: number }> {
-    console.log(
-      `🔍 Buscando posts para userId: ${userId}, requestingUserId: ${requestingUserId}`
-    );
 
     const items = await this.findUserFeedItemIdsPaginated(
       userId,
@@ -1338,7 +1336,7 @@ export class PostRepositoryPrisma implements PostRepository {
         where: {
           categoria_idcategoria: categoryId,
           deleted: false,
-          user: { deleted: false }, // FILTRO ADICIONADO: apenas posts de usuários não excluídos
+          user: { deleted: false },
         },
       }),
     ]);
@@ -1383,7 +1381,7 @@ export class PostRepositoryPrisma implements PostRepository {
         where: {
           categoria_idcategoria: { in: categoryIds },
           deleted: false,
-          user: { deleted: false }, // FILTRO ADICIONADO: apenas posts de usuários não excluídos
+          user: { deleted: false },
         },
         include: {
           user: { include: { user_profile: true } },
@@ -1404,7 +1402,7 @@ export class PostRepositoryPrisma implements PostRepository {
         where: {
           categoria_idcategoria: { in: categoryIds },
           deleted: false,
-          user: { deleted: false }, // FILTRO ADICIONADO: apenas posts de usuários não excluídos
+          user: { deleted: false },
         },
       }),
     ]);

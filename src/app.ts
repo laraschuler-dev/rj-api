@@ -8,9 +8,11 @@ import contactRoutes from './interfaces/http/routes/contactRoutes';
 import userProfileRoutes from './interfaces/http/routes/userProfileRoutes';
 import userRoutes from './interfaces/http/routes/userRoutes';
 import specializedRoutes from './interfaces/http/routes/specializedPostRoutes';
+
 import path from 'path';
 import { errorHandler } from './interfaces/http/middlewares/errorHandler';
 import homeRoutes from './interfaces/http/routes/homeRoutes';
+import notificationsRoutes from './interfaces/http/routes/notificationsRoutes';
 
 /**
  * Arquivo principal de configuração da aplicação.
@@ -61,6 +63,7 @@ app.use('/profile', userProfileRoutes);
 app.use('/users', userRoutes);
 app.use('/specialized', specializedRoutes);
 app.use('/home', homeRoutes);
+app.use('/notifications', notificationsRoutes);
 
 app.use(errorHandler);
 

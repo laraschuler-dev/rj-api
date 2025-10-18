@@ -66,7 +66,6 @@ export class PasswordRecoveryService {
       !user.passwordResetTokenExpiresAt ||
       dayjs(user.passwordResetTokenExpiresAt).isBefore(dayjs())
     ) {
-      console.log('Token inválido ou expirado');
       throw new Error('Token inválido ou expirado');
     }
 

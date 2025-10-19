@@ -30,6 +30,7 @@ import { UserRepository } from '../../core/repositories/UserRepository';
 import { PostDetailsDTO } from '../../core/dtos/PostDetailsDTO';
 import { EditedPostDTO } from '../../core/dtos/EditedPostDTO';
 import { EditedSharedPostDTO } from '../../core/dtos/EditedSharedPostDTO';
+import { NotificationService } from './NotificationService';
 
 /**
  * Serviço responsável por gerenciar posts.
@@ -45,7 +46,8 @@ export class PostService {
    */
   constructor(
     private readonly repository: PostRepository,
-    private readonly userRepository: UserRepository
+    private readonly userRepository: UserRepository,
+    private readonly notificationService: NotificationService
   ) {}
 
   /**
@@ -87,20 +89,6 @@ export class PostService {
     }
 
     return this.repository.save(post);
-  }
-
-  async validatePostOrShare(postId: number, shareId?: number): Promise<void> {
-    const post = await this.repository.findById(postId);
-    if (!post) {
-      throw new Error('Post não encontrado');
-    }
-
-    if (shareId) {
-      const share = await this.repository.findPostShareById(shareId);
-      if (!share) {
-        throw new Error('Compartilhamento não encontrado');
-      }
-    }
   }
 
   async deletePost(data: DeletePostDTO): Promise<void> {
@@ -149,17 +137,30 @@ export class PostService {
   }> {
     const result = await this.repository.findManyPaginated(page, limit, userId);
 
-    const postsWithUniqueKeys = await Promise.all(
-      result.posts.map(async (post) => {
-        const author = await this.userRepository.findByIdUser(post.user_iduser);
-        if (!author) throw new Error('Autor não encontrado');
+    const validPosts = [];
 
-        return PostListItemDTO.fromDomain(post, author, post.images, userId);
-      })
-    );
+    for (const post of result.posts) {
+      try {
+        const author = await this.userRepository.findByIdUser(post.user_iduser);
+        if (author) {
+          const postDTO = PostListItemDTO.fromDomain(
+            post,
+            author,
+            post.images,
+            userId
+          );
+          validPosts.push(postDTO);
+        }
+      } catch (error) {
+        console.warn(
+          `Post ${post.id} ignorado devido a autor inválido:`,
+          error instanceof Error ? error.message : 'Erro desconhecido'
+        );
+      }
+    }
 
     return {
-      posts: postsWithUniqueKeys,
+      posts: validPosts,
       total: result.total,
       currentPage: page,
       limit,
@@ -199,6 +200,34 @@ export class PostService {
     return SharedPostDetailsDTO.fromPrisma(sharedDetails, userId);
   }
 
+  /**
+   * Obtém o ID do usuário que deve receber a notificação
+   * Para posts originais: dono do post
+   * Para compartilhamentos: dono do compartilhamento
+   */
+  private async getNotificationTargetUserId(
+    postId: number,
+    shareId?: number | null
+  ): Promise<number | null> {
+    try {
+      const effectiveShareId =
+        shareId === null || shareId === undefined ? undefined : shareId;
+
+      if (effectiveShareId) {
+        // É um compartilhamento - retorna dono do COMPARTILHAMENTO
+        const share = await this.repository.findPostShareById(effectiveShareId);
+        return share?.user_iduser || null;
+      } else {
+        // É post original - retorna dono do POST
+        const post = await this.repository.findById(postId);
+        return post?.user_iduser || null;
+      }
+    } catch (error) {
+      console.error('Erro ao buscar target user para notificação:', error);
+      return null;
+    }
+  }
+
   async toggleLike(
     postId: number,
     userId: number,
@@ -220,8 +249,32 @@ export class PostService {
       await this.repository.unlikePost(postId, userId, shareId);
     } else {
       await this.repository.likePost(userId, postId, shareId);
+
+      // 👇 HOOK DE NOTIFICAÇÃO DE CURTIDA - CORRIGIDO
+      try {
+        // ✅ CORREÇÃO: Usa método auxiliar para determinar quem notificar
+        const targetUserId = await this.getNotificationTargetUserId(
+          postId,
+          shareId
+        );
+
+        if (targetUserId && targetUserId !== userId) {
+          // Não notificar a si mesmo
+          await this.notificationService.createNotification({
+            user_id: targetUserId,
+            actor_id: userId,
+            type: 'LIKE',
+            post_id: postId,
+            post_share_id: shareId,
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao criar notificação de curtida:', error);
+        // Não quebra o fluxo principal se a notificação falhar
+      }
     }
 
+    // Resto do método permanece igual...
     const post = await this.repository.findById(postId);
     if (!post) throw new Error('Post não encontrado');
 
@@ -294,6 +347,21 @@ export class PostService {
       throw new Error('Usuário não encontrado');
     }
 
+    try {
+      if (originalPost.user.iduser !== dto.userId) {
+        // Não notificar a si mesmo
+        await this.notificationService.createNotification({
+          user_id: originalPost.user.iduser,
+          actor_id: dto.userId,
+          type: 'SHARE',
+          post_id: dto.postId,
+          post_share_id: shared.id,
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao criar notificação de compartilhamento:', error);
+    }
+
     const images = originalPost.image.map(
       (img: { image: string }) => img.image
     );
@@ -314,7 +382,7 @@ export class PostService {
       postId: originalPost.idpost,
       id: sharingUser.iduser,
       name: sharingUser.name,
-      avatarUrl: sharingUser.user_profile?.profile_photo || undefined, // ✅ Correto
+      avatarUrl: sharingUser.user_profile?.profile_photo || undefined,
       message: shared.message ?? undefined,
       sharedAt: shared.shared_at.toISOString(),
     };
@@ -328,9 +396,9 @@ export class PostService {
       metadata,
       images,
       originalPost.time.toISOString(),
-      false, // liked
-      false, // isPostOwner (quem compartilha não é dono do post original)
-      true, // isShareOwner (quem compartilha é dono deste compartilhamento)
+      false,
+      false,
+      true,
       sharedBy
     );
   }
@@ -347,18 +415,36 @@ export class PostService {
   async createComment(createCommentDTO: CreateCommentDTO): Promise<void> {
     const { userId, postId, shareId } = createCommentDTO;
 
-    // Validação do post original
     const post = await this.repository.findById(postId);
     if (!post) throw new Error('Post não encontrado');
 
-    // Validação do compartilhamento (se aplicável)
     if (shareId) {
       const share = await this.repository.findPostShareById(shareId);
       if (!share) throw new Error('Compartilhamento não encontrado');
     }
 
-    // Criação do comentário
-    await this.repository.createComment(createCommentDTO);
+    const comment = await this.repository.createComment(createCommentDTO);
+
+    try {
+      const targetUserId = await this.getNotificationTargetUserId(
+        postId,
+        shareId
+      );
+
+      if (targetUserId && targetUserId !== userId) {
+        await this.notificationService.createNotification({
+          user_id: targetUserId,
+          actor_id: userId,
+          type: 'COMMENT',
+          post_id: postId,
+          post_share_id: shareId,
+          comment_id: comment.idcomment,
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao criar notificação de comentário:', error);
+      // Não quebra o fluxo principal
+    }
   }
 
   async getCommentsByPostId(postId: number, postShareId?: number) {
@@ -402,6 +488,7 @@ export class PostService {
     return CommentCountDTO.fromResult(count);
   }
 
+  // 🔨 SUBSTITUIR O MÉTODO attendEvent EXISTENTE
   async attendEvent(data: AttendEventDTO): Promise<'confirmed' | 'removed'> {
     const postShareId = data.postShareId ?? undefined;
 
@@ -432,6 +519,29 @@ export class PostService {
       postShareId,
       status: 'confirmed',
     });
+
+    // 👇 HOOK DE NOTIFICAÇÃO DE CONFIRMAÇÃO EM EVENTO - CORRIGIDO
+    try {
+      // ✅ CORREÇÃO: Usa método auxiliar para determinar quem notificar
+      const targetUserId = await this.getNotificationTargetUserId(
+        data.postId,
+        postShareId
+      );
+
+      if (targetUserId && targetUserId !== data.userId) {
+        // Não notificar a si mesmo
+        await this.notificationService.createNotification({
+          user_id: targetUserId, // ✅ Agora é o dono CORRETO
+          actor_id: data.userId, // Quem confirmou presença
+          type: 'EVENT_ATTENDANCE',
+          post_id: data.postId,
+          post_share_id: postShareId,
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao criar notificação de evento:', error);
+      // Não quebra o fluxo principal
+    }
 
     return 'confirmed';
   }

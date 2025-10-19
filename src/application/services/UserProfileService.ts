@@ -1,12 +1,22 @@
+// src/application/services/UserProfileService.ts
 import { UserProfileRepository } from '../../core/repositories/UserProfileRepository';
 import { UserRepository } from '../../core/repositories/UserRepository';
 import { UpdateUserProfileDTO } from '../../core/dtos/userProfile/UpdateUserProfileDTO';
+import { PublicUserProfileDTO } from '../../core/dtos/userProfile/PublicUserProfileDTO';
+import { GetPublicUserProfileUseCase } from '../use-cases/userProfile/GetUserProfileUseCase';
 
 export class UserProfileService {
+  private getPublicUserProfileUseCase: GetPublicUserProfileUseCase;
+
   constructor(
     private userProfileRepository: UserProfileRepository,
     private userRepository: UserRepository
-  ) {}
+  ) {
+    this.getPublicUserProfileUseCase = new GetPublicUserProfileUseCase(
+      userProfileRepository,
+      userRepository
+    );
+  }
 
   private translateProfileType(type: string | undefined): string {
     if (!type) return 'Não informado';
@@ -35,9 +45,13 @@ export class UserProfileService {
       fone: user.phone,
       profile: {
         ...userProfile,
-        translated_type: this.translateProfileType(userProfile?.profile_type)
-      }
+        translated_type: this.translateProfileType(userProfile?.profile_type),
+      },
     };
+  }
+
+  async getPublicProfile(userId: number): Promise<PublicUserProfileDTO | null> {
+    return this.getPublicUserProfileUseCase.execute(userId);
   }
 
   async updateProfile(userId: number, dto: UpdateUserProfileDTO): Promise<any> {

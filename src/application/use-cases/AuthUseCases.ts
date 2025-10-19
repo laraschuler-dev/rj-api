@@ -3,8 +3,9 @@ import { LoginRequestDTO } from '../../core/dtos/LoginRequestDTO';
 import { RegisterRequestDTO } from '../../core/dtos/RegisterRequestDTO';
 import { ForgotPasswordRequestDTO } from '../../core/dtos/ForgotPasswordRequestDTO';
 import { ResetPasswordRequestDTO } from '../../core/dtos/ResetPasswordRequestDTO';
-import { UpdatePasswordDTO } from '@/core/dtos/UpdatePasswordDTO';
-import { UpdateAccountDTO } from '@/core/dtos/UpdateAccountDTO';
+import { UpdatePasswordDTO } from '../../core/dtos/UpdatePasswordDTO';
+import { UpdateAccountDTO } from '../../core/dtos/UpdateAccountDTO';
+import { DeleteAccountDTO } from '../../core/dtos/DeleteAccountDTO';
 
 /**
  * Casos de uso relacionados à autenticação e gerenciamento de usuários.
@@ -72,5 +73,15 @@ export class AuthUseCases {
 
   async updatePassword(userId: number, data: UpdatePasswordDTO) {
     return this.authService.updatePassword(userId, data);
+  }
+
+  /**
+   * Realiza a exclusão lógica da conta do usuário.
+   * @param userId - ID do usuário.
+   * @param data - Dados para confirmação da exclusão.
+   * @returns Uma promessa resolvida quando a operação for concluída.
+   */
+  async deleteAccount(userId: number, data: DeleteAccountDTO): Promise<void> {
+    return this.authService.deleteAccount(userId, data);
   }
 }

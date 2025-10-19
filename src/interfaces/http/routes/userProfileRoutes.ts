@@ -59,6 +59,52 @@ router.put('/', ensureAuthenticated, userProfileController.updateProfile);
 
 /**
  * @swagger
+ * /profile/public/{userId}:
+ *   get:
+ *     summary: Retorna o perfil público de um usuário
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do usuário
+ *     responses:
+ *       200:
+ *         description: Perfil público retornado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                 name:
+ *                   type: string
+ *                 profile:
+ *                   type: object
+ *                   properties:
+ *                     profile_type:
+ *                       type: string
+ *                     translated_type:
+ *                       type: string
+ *                     profile_photo:
+ *                       type: string
+ *                     bio:
+ *                       type: string
+ *                     city:
+ *                       type: string
+ *                     state:
+ *                       type: string
+ *       404:
+ *         description: Usuário não encontrado
+ *       400:
+ *         description: ID inválido
+ */
+router.get('/public/:userId', userProfileController.getPublicProfile);
+
+/**
+ * @swagger
  * /profile/photo:
  *   put:
  *     summary: Atualiza a foto de perfil do usuário autenticado

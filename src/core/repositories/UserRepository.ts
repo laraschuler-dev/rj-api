@@ -70,4 +70,34 @@ export interface UserRepository {
   ): Promise<User>;
 
   updatePassword(userId: number, newPasswordHash: string): Promise<void>;
+
+  searchUsers(
+    searchTerm: string,
+    page: number,
+    limit: number
+  ): Promise<{
+    users: Array<{
+      id: number;
+      name: string;
+      email: string;
+      avatarUrl?: string;
+      profileType?: string;
+    }>;
+    totalCount: number;
+  }>;
+
+  /**
+   * Realiza a exclusão lógica de uma conta de usuário.
+   * @param userId - ID do usuário.
+   * @param reason - Motivo opcional para exclusão.
+   * @returns Uma promessa resolvida quando a operação for concluída.
+   */
+  softDeleteUser(userId: number): Promise<void>;
+
+  /**
+   * Verifica se um usuário está marcado como excluído.
+   * @param userId - ID do usuário.
+   * @returns `true` se o usuário estiver excluído, caso contrário `false`.
+   */
+  isUserDeleted(userId: number): Promise<boolean>;
 }

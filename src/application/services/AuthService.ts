@@ -10,8 +10,9 @@ import jwt from 'jsonwebtoken';
 import validator from 'validator';
 import { LoginResponseDTO } from '../../core/dtos/LoginResponseDTO';
 import { RegisterResponseDTO } from '../../core/dtos/RegisterResponseDTO';
-import { UpdateAccountDTO } from '@/core/dtos/UpdateAccountDTO';
-import { UpdatePasswordDTO } from '@/core/dtos/UpdatePasswordDTO';
+import { UpdateAccountDTO } from '../../core/dtos/UpdateAccountDTO';
+import { UpdatePasswordDTO } from '../../core/dtos/UpdatePasswordDTO';
+import { DeleteAccountDTO } from '../../core/dtos/DeleteAccountDTO';
 
 /**
  * Serviço responsável por autenticação e gerenciamento de usuários.
@@ -91,6 +92,34 @@ export class AuthService {
       email: createdUser.email,
       phone: createdUser.phone,
     };
+  }
+
+  /**
+   * Realiza a exclusão lógica da conta do usuário.
+   * @param userId - ID do usuário.
+   * @param data - Dados para confirmação da exclusão (senha e motivo opcional).
+   * @throws Erro caso a senha esteja incorreta ou o usuário não seja encontrado.
+   */
+  async deleteAccount(userId: number, data: DeleteAccountDTO): Promise<void> {
+    const user = await this.userRepository.findByIdUser(userId);
+    if (!user) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    // Verifica se a conta já está excluída
+    const isDeleted = await this.userRepository.isUserDeleted(userId);
+    if (isDeleted) {
+      throw new Error('Esta conta já foi excluída');
+    }
+
+    // Confirma a senha atual
+    const isPasswordValid = await this.verifyPassword(user.password, data.password);
+    if (!isPasswordValid) {
+      throw new Error('Senha incorreta. A exclusão da conta requer confirmação da senha atual.');
+    }
+
+    // Realiza a exclusão lógica
+    await this.userRepository.softDeleteUser(userId);
   }
 
   /**

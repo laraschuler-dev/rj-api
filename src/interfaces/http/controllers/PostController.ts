@@ -14,6 +14,7 @@ import { PostService } from '../../../application/services/PostService';
 import { UserProfileRepositoryPrisma } from '@/infrastructure/database/repositories/UserProfileRepositoryPrisma';
 import { UserMapper } from '../../../core/mappers/UserMapper';
 import { CreatedPostDTO } from '../../../core/dtos/CreatePostResponseDTO';
+import { SimpleImageService } from '../../../infrastructure/services/SimpleImageService';
 
 /**
  * Controlador responsável por lidar com requisições relacionadas a posts.
@@ -85,7 +86,9 @@ export class PostController {
         return;
       }
 
-      const imageFilenames = dto?.images?.map((file) => file.filename) || [];
+      const imageFiles = req.files as Express.Multer.File[];
+      const processedImages =
+        await SimpleImageService.handleProductionUpload(imageFiles);
 
       // Criação do post
       const { post, images } = await this.postUseCases.execute(
@@ -93,7 +96,7 @@ export class PostController {
         dto!.categoria_idcategoria,
         dto!.user_iduser,
         dto!.metadata,
-        imageFilenames
+        processedImages
       );
 
       // Busca User e UserProfile separadamente
@@ -113,7 +116,7 @@ export class PostController {
         post,
         authorDTO,
         images,
-        req.user.id // 👈 Novo parâmetro
+        req.user.id
       );
 
       res.status(201).json(response);
@@ -555,9 +558,18 @@ export class PostController {
         ? JSON.parse(req.body.metadata)
         : undefined;
 
-      // Novas imagens (upload)
+      // ✅✅✅ CORREÇÃO AQUI - Processar novas imagens via FTP
       const imageFiles = req.files as Express.Multer.File[] | undefined;
-      const newImages = imageFiles?.map((file) => file.filename) || [];
+      const processedImages = await SimpleImageService.handleProductionUpload(
+        imageFiles || []
+      );
+
+      // Garantir formato correto para imagens locais
+      const newImages = processedImages.map((img) =>
+        !img.startsWith('http') && !img.startsWith('/uploads/')
+          ? `/uploads/${img}`
+          : img
+      );
 
       // Chama o use case para atualizar
       const updated = await this.postUseCases.updatePost({
@@ -567,12 +579,12 @@ export class PostController {
         content,
         message,
         metadata,
-        newImages,
+        newImages, // ✅ Agora processadas corretamente
       });
 
       res.status(200).json(updated);
     } catch (error: any) {
-      console.error('Erro ao atualizar post:', error);
+      console.error('❌ Erro ao atualizar post:', error);
       res.status(400).json({ error: error.message });
     }
   }

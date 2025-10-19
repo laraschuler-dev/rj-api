@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { UserProfileService } from '../../../application/services/UserProfileService';
 import { UpdateUserProfileDTO } from '../../../core/dtos/userProfile/UpdateUserProfileDTO';
+import { SimpleImageService } from '../../../infrastructure/services/SimpleImageService';
 
 export class UserProfileController {
   constructor(private userProfileService: UserProfileService) {
@@ -60,25 +61,44 @@ export class UserProfileController {
         return;
       }
       const userId = req.user.id;
+
+      let profile_photo = req.body.profile_photo;
+      if (req.file) {
+        const processedImages = await SimpleImageService.handleProductionUpload(
+          [req.file]
+        );
+        profile_photo = processedImages[0];
+
+        // 🔥🔥🔥 MESMA CORREÇÃO AQUI
+        if (
+          !profile_photo.startsWith('http') &&
+          !profile_photo.startsWith('/uploads/')
+        ) {
+          profile_photo = `/uploads/${profile_photo}`;
+        }
+      }
+
       const dto: UpdateUserProfileDTO = {
         profile_type: req.body.profile_type,
-        profile_photo: req.body.profile_photo,
+        profile_photo: profile_photo, // ✅ AGORA CORRETO
         bio: req.body.bio,
         city: req.body.city,
         state: req.body.state,
       };
+
       const updatedProfile = await this.userProfileService.updateProfile(
         userId,
         dto
       );
       res.json(updatedProfile);
     } catch (err: any) {
+      console.error('❌ Erro ao atualizar perfil:', err);
       res
         .status(400)
         .json({ error: err.message || 'Erro ao atualizar perfil.' });
     }
   }
-
+  
   async updateProfilePhoto(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user || !req.user.id) {
@@ -89,14 +109,39 @@ export class UserProfileController {
         res.status(400).json({ message: 'Nenhuma imagem enviada.' });
         return;
       }
+
       const userId = req.user.id;
-      const profile_photo = `/uploads/${req.file.filename}`;
+
+      console.log('📁 Arquivo recebido:', req.file);
+
+      const processedImages = await SimpleImageService.handleProductionUpload([
+        req.file,
+      ]);
+
+      console.log('🔄 Imagens processadas:', processedImages);
+
+      let profile_photo = processedImages[0];
+
+      // 🔥🔥🔥 ADICIONE ESTA LINHA - GARANTIR /uploads/ NO CAMINHO
+      if (
+        !profile_photo.startsWith('http') &&
+        !profile_photo.startsWith('/uploads/')
+      ) {
+        profile_photo = `/uploads/${profile_photo}`;
+      }
+
+      console.log('💾 Salvando profile_photo:', profile_photo);
+
       const updatedProfile = await this.userProfileService.updateProfile(
         userId,
         { profile_photo }
       );
+
+      console.log('✅ Perfil atualizado:', updatedProfile);
+
       res.json(updatedProfile);
     } catch (err: any) {
+      console.error('❌ Erro ao atualizar foto de perfil:', err);
       res
         .status(400)
         .json({ error: err.message || 'Erro ao atualizar foto de perfil.' });

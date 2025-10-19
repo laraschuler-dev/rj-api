@@ -14,8 +14,7 @@ export class SimpleImageService {
   private static readonly MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
   // 🔐 PASTA ESPECÍFICA DO SEU SITE - NÃO ALTERE!
-  private static readonly MY_SAFE_FOLDER =
-    'public_html/redefinindojornadas/uploads';
+  private static readonly MY_SAFE_FOLDER = 'redefinindojornadas/uploads';
 
   /**
    * Processa uploads de forma segura - apenas para produção com FTP

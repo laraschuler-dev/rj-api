@@ -19,7 +19,7 @@ export class SimpleImageService {
   static async handleProductionUpload(
     files?: Express.Multer.File[]
   ): Promise<string[]> {
-    // ⚠️ EM DESENVOLVIMENTO: retorna filename normal (comportamento atual)
+    // ⚙️ Desenvolvimento: retorna filename local
     if (process.env.NODE_ENV !== 'production' || !process.env.FTP_HOST) {
       console.log('🛠️  Modo desenvolvimento - usando filenames locais');
       return files ? files.map((file) => file.filename) : [];
@@ -31,24 +31,20 @@ export class SimpleImageService {
 
     for (const file of filesArray) {
       try {
-        // ✅ VALIDAÇÕES DE SEGURANÇA
         this.validateFile(file);
 
-        // 🔐 UPLOAD DIRETO PARA FTP
+        // 🔐 Upload direto para o FTP do subdomínio
         const ftpUrl = await this.uploadToFTP(file);
 
         if (ftpUrl) {
           uploadedUrls.push(ftpUrl);
           console.log(`✅ Upload seguro realizado: ${ftpUrl}`);
         } else {
-          // ❌ SE NÃO CONSEGUIR, USA FALLBACK LOCAL
-          console.log(
-            '⚠️  Não foi possível salvar no FTP, usando fallback local'
-          );
+          console.log('⚠️  Falha no FTP - usando fallback local');
           uploadedUrls.push(file.filename);
         }
       } catch (error) {
-        console.error('❌ Erro no upload FTP, usando fallback local:', error);
+        console.error('❌ Erro no upload FTP - fallback local:', error);
         uploadedUrls.push(file.filename);
       }
     }
@@ -57,7 +53,7 @@ export class SimpleImageService {
   }
 
   /**
-   * 🔐 Upload DIRETO para FTP - caminho simplificado
+   * 🔐 Upload direto para o FTP do subdomínio
    */
   private static async uploadToFTP(
     file: Express.Multer.File
@@ -77,20 +73,19 @@ export class SimpleImageService {
 
       console.log('✅ Conectado ao FTP');
 
-      // 🎯 CAMINHO SIMPLES E DIRETO - baseado na sua descoberta
-      const ftpPath = 'www/redefinindojornadas/uploads';
-      const remotePath = `${ftpPath}/${file.filename}`;
+      // 📂 Diretório relativo ao root FTP do usuário (sem /www no início!)
+      const ftpDirectory = 'redefinindojornadas/uploads';
+      const remotePath = `${ftpDirectory}/${file.filename}`;
 
-      console.log(`📤 Fazendo upload para: ${remotePath}`);
-
-      // 📤 UPLOAD DIRETO
+      console.log(`📁 Garantindo diretório: ${ftpDirectory}`);
+      await client.ensureDir(ftpDirectory); // cria caso não exista
       await client.uploadFrom(file.path, remotePath);
 
       console.log(`✅ Upload concluído: ${remotePath}`);
 
-      // 🌐 URL do seu subdomínio
+      // 🌐 URL pública no domínio
       const imageUrl = `https://redefinindojornadas.infocimol.com.br/uploads/${file.filename}`;
-      console.log(`✅ URL da imagem: ${imageUrl}`);
+      console.log(`🌍 URL da imagem: ${imageUrl}`);
 
       return imageUrl;
     } catch (error) {
@@ -102,28 +97,24 @@ export class SimpleImageService {
   }
 
   /**
-   * 🔐 Validações de segurança rigorosas
+   * 🔒 Validação de segurança dos arquivos
    */
   private static validateFile(file: Express.Multer.File): void {
-    // Verifica extensão
     const ext = path.extname(file.originalname).toLowerCase();
     if (!this.ALLOWED_EXTENSIONS.includes(ext)) {
       throw new Error(`Tipo de arquivo não permitido: ${ext}`);
     }
 
-    // Verifica tamanho
     if (file.size > this.MAX_FILE_SIZE) {
       throw new Error(
         `Arquivo muito grande: ${file.size} bytes (max: ${this.MAX_FILE_SIZE})`
       );
     }
 
-    // Verifica se é imagem
     if (!file.mimetype.startsWith('image/')) {
       throw new Error('Arquivo não é uma imagem válida');
     }
 
-    // Verifica se o arquivo temporário existe
     if (!fs.existsSync(file.path)) {
       throw new Error('Arquivo temporário não encontrado');
     }
@@ -134,15 +125,13 @@ export class SimpleImageService {
   }
 
   /**
-   * Função auxiliar para manter compatibilidade
+   * Compatibilidade: resolve URLs locais ou completas
    */
   static resolveImageUrl(filenameOrUrl: string): string {
-    // Se já é URL completa (vinda do FTP), usa como está
     if (filenameOrUrl.startsWith('http')) {
       return filenameOrUrl;
     }
 
-    // Se é filename, monta URL local (desenvolvimento)
     const baseURL = process.env.API_URL || 'http://localhost:3000';
     return `${baseURL}/uploads/${filenameOrUrl}`;
   }

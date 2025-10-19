@@ -13,8 +13,6 @@ export class SimpleImageService {
   ];
   private static readonly MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-  // 🔐 CAMINHO DO SEU SUBDOMÍNIO NO FTP
-  private static readonly MY_SUBDOMAIN_PATH = 'www/redefinindojornadas/uploads';
 
   /**
    * Processa uploads de forma segura - apenas para produção com FTP
@@ -81,41 +79,37 @@ export class SimpleImageService {
 
       console.log('✅ Conectado ao FTP');
 
-      // 🎯 TENTA CAMINHOS ESPECÍFICOS DO SEU SUBDOMÍNIO
+      // 🎯 AGORA TESTANDO COM E SEM BARRA
       const subdomainPaths = [
-        'www/redefinindojornadas/uploads', // Caminho do seu SPA
-        'public_html/redefinindojornadas/uploads', // Possível alternativa
-        'redefinindojornadas/uploads', // Caminho direto
+        '/www/redefinindojornadas/uploads', // 🔥 NOVO - ABSOLUTO
+        '/public_html/redefinindojornadas/uploads', // 🔥 NOVO - ABSOLUTO
+        '/redefinindojornadas/uploads', // 🔥 NOVO - ABSOLUTO
+        'www/redefinindojornadas/uploads', // RELATIVO
+        'public_html/redefinindojornadas/uploads', // RELATIVO
+        'redefinindojornadas/uploads', // RELATIVO
       ];
 
       for (const path of subdomainPaths) {
         try {
-          console.log(`🔄 Tentando caminho do subdomínio: ${path}`);
+          console.log(`🔄 Tentando caminho: ${path}`);
 
           const remotePath = `${path}/${file.filename}`;
           await client.uploadFrom(file.path, remotePath);
 
-          console.log(`✅ Upload bem-sucedido para subdomínio: ${remotePath}`);
+          console.log(`✅ Upload bem-sucedido: ${remotePath}`);
 
-          // 🌐 URL do seu subdomínio
           const imageUrl = `https://redefinindojornadas.infocimol.com.br/uploads/${file.filename}`;
-          console.log(`✅ URL da imagem no subdomínio: ${imageUrl}`);
+          console.log(`✅ URL da imagem: ${imageUrl}`);
 
           return imageUrl;
         } catch (uploadError) {
           const err = uploadError as Error;
-          console.log(
-            `❌ Falha no caminho do subdomínio: ${path}`,
-            err.message
-          );
+          console.log(`❌ Falha no caminho: ${path}`, err.message);
           continue;
         }
       }
 
-      // ❌ SE NENHUM CAMINHO DO SUBDOMÍNIO FUNCIONOU
-      console.log(
-        '🚫 Nenhum caminho do subdomínio funcionou. NÃO salvando na raiz do host.'
-      );
+      console.log('🚫 Nenhum caminho funcionou.');
       return null;
     } catch (error) {
       console.error('❌ Erro geral no FTP:', error);

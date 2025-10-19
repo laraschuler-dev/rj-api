@@ -162,7 +162,6 @@ export class PostController {
       });
     } catch (err) {
       res.status(500).json({ error: 'Erro ao listar posts' });
-      console.log('Erro:', err);
     }
   }
 
@@ -371,7 +370,6 @@ export class PostController {
     } catch (error: any) {
       console.error('Erro ao atualizar comentário:', error);
       res.status(400).json({ error: error.message });
-      console.log(error);
     }
   }
 

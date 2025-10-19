@@ -124,7 +124,7 @@ export interface PostRepository {
 
   findPostsByUser(
     userId: number,
-    requestingUserId: number | undefined, // 👈 Novo parâmetro
+    requestingUserId: number | undefined,
     page: number,
     limit: number
   ): Promise<{ posts: Post[]; totalCount: number }>;
@@ -161,4 +161,18 @@ export interface PostRepository {
   softDeleteShare(shareId: number): Promise<void>;
 
   findPostAuthor(postId: number): Promise<number | null>;
+
+  findByCategoryPaginated(
+    categoryId: number,
+    page: number,
+    limit: number,
+    userId?: number
+  ): Promise<{ posts: Post[]; total: number }>;
+
+  findByCategoriesPaginated(
+    categoryIds: number[],
+    page: number,
+    limit: number,
+    userId?: number
+  ): Promise<{ posts: Post[]; total: number }>;
 }

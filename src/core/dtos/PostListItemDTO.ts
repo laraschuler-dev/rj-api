@@ -82,7 +82,9 @@ export class PostListItemDTO {
       : undefined;
 
     const eventAttendance = post.eventAttendance || [];
-    const attending = eventAttendance.some((a) => a.userId === user.id);
+    const attending = eventAttendance.some(
+      (a) => a.userId === requestingUserId
+    );
 
     return new PostListItemDTO(
       post.getUniqueIdentifier(),

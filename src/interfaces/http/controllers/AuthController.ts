@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { AuthUseCases } from '../../../application/use-cases/AuthUseCases';
+import { DeleteAccountDTO } from '../../../core/dtos/DeleteAccountDTO';
 
 /**
  * Controlador responsável por lidar com as requisições relacionadas à autenticação.
@@ -18,6 +19,7 @@ export class AuthController {
     this.getSession = this.getSession.bind(this);
     this.updateAccount = this.updateAccount.bind(this);
     this.updatePassword = this.updatePassword.bind(this);
+    this.deleteAccount = this.deleteAccount.bind(this);
   }
 
   /**
@@ -35,6 +37,31 @@ export class AuthController {
       const errorMessage =
         err instanceof Error ? err.message : 'An unknown error occurred';
       res.status(400).json({ error: errorMessage });
+    }
+  }
+
+  /**
+   * Lida com a exclusão lógica da conta do usuário.
+   * @param req - Objeto da requisição HTTP.
+   * @param res - Objeto da resposta HTTP.
+   * @returns Retorna uma mensagem de sucesso ou um erro caso a operação falhe.
+   */
+  async deleteAccount(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user || !req.user.id) {
+        res.status(401).json({ error: 'Unauthorized: user not found in request' });
+        return;
+      }
+
+      const userId = req.user.id;
+      const data: DeleteAccountDTO = req.body;
+
+      await this.authUseCases.deleteAccount(userId, data);
+      res.status(200).json({ 
+        message: 'Conta excluída com sucesso. Seus dados serão mantidos por questões de segurança e conformidade.' 
+      });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
     }
   }
 

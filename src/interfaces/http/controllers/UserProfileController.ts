@@ -7,6 +7,7 @@ export class UserProfileController {
     this.getProfile = this.getProfile.bind(this);
     this.updateProfile = this.updateProfile.bind(this);
     this.updateProfilePhoto = this.updateProfilePhoto.bind(this);
+    this.getPublicProfile = this.getPublicProfile.bind(this);
   }
 
   async getProfile(req: Request, res: Response): Promise<void> {
@@ -24,6 +25,31 @@ export class UserProfileController {
       res.json(profileData);
     } catch (err: any) {
       res.status(400).json({ error: err.message || 'Erro ao buscar perfil.' });
+    }
+  }
+
+  async getPublicProfile(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = parseInt(req.params.userId);
+
+      if (isNaN(userId)) {
+        res.status(400).json({ message: 'ID do usuário inválido.' });
+        return;
+      }
+
+      const publicProfile =
+        await this.userProfileService.getPublicProfile(userId);
+
+      if (!publicProfile) {
+        res.status(404).json({ message: 'Usuário não encontrado.' });
+        return;
+      }
+
+      res.json(publicProfile);
+    } catch (err: any) {
+      res
+        .status(400)
+        .json({ error: err.message || 'Erro ao buscar perfil público.' });
     }
   }
 

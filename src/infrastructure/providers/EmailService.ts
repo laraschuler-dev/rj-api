@@ -31,7 +31,7 @@ export const sendEmail = async ({
   html: string;
 }): Promise<void> => {
   await transporter.sendMail({
-    from: `"Sua App" <${process.env.EMAIL_USERNAME}>`, // Nome e e-mail do remetente
+    from: `"Redefinindo Jornadas" <${process.env.EMAIL_USERNAME}>`, // Nome e e-mail do remetente
     to, // Destinatário
     subject, // Assunto do e-mail
     html, // Conteúdo HTML do e-mail

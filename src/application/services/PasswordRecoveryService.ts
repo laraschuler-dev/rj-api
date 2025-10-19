@@ -43,7 +43,6 @@ export class PasswordRecoveryService {
         <p>Você solicitou a recuperação de senha.</p>
         <p>Clique no link abaixo para redefinir sua senha:</p>
         <a href="${recoveryLink}">${recoveryLink}</a>
-        <p>Token para teste: ${token}</p>
         <p>Se você não fez essa solicitação, ignore este e-mail.</p>
       `,
     });
@@ -67,7 +66,6 @@ export class PasswordRecoveryService {
       !user.passwordResetTokenExpiresAt ||
       dayjs(user.passwordResetTokenExpiresAt).isBefore(dayjs())
     ) {
-      console.log('Token inválido ou expirado');
       throw new Error('Token inválido ou expirado');
     }
 

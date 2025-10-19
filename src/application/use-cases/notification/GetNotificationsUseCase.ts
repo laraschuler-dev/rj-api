@@ -23,16 +23,10 @@ export class GetNotificationsUseCase {
   }
 
   private toDTO(notification: any): NotificationDTO {
-    console.log(
-      '🔍 Estrutura COMPLETA da notificação:',
-      JSON.stringify(notification, null, 2)
-    );
 
     // 👇 Tentar diferentes caminhos para encontrar o actor
     const actorUser =
       notification.user_notification_actor_idTouser || notification.actor;
-
-    console.log('👤 Actor encontrado:', actorUser);
 
     let message = '';
     let postPreview = undefined;

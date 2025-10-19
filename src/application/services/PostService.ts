@@ -205,12 +205,6 @@ export class PostService {
    * Para posts originais: dono do post
    * Para compartilhamentos: dono do compartilhamento
    */
-  // 🔨 MÉTODO AUXILIAR CORRIGIDO - SUBSTITUIR O ANTERIOR
-  /**
-   * Obtém o ID do usuário que deve receber a notificação
-   * Para posts originais: dono do post
-   * Para compartilhamentos: dono do compartilhamento
-   */
   private async getNotificationTargetUserId(
     postId: number,
     shareId?: number | null

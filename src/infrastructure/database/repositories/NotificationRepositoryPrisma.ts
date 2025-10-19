@@ -35,11 +35,16 @@ export class NotificationRepositoryPrisma implements NotificationRepository {
     page: number,
     limit: number
   ): Promise<any[]> {
-    // 👈 Mudar para any[] temporariamente
     const skip = (page - 1) * limit;
 
     const notifications = await prisma.notification.findMany({
-      where: { user_id: userId },
+      where: {
+        user_id: userId,
+        // ✅ FILTRO ÚNICO E CRÍTICO: Só retorna notificações onde o actor ainda existe
+        user_notification_actor_idTouser: {
+          deletedAt: null, // Usuário não foi deletado
+        },
+      },
       include: {
         user_notification_user_idTouser: {
           include: {
@@ -55,7 +60,6 @@ export class NotificationRepositoryPrisma implements NotificationRepository {
           include: {
             image: true,
             user: {
-              // 👈 INCLUIR user do post também
               include: {
                 user_profile: true,
               },
@@ -65,7 +69,6 @@ export class NotificationRepositoryPrisma implements NotificationRepository {
         post_share: {
           include: {
             user: {
-              // 👈 INCLUIR user do compartilhamento
               include: {
                 user_profile: true,
               },
@@ -75,7 +78,6 @@ export class NotificationRepositoryPrisma implements NotificationRepository {
         comment: {
           include: {
             user: {
-              // 👈 INCLUIR user do comentário
               include: {
                 user_profile: true,
               },
@@ -96,6 +98,10 @@ export class NotificationRepositoryPrisma implements NotificationRepository {
       where: {
         user_id: userId,
         is_read: false,
+        // ✅ Mesmo filtro para contar apenas notificações válidas
+        user_notification_actor_idTouser: {
+          deletedAt: null,
+        },
       },
     });
   }
@@ -105,6 +111,10 @@ export class NotificationRepositoryPrisma implements NotificationRepository {
       where: {
         user_id: userId,
         is_read: false,
+        // ✅ Aplica o mesmo filtro ao marcar como lido
+        user_notification_actor_idTouser: {
+          deletedAt: null,
+        },
       },
       data: { is_read: true },
     });

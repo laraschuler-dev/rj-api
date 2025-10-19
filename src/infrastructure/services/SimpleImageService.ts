@@ -73,32 +73,26 @@ export class SimpleImageService {
 
       console.log('✅ Conectado ao FTP');
 
-      // 📌 Diretório raiz do subdomínio já é "redefinindojornadas"
-      // portanto, só precisamos acessar a pasta "uploads"
-      const ftpUploadsDir = 'uploads';
-      const remotePath = `${ftpUploadsDir}/${file.filename}`;
-
-      console.log(`📤 Fazendo upload para: ${remotePath}`);
-
-      // 📁 Garante que a pasta "uploads" exista (sem recriar a raiz)
+      // 📁 A raiz já é /www/redefinindojornadas
+      // Então basta garantir que estamos em /uploads
       try {
-        await client.ensureDir(ftpUploadsDir);
+        await client.cd('uploads');
+        console.log('📂 Entrou na pasta uploads');
       } catch (err) {
         console.log(
-          '⚠️ Não foi possível garantir diretório uploads (possivelmente já existe):',
+          '⚠️ Não conseguiu acessar uploads (pode já estar na raiz):',
           err
         );
       }
 
-      // 🔄 Volta à raiz antes de subir o arquivo
-      await client.cd('/');
+      console.log(`📤 Enviando arquivo: ${file.filename}`);
 
-      // 📤 Faz upload do arquivo
-      await client.uploadFrom(file.path, remotePath);
+      // 📤 Faz upload diretamente para uploads/
+      await client.uploadFrom(file.path, file.filename);
 
-      console.log(`✅ Upload concluído: ${remotePath}`);
+      console.log(`✅ Upload concluído com sucesso: ${file.filename}`);
 
-      // 🌍 Gera URL pública com base no subdomínio existente
+      // 🌍 Gera URL pública
       const imageUrl = `https://redefinindojornadas.infocimol.com.br/uploads/${file.filename}`;
       console.log(`🌍 URL pública da imagem: ${imageUrl}`);
 

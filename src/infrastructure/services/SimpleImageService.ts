@@ -13,7 +13,6 @@ export class SimpleImageService {
   ];
   private static readonly MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-
   /**
    * Processa uploads de forma segura - apenas para produção com FTP
    */
@@ -35,22 +34,21 @@ export class SimpleImageService {
         // ✅ VALIDAÇÕES DE SEGURANÇA
         this.validateFile(file);
 
-        // 🔐 TENTA UPLOAD APENAS NO SEU SUBDOMÍNIO
-        const ftpUrl = await this.uploadToSubdomainFTP(file);
+        // 🔐 UPLOAD DIRETO PARA FTP
+        const ftpUrl = await this.uploadToFTP(file);
 
         if (ftpUrl) {
           uploadedUrls.push(ftpUrl);
           console.log(`✅ Upload seguro realizado: ${ftpUrl}`);
         } else {
-          // ❌ SE NÃO CONSEGUIR NO SUBDOMÍNIO, USA FALLBACK LOCAL
+          // ❌ SE NÃO CONSEGUIR, USA FALLBACK LOCAL
           console.log(
-            '⚠️  Não foi possível salvar no subdomínio, usando fallback local'
+            '⚠️  Não foi possível salvar no FTP, usando fallback local'
           );
           uploadedUrls.push(file.filename);
         }
       } catch (error) {
         console.error('❌ Erro no upload FTP, usando fallback local:', error);
-        // 🔄 FALLBACK: usa filename normal
         uploadedUrls.push(file.filename);
       }
     }
@@ -59,16 +57,16 @@ export class SimpleImageService {
   }
 
   /**
-   * 🔐 Upload APENAS para o seu subdomínio - ou retorna null
+   * 🔐 Upload DIRETO para FTP - caminho simplificado
    */
-  private static async uploadToSubdomainFTP(
+  private static async uploadToFTP(
     file: Express.Multer.File
   ): Promise<string | null> {
     const client = new Client();
     client.ftp.verbose = true;
 
     try {
-      console.log('🔐 Conectando ao FTP de forma segura...');
+      console.log('🔐 Conectando ao FTP...');
 
       await client.access({
         host: process.env.FTP_HOST!,
@@ -79,40 +77,24 @@ export class SimpleImageService {
 
       console.log('✅ Conectado ao FTP');
 
-      // 🎯 AGORA TESTANDO COM E SEM BARRA
-      const subdomainPaths = [
-        '/www/redefinindojornadas/uploads', // 🔥 NOVO - ABSOLUTO
-        '/public_html/redefinindojornadas/uploads', // 🔥 NOVO - ABSOLUTO
-        '/redefinindojornadas/uploads', // 🔥 NOVO - ABSOLUTO
-        'www/redefinindojornadas/uploads', // RELATIVO
-        'public_html/redefinindojornadas/uploads', // RELATIVO
-        'redefinindojornadas/uploads', // RELATIVO
-      ];
+      // 🎯 CAMINHO SIMPLES E DIRETO - baseado na sua descoberta
+      const ftpPath = 'www/redefinindojornadas/uploads';
+      const remotePath = `${ftpPath}/${file.filename}`;
 
-      for (const path of subdomainPaths) {
-        try {
-          console.log(`🔄 Tentando caminho: ${path}`);
+      console.log(`📤 Fazendo upload para: ${remotePath}`);
 
-          const remotePath = `${path}/${file.filename}`;
-          await client.uploadFrom(file.path, remotePath);
+      // 📤 UPLOAD DIRETO
+      await client.uploadFrom(file.path, remotePath);
 
-          console.log(`✅ Upload bem-sucedido: ${remotePath}`);
+      console.log(`✅ Upload concluído: ${remotePath}`);
 
-          const imageUrl = `https://redefinindojornadas.infocimol.com.br/uploads/${file.filename}`;
-          console.log(`✅ URL da imagem: ${imageUrl}`);
+      // 🌐 URL do seu subdomínio
+      const imageUrl = `https://redefinindojornadas.infocimol.com.br/uploads/${file.filename}`;
+      console.log(`✅ URL da imagem: ${imageUrl}`);
 
-          return imageUrl;
-        } catch (uploadError) {
-          const err = uploadError as Error;
-          console.log(`❌ Falha no caminho: ${path}`, err.message);
-          continue;
-        }
-      }
-
-      console.log('🚫 Nenhum caminho funcionou.');
-      return null;
+      return imageUrl;
     } catch (error) {
-      console.error('❌ Erro geral no FTP:', error);
+      console.error('❌ Erro no upload FTP:', error);
       return null;
     } finally {
       client.close();

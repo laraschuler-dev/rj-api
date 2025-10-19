@@ -13,8 +13,8 @@ export class SimpleImageService {
   ];
   private static readonly MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-  // 🔐 Vamos descobrir dinamicamente a pasta correta
-  private static readonly MY_SAFE_FOLDER = 'redefinindojornadas/uploads';
+  // 🔐 CAMINHO DO SEU SUBDOMÍNIO NO FTP
+  private static readonly MY_SUBDOMAIN_PATH = 'www/redefinindojornadas/uploads';
 
   /**
    * Processa uploads de forma segura - apenas para produção com FTP
@@ -37,14 +37,22 @@ export class SimpleImageService {
         // ✅ VALIDAÇÕES DE SEGURANÇA
         this.validateFile(file);
 
-        // 🔐 UPLOAD SEGURO PARA FTP
-        const ftpUrl = await this.uploadToFTP(file);
-        uploadedUrls.push(ftpUrl);
+        // 🔐 TENTA UPLOAD APENAS NO SEU SUBDOMÍNIO
+        const ftpUrl = await this.uploadToSubdomainFTP(file);
 
-        console.log(`✅ Upload seguro realizado: ${ftpUrl}`);
+        if (ftpUrl) {
+          uploadedUrls.push(ftpUrl);
+          console.log(`✅ Upload seguro realizado: ${ftpUrl}`);
+        } else {
+          // ❌ SE NÃO CONSEGUIR NO SUBDOMÍNIO, USA FALLBACK LOCAL
+          console.log(
+            '⚠️  Não foi possível salvar no subdomínio, usando fallback local'
+          );
+          uploadedUrls.push(file.filename);
+        }
       } catch (error) {
         console.error('❌ Erro no upload FTP, usando fallback local:', error);
-        // 🔄 FALLBACK: usa filename normal (mesmo sabendo dos riscos no Render)
+        // 🔄 FALLBACK: usa filename normal
         uploadedUrls.push(file.filename);
       }
     }
@@ -53,89 +61,11 @@ export class SimpleImageService {
   }
 
   /**
-   * 🔍 DESCOBRE A ESTRUTURA DO FTP - MÉTODO TEMPORÁRIO
+   * 🔐 Upload APENAS para o seu subdomínio - ou retorna null
    */
-  private static async discoverFTPStructure(): Promise<string> {
-    const client = new Client();
-
-    try {
-      await client.access({
-        host: process.env.FTP_HOST!,
-        user: process.env.FTP_USER!,
-        password: process.env.FTP_PASSWORD!,
-        secure: false,
-      });
-
-      console.log('🔍 INICIANDO DESCOBERTA DA ESTRUTURA FTP...');
-
-      // 1. Lista o que tem na raiz
-      console.log('📁 LISTANDO PASTA RAIZ:');
-      const rootList = await client.list();
-      console.log(
-        'Conteúdo da raiz:',
-        rootList.map((item) => item.name)
-      );
-
-      // 2. Tenta encontrar sua pasta ou pastas comuns
-      const possibleFolders = [
-        'redefinindojornadas',
-        'www',
-        'public_html',
-        'web',
-        'htdocs',
-      ];
-
-      let discoveredFolder = '';
-
-      for (const folder of possibleFolders) {
-        try {
-          await client.cd(folder);
-          console.log(`✅ CONSEGUIU ACESSAR: ${folder}`);
-
-          const content = await client.list();
-          console.log(
-            `📁 CONTEÚDO DE ${folder}:`,
-            content.map((item) => item.name)
-          );
-
-          // Verifica se já tem uploads ou podemos criar
-          const hasUploads = content.some((item) => item.name === 'uploads');
-          console.log(`📸 TEM PASTA UPLOADS? ${hasUploads}`);
-
-          discoveredFolder = folder;
-          await client.cd('/'); // Volta para raiz
-
-          if (discoveredFolder) {
-            console.log(`🎯 PASTA DESCOBERTA: ${discoveredFolder}`);
-            break;
-          }
-        } catch (e) {
-          console.log(`❌ NÃO CONSEGUIU ACESSAR: ${folder}`);
-          await client.cd('/'); // Garante que volta para raiz
-        }
-      }
-
-      if (!discoveredFolder) {
-        console.log(
-          '⚠️  NÃO ENCONTROU NENHUMA PASTA ESPECÍFICA, USANDO "uploads"'
-        );
-        return 'uploads';
-      }
-
-      console.log(`🎯 ESTRUTURA DEFINIDA: ${discoveredFolder}/uploads`);
-      return `${discoveredFolder}/uploads`;
-    } catch (error) {
-      console.error('❌ Erro na descoberta FTP:', error);
-      return 'uploads'; // Fallback seguro
-    } finally {
-      client.close();
-    }
-  }
-
-  /**
-   * 🔐 Upload seguro para FTP - com descoberta automática
-   */
-  private static async uploadToFTP(file: Express.Multer.File): Promise<string> {
+  private static async uploadToSubdomainFTP(
+    file: Express.Multer.File
+  ): Promise<string | null> {
     const client = new Client();
     client.ftp.verbose = true;
 
@@ -151,30 +81,45 @@ export class SimpleImageService {
 
       console.log('✅ Conectado ao FTP');
 
-      // 🔍 DESCOBRE A ESTRUTURA (executa apenas uma vez por sessão)
-      const discoveredPath = await this.discoverFTPStructure();
-      console.log(`🎯 USANDO CAMINHO: ${discoveredPath}`);
+      // 🎯 TENTA CAMINHOS ESPECÍFICOS DO SEU SUBDOMÍNIO
+      const subdomainPaths = [
+        'www/redefinindojornadas/uploads', // Caminho do seu SPA
+        'public_html/redefinindojornadas/uploads', // Possível alternativa
+        'redefinindojornadas/uploads', // Caminho direto
+      ];
 
-      // ✅ USA O CAMINHO DESCOBERTO
-      await client.ensureDir(discoveredPath);
+      for (const path of subdomainPaths) {
+        try {
+          console.log(`🔄 Tentando caminho do subdomínio: ${path}`);
 
-      const remotePath = `${discoveredPath}/${file.filename}`;
-      await client.uploadFrom(file.path, remotePath);
+          const remotePath = `${path}/${file.filename}`;
+          await client.uploadFrom(file.path, remotePath);
 
-      console.log(`✅ Upload concluído: ${remotePath}`);
+          console.log(`✅ Upload bem-sucedido para subdomínio: ${remotePath}`);
 
-      // 🌐 URL específica do seu subdomínio
-      const imageUrl = `https://redefinindojornadas.infocimol.com.br/uploads/${file.filename}`;
-      console.log(`✅ URL da imagem: ${imageUrl}`);
+          // 🌐 URL do seu subdomínio
+          const imageUrl = `https://redefinindojornadas.infocimol.com.br/uploads/${file.filename}`;
+          console.log(`✅ URL da imagem no subdomínio: ${imageUrl}`);
 
-      return imageUrl;
-    } catch (error) {
-      console.error('❌ Erro detalhado no FTP:', error);
-      if (error instanceof Error) {
-        throw new Error(`Falha segura no upload FTP: ${error.message}`);
-      } else {
-        throw new Error('Falha segura no upload FTP: erro desconhecido');
+          return imageUrl;
+        } catch (uploadError) {
+          const err = uploadError as Error;
+          console.log(
+            `❌ Falha no caminho do subdomínio: ${path}`,
+            err.message
+          );
+          continue;
+        }
       }
+
+      // ❌ SE NENHUM CAMINHO DO SUBDOMÍNIO FUNCIONOU
+      console.log(
+        '🚫 Nenhum caminho do subdomínio funcionou. NÃO salvando na raiz do host.'
+      );
+      return null;
+    } catch (error) {
+      console.error('❌ Erro geral no FTP:', error);
+      return null;
     } finally {
       client.close();
     }

@@ -1,31 +1,63 @@
 // src/infrastructure/services/SimpleImageService.ts
-import { Client } from 'basic-ftp';
+import { v2 as cloudinary } from 'cloudinary';
 import path from 'path';
 import fs from 'fs';
 
 export class SimpleImageService {
-  private static readonly ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+  private static readonly ALLOWED_EXTENSIONS = [
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.gif',
+    '.webp',
+  ];
   private static readonly MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-  static async handleProductionUpload(files?: Express.Multer.File[]): Promise<string[]> {
-    // Em dev ou sem configuração FTP, usa filenames locais
-    if (process.env.NODE_ENV !== 'production' || !process.env.FTP_HOST) {
+  /**
+   * Processa uploads de forma segura - apenas para produção com Cloudinary
+   */
+  static async handleProductionUpload(
+    files?: Express.Multer.File[]
+  ): Promise<string[]> {
+    // ⚠️ EM DESENVOLVIMENTO: retorna filename normal (comportamento atual)
+    if (
+      process.env.NODE_ENV !== 'production' ||
+      !process.env.CLOUDINARY_CLOUD_NAME
+    ) {
       console.log('🛠️  Modo desenvolvimento - usando filenames locais');
       return files ? files.map((file) => file.filename) : [];
     }
 
-    console.log('🚀 Modo produção - iniciando upload FTP (seguro, sem alterações de host)...');
-    const uploadedUrls: string[] = [];
+    console.log('🚀 Modo produção - iniciando upload Cloudinary seguro');
 
-    for (const file of files || []) {
+    if (!files || files.length === 0) return [];
+
+    // Configura Cloudinary uma vez
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+
+    const uploadedUrls: string[] = [];
+    const filesArray = files;
+
+    for (const file of filesArray) {
       try {
+        // ✅ VALIDAÇÕES DE SEGURANÇA
         this.validateFile(file);
 
-        // tenta o upload no FTP; se retornar null, usa fallback local (filename)
-        const ftpUrl = await this.safeUploadToFTP(file);
-        uploadedUrls.push(ftpUrl ?? file.filename);
-      } catch (err) {
-        console.error('❌ Erro no upload - fallback local:', err);
+        // 🔐 UPLOAD SEGURO PARA CLOUDINARY
+        const cloudinaryUrl = await this.uploadToCloudinary(file);
+        uploadedUrls.push(cloudinaryUrl);
+
+        console.log(`✅ Upload Cloudinary realizado: ${cloudinaryUrl}`);
+      } catch (error) {
+        console.error(
+          '❌ Erro no upload Cloudinary, usando fallback local:',
+          error
+        );
+        // 🔄 FALLBACK: usa filename normal
         uploadedUrls.push(file.filename);
       }
     }
@@ -34,86 +66,82 @@ export class SimpleImageService {
   }
 
   /**
-   * Estratégia segura de upload:
-   *  - tenta conectar com FTPS (secure: true); se falhar, tenta sem TLS (secure: false)
-   *  - NÃO tenta criar diretórios fora do escopo do usuário
-   *  - tenta entrar em 'uploads' com cd('uploads') — se falhar, não cria; faz upload no diretório atual
+   * 🔐 Upload seguro para Cloudinary
    */
-  private static async safeUploadToFTP(file: Express.Multer.File): Promise<string | null> {
-    const trySecureModes: boolean[] = [true, false]; // primeiro FTPS, depois FTP plain
-    let lastError: any = null;
+  private static async uploadToCloudinary(
+    file: Express.Multer.File
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      console.log('📤 Iniciando upload para Cloudinary...');
 
-    for (const secureMode of trySecureModes) {
-      const client = new Client();
-      client.ftp.verbose = true;
-
-      try {
-        console.log(`🔐 Tentando conectar ao FTP (secure=${secureMode})...`);
-        await client.access({
-          host: process.env.FTP_HOST!,
-          user: process.env.FTP_USER!,
-          password: process.env.FTP_PASSWORD!,
-          secure: secureMode,
-        });
-
-        console.log(`✅ Conectado (secure=${secureMode}).`);
-
-        // NÃO usamos PWD como condição para escrita: alguns servidores negam PWD.
-        // Tentamos entrar em uploads sem criar nada.
-        let inUploads = false;
-        try {
-          await client.cd('uploads');
-          inUploads = true;
-          console.log('📂 Diretório atual: entrou em "uploads" com sucesso.');
-        } catch (cdErr) {
-          // Não criar ou mexer em diretórios sensíveis — apenas logar
-          console.log('⚠️ Não foi possível entrar em "uploads" com cd(\'uploads\'):', (cdErr as Error).message);
-          console.log('ℹ️ Não iremos criar diretório; tentaremos enviar para o diretório atual do usuário FTP.');
+      // Usa upload stream para melhor performance
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'redefinindojornadas',
+          resource_type: 'auto',
+          quality: 'auto',
+          fetch_format: 'auto',
+        },
+        (error, result) => {
+          if (error) {
+            console.error('❌ Erro no Cloudinary:', error);
+            reject(new Error(`Falha no upload Cloudinary: ${error.message}`));
+          } else {
+            console.log(
+              `✅ Upload Cloudinary concluído: ${result!.secure_url}`
+            );
+            resolve(result!.secure_url);
+          }
         }
+      );
 
-        // Envia: se estamos dentro de uploads, envia só filename; senão, envia para o diretório atual.
-        try {
-          const remoteName = file.filename;
-          console.log(`📤 Enviando arquivo: ${remoteName} (via secure=${secureMode})`);
-          await client.uploadFrom(file.path, remoteName);
-          console.log(`✅ Upload concluído: ${remoteName}`);
+      // Envia o buffer do arquivo
+      uploadStream.end(file.buffer);
+    });
+  }
 
-          // Gera URL pública usando o subdomínio público (mantém padrão)
-          const imageUrl = `https://redefinindojornadas.infocimol.com.br/uploads/${file.filename}`;
-          console.log(`🌍 URL esperada: ${imageUrl}`);
-
-          client.close();
-          return imageUrl;
-        } catch (uploadErr) {
-          console.log('❌ Falha ao enviar arquivo no modo atual (não modifica diretórios):', (uploadErr as Error).message);
-          lastError = uploadErr;
-          client.close();
-          // Não tentamos criar dirs — passamos para próximo modo (secure=false) ou fallback
-          continue;
-        }
-      } catch (connErr) {
-        console.log(`⚠️ Conexão (secure=${secureMode}) falhou:`, (connErr as Error).message || connErr);
-        lastError = connErr;
-        try { client.close(); } catch { /* ignore */ }
-        continue;
-      }
+  /**
+   * 🔐 Validações de segurança rigorosas
+   */
+  private static validateFile(file: Express.Multer.File): void {
+    // Verifica extensão
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!this.ALLOWED_EXTENSIONS.includes(ext)) {
+      throw new Error(`Tipo de arquivo não permitido: ${ext}`);
     }
 
-    console.error('🚫 Nenhum modo de FTP funcionou (tentamos FTPS e FTP). Último erro:', lastError);
-    return null;
+    // Verifica tamanho
+    if (file.size > this.MAX_FILE_SIZE) {
+      throw new Error(
+        `Arquivo muito grande: ${file.size} bytes (max: ${this.MAX_FILE_SIZE})`
+      );
+    }
+
+    // Verifica se é imagem
+    if (!file.mimetype.startsWith('image/')) {
+      throw new Error('Arquivo não é uma imagem válida');
+    }
+
+    // Verifica se o arquivo temporário existe
+    if (!fs.existsSync(file.path)) {
+      throw new Error('Arquivo temporário não encontrado');
+    }
+
+    console.log(
+      `✅ Arquivo validado: ${file.originalname} (${file.size} bytes)`
+    );
   }
 
-  private static validateFile(file: Express.Multer.File): void {
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (!this.ALLOWED_EXTENSIONS.includes(ext)) throw new Error(`Tipo de arquivo não permitido: ${ext}`);
-    if (file.size > this.MAX_FILE_SIZE) throw new Error(`Arquivo muito grande: ${file.size} bytes (max: ${this.MAX_FILE_SIZE})`);
-    if (!file.mimetype.startsWith('image/')) throw new Error('Arquivo não é uma imagem válida');
-    if (!fs.existsSync(file.path)) throw new Error('Arquivo temporário não encontrado');
-    console.log(`✅ Arquivo validado: ${file.originalname} (${file.size} bytes)`);
-  }
-
+  /**
+   * Função auxiliar para manter compatibilidade
+   */
   static resolveImageUrl(filenameOrUrl: string): string {
-    if (filenameOrUrl.startsWith('http')) return filenameOrUrl;
+    // Se já é URL completa (vinda do Cloudinary), usa como está
+    if (filenameOrUrl.startsWith('http')) {
+      return filenameOrUrl;
+    }
+
+    // Se é filename, monta URL local (desenvolvimento)
     const baseURL = process.env.API_URL || 'http://localhost:3000';
     return `${baseURL}/uploads/${filenameOrUrl}`;
   }

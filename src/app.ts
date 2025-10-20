@@ -64,5 +64,5 @@ app.use('/home', homeRoutes);
 app.use('/notifications', notificationsRoutes);
 
 app.use(errorHandler);
-
+console.log(`🌍 Ambiente ativo: ${process.env.NODE_ENV}`);
 export { app };

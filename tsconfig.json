@@ -1,18 +1,54 @@
 {
   "compilerOptions": {
+    "typeRoots": ["./node_modules/@types", "./src"],
+    // Define a versão do JavaScript alvo para a transpilação
     "target": "ES6",
+
+    // Define o sistema de módulos a ser usado
     "module": "commonjs",
+
+    // Diretório de saída para os arquivos transpilados
     "outDir": "./dist",
-    "rootDir": "./src",
+
+    // Diretório raiz dos arquivos de entrada
+    "rootDir": "./",
+
+    // Habilita verificações rigorosas de tipo no TypeScript
     "strict": true,
+
+    // Permite a interoperabilidade com módulos ES6
     "esModuleInterop": true,
+
+    // Ignora a verificação de tipos em arquivos de declaração de bibliotecas
     "skipLibCheck": true,
+
+    // Garante consistência no uso de maiúsculas e minúsculas nos nomes de arquivos
     "forceConsistentCasingInFileNames": true,
+
+    // Define a estratégia de resolução de módulos
     "moduleResolution": "node",
+
+    // Permite a importação de arquivos JSON como módulos
     "resolveJsonModule": true,
+
+    // Garante que cada arquivo seja tratado como um módulo isolado
     "isolatedModules": true,
-    "types": ["node"] // Adicione isso para incluir tipos globais do Node.js
+
+    // Inclui os tipos do Node.js no projeto
+    "types": ["node" , "multer"],
+
+    // Define o diretório base para resolução de caminhos
+    "baseUrl": "./",
+
+    // Configura atalhos para caminhos de importação
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
-  "include": ["src/**/*"],
+
+  // Inclui os arquivos e diretórios a serem considerados pelo compilador
+  "include": ["src/**/*", "scripts/test-db-connection.ts"],
+
+  // Exclui os arquivos e diretórios a serem ignorados pelo compilador
   "exclude": ["node_modules"]
 }

@@ -98,7 +98,7 @@ export class UserProfileController {
         .json({ error: err.message || 'Erro ao atualizar perfil.' });
     }
   }
-  
+
   async updateProfilePhoto(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user || !req.user.id) {

@@ -1,16 +1,28 @@
 import dotenv from 'dotenv';
-dotenv.config({
-  path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env',
-});
+import path from 'path';
 
+// Carrega o .env correto baseado no NODE_ENV
+const envFile = process.env.NODE_ENV === 'test' ? '.env.test' : '.env';
+dotenv.config({ path: path.resolve(process.cwd(), envFile) });
+
+console.log(`🌍 Ambiente carregado: ${process.env.NODE_ENV}`);
+
+// Import DEPOIS do dotenv para garantir que as variáveis estão carregadas
 import { app } from './app';
 
-/**
- * Arquivo principal para inicializar o servidor.
- * Configura a porta e inicia o servidor Express.
- */
 const PORT = process.env.PORT || 3000;
+console.log(`🚀 Iniciando servidor na porta ${PORT}...`);
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+const server = app.listen(PORT, () => {
+  console.log(`📡 URL: http://localhost:${PORT}`);
+})
+.on('error', (error) => {
+  console.log('❌ ERRO AO INICIAR SERVIDOR:', error);
+});
+
+// Adiciona tratamento para manter o servidor ativo
+process.on('SIGINT', () => {
+  console.log('🛑 Servidor finalizado');
+  server.close();
+  process.exit(0);
 });

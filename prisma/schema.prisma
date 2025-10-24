@@ -92,8 +92,8 @@ model user_like {
   user_iduser   Int         @db.UnsignedInt
   post_idpost   Int         @db.UnsignedInt
   post_share_id Int?        @db.UnsignedInt
-  post          post        @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_post1")
   post_share    post_share? @relation(fields: [post_share_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_like_post_share")
+  post          post        @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_post1")
   user          user        @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_has_post_user1")
 
   @@unique([user_iduser, post_idpost, post_share_id], map: "uniq_like_post")
@@ -129,8 +129,8 @@ model post_share {
   comment          comment[]
   event_attendance event_attendance[]
   notification     notification[]
-  post             post               @relation(fields: [post_idpost], references: [idpost], onUpdate: Restrict, map: "fk_share_post")
-  user             user               @relation(fields: [user_iduser], references: [iduser], onUpdate: Restrict, map: "fk_share_user")
+  post             post               @relation(fields: [post_idpost], references: [idpost], onDelete: NoAction, onUpdate: NoAction, map: "fk_share_post")
+  user             user               @relation(fields: [user_iduser], references: [iduser], onDelete: NoAction, onUpdate: NoAction, map: "fk_share_user")
   user_like        user_like[]
 
   @@index([post_idpost], map: "fk_share_post_idx")

@@ -55,11 +55,9 @@ export class AuthService {
       );
     }
 
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
     if (!passwordRegex.test(data.password)) {
-      throw new Error(
-        'A senha deve ter pelo menos 8 caracteres, incluindo maiúscula, minúscula, número e caractere especial.'
-      );
+      throw new Error('A senha deve ter pelo menos 6 caracteres e conter letras e números.');
     }
 
     // Verifica se o e-mail ou telefone já estão cadastrados

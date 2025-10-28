@@ -70,10 +70,10 @@ export class PasswordRecoveryService {
     }
 
     // Valida a nova senha
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+    const passwordRegex =  /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
     if (!passwordRegex.test(newPassword)) {
       throw new Error(
-        'A nova senha deve ter pelo menos 8 caracteres, incluindo maiúscula, minúscula, número e caractere especial.'
+        'A senha deve ter pelo menos 6 caracteres e conter letras e números.'
       );
     }
 

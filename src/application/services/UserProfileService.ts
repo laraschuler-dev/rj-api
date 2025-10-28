@@ -55,15 +55,27 @@ export class UserProfileService {
   }
 
   async updateProfile(userId: number, dto: UpdateUserProfileDTO): Promise<any> {
-    let userProfile = await this.userProfileRepository.findByUserId(userId);
+    const userProfile = await this.userProfileRepository.findByUserId(userId);
+
     if (userProfile) {
-      userProfile = await this.userProfileRepository.update(userId, dto);
+      // ✅ Atualização: profile_type é opcional (mantém o existente)
+      return await this.userProfileRepository.update(userId, dto);
     } else {
-      userProfile = await this.userProfileRepository.create({
+      if (!dto.profile_type) {
+        throw new Error(
+          'Tipo de perfil é obrigatório para criar um novo perfil'
+        );
+      }
+
+      // ✅ Cria com os dados validados
+      return await this.userProfileRepository.create({
         user_id: userId,
-        ...dto,
+        profile_type: dto.profile_type,
+        profile_photo: dto.profile_photo || null,
+        bio: dto.bio || null,
+        city: dto.city || null,
+        state: dto.state || null,
       });
     }
-    return userProfile;
   }
 }

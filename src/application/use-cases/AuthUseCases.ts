@@ -37,6 +37,15 @@ export class AuthUseCases {
   }
 
   /**
+   * Realiza o login de um usuário com o Google.
+   * @param idToken - Token de autenticação do Google.
+   * @returns Token JWT e informações do usuário autenticado.
+   */
+  async loginWithGoogle(idToken: string) {
+    return this.authService.loginWithGoogle(idToken);
+  }
+
+  /**
    * Solicita a recuperação de senha para um usuário.
    * @param email - E-mail do usuário que solicitou a recuperação de senha.
    * @returns Uma promessa resolvida quando o processo for concluído.

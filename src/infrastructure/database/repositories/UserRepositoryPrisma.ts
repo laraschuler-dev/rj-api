@@ -20,7 +20,7 @@ export class UserRepositoryPrisma implements UserRepository {
         name: user.name,
         e_mail: user.email, // Campo no banco de dados
         passwordHash: user.password, // Campo no banco de dados
-        fone: user.phone, // Campo no banco de dados
+        fone: user.phone || null, // Campo no banco de dados
       },
     });
 
@@ -214,7 +214,7 @@ export class UserRepositoryPrisma implements UserRepository {
 
   async updateUserData(
     userId: number,
-    data: { name?: string; email?: string; phone?: string }
+    data: { name?: string; email?: string; phone?: string | null }
   ): Promise<User> {
     const updatedUser = await prisma.user.update({
       where: { iduser: userId },

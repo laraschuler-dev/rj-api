@@ -65,8 +65,8 @@ export interface UserRepository {
   ): Promise<void>;
 
   updateUserData(
-    userId: number,
-    data: { name?: string; email?: string; phone?: string }
+    userId: number, 
+    data: { name?: string; email?: string; phone?: string | null } 
   ): Promise<User>;
 
   updatePassword(userId: number, newPasswordHash: string): Promise<void>;

@@ -13,6 +13,7 @@ import { RegisterResponseDTO } from '../../core/dtos/RegisterResponseDTO';
 import { UpdateAccountDTO } from '../../core/dtos/UpdateAccountDTO';
 import { UpdatePasswordDTO } from '../../core/dtos/UpdatePasswordDTO';
 import { DeleteAccountDTO } from '../../core/dtos/DeleteAccountDTO';
+import { OAuth2Client } from 'google-auth-library';
 
 /**
  * Serviço responsável por autenticação e gerenciamento de usuários.
@@ -20,6 +21,7 @@ import { DeleteAccountDTO } from '../../core/dtos/DeleteAccountDTO';
  */
 export class AuthService {
   private jwtSecret: string;
+  private googleClient: OAuth2Client;
 
   /**
    * Construtor do AuthService.
@@ -33,6 +35,7 @@ export class AuthService {
     jwtSecret: string
   ) {
     this.jwtSecret = jwtSecret;
+    this.googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
   }
 
   /**
@@ -57,7 +60,9 @@ export class AuthService {
 
     const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
     if (!passwordRegex.test(data.password)) {
-      throw new Error('A senha deve ter pelo menos 6 caracteres e conter letras e números.');
+      throw new Error(
+        'A senha deve ter pelo menos 6 caracteres e conter letras e números.'
+      );
     }
 
     // Verifica se o e-mail ou telefone já estão cadastrados
@@ -111,9 +116,14 @@ export class AuthService {
     }
 
     // Confirma a senha atual
-    const isPasswordValid = await this.verifyPassword(user.password, data.password);
+    const isPasswordValid = await this.verifyPassword(
+      user.password,
+      data.password
+    );
     if (!isPasswordValid) {
-      throw new Error('Senha incorreta. A exclusão da conta requer confirmação da senha atual.');
+      throw new Error(
+        'Senha incorreta. A exclusão da conta requer confirmação da senha atual.'
+      );
     }
 
     // Realiza a exclusão lógica
@@ -155,6 +165,60 @@ export class AuthService {
         name: user.name,
         email: user.email,
         phone: user.phone,
+      },
+    };
+  }
+
+  /**
+   * Realiza o login de um usuário com o Google.
+   * @param idToken - Token de autenticação do Google.
+   * @returns Token JWT e informações do usuário autenticado.
+   * @throws Erro caso o token do Google seja inválido.
+   */
+  async loginWithGoogle(idToken: string): Promise<LoginResponseDTO> {
+    // Verifica e decodifica o token do Google
+    const ticket = await this.googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      throw new Error('Google token inválido');
+    }
+
+    const email = payload.email;
+    const name = payload.name || 'Usuário Google';
+
+    // Busca usuário existente pelo e-mail
+    let user = await this.userRepository.findByEmail(email);
+
+    if (user) {
+      // Já existe usuário
+      if (!user.password) {
+        // Usuário já logou via Google antes → continua normalmente
+      } else {
+        // Usuário tem conta com e-mail/senha → conflito
+        throw new Error(
+          'Já existe uma conta com este e-mail. Use login normal ou vincule sua conta ao Google.'
+        );
+      }
+    } else {
+      // Usuário não existe → cria novo
+      const newUser = new User(0, name, email, '', null);
+      user = await this.userRepository.create(newUser);
+    }
+
+    // Gera JWT
+    const token = this.generateToken(user);
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone?.trim() || null,
       },
     };
   }
@@ -227,14 +291,92 @@ export class AuthService {
   }
 
   async updateAccount(userId: number, data: UpdateAccountDTO): Promise<User> {
-    return this.userRepository.updateUserData(userId, data);
+    try {
+      // ✅ Validações consistentes com o método register
+      if (data.email && !validator.isEmail(data.email)) {
+        throw new Error('Email inválido');
+      }
+
+      // ✅ Validação específica para telefone (se fornecido e não nulo)
+      if (
+        data.phone !== undefined &&
+        data.phone !== null &&
+        data.phone !== ''
+      ) {
+        const cleanedPhone = data.phone.replace(/\D/g, '');
+        const phoneRegex = /^\d{2}\d{8,9}$/;
+
+        if (cleanedPhone && !phoneRegex.test(cleanedPhone)) {
+          throw new Error(
+            'Telefone inválido. Deve conter o DDD seguido de 8 ou 9 dígitos.'
+          );
+        }
+
+        // ✅ Verificar se o telefone já está em uso por outro usuário
+        if (cleanedPhone) {
+          const existingUser =
+            await this.userRepository.findByEmailOrPhone(cleanedPhone);
+          if (existingUser && existingUser.id !== userId) {
+            throw new Error(
+              'Já existe um usuário com este telefone cadastrado.'
+            );
+          }
+        }
+      }
+
+      // ✅ Preparar dados para atualização
+      const updateData: {
+        name?: string;
+        email?: string;
+        phone?: string | null;
+      } = {
+        ...data,
+      };
+
+      // ✅ Formatar telefone (se fornecido)
+      if (data.phone !== undefined) {
+        if (data.phone === null || data.phone === '') {
+          updateData.phone = null;
+        } else {
+          updateData.phone = data.phone.replace(/\D/g, '').slice(0, 12);
+        }
+      }
+
+      // ✅ Verificar duplicata de email (se fornecido)
+      if (data.email) {
+        const existingUser = await this.userRepository.findByEmail(data.email);
+        if (existingUser && existingUser.id !== userId) {
+          throw new Error('Já existe um usuário com este e-mail cadastrado.');
+        }
+      }
+
+      // ✅ Chamar repository (apenas persistência)
+      return await this.userRepository.updateUserData(userId, updateData);
+    } catch (error: any) {
+      // ✅ Tratamento de erros de infraestrutura do repository
+      if (error.code === 'P2002') {
+        const target = error.meta?.target;
+        if (target?.includes('fone')) {
+          throw new Error(
+            'Este número de telefone já está em uso por outra conta.'
+          );
+        }
+        if (target?.includes('e_mail')) {
+          throw new Error('Este e-mail já está em uso por outra conta.');
+        }
+      }
+      throw error;
+    }
   }
 
   async updatePassword(userId: number, dto: UpdatePasswordDTO): Promise<void> {
     const user = await this.userRepository.findByIdUser(userId);
     if (!user) throw new Error('Usuário não encontrado.');
 
-    const passwordMatch = await bcrypt.compare(dto.currentPassword, user.password);
+    const passwordMatch = await bcrypt.compare(
+      dto.currentPassword,
+      user.password
+    );
     if (!passwordMatch) throw new Error('Senha atual incorreta.');
 
     const newPasswordHash = await bcrypt.hash(dto.newPassword, 10);

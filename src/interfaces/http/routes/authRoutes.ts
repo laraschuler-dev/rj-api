@@ -93,6 +93,51 @@ router.post('/users', authController.register);
 router.post('/session', authController.login);
 
 /**
+ * Rota para login via Google OAuth.
+ * @swagger
+ * /auth/google:
+ *   post:
+ *     summary: Realiza login com conta Google
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               idToken:
+ *                 type: string
+ *                 description: Token de autenticação fornecido pelo Google
+ *             required:
+ *               - idToken
+ *     responses:
+ *       200:
+ *         description: Login realizado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: number
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                       nullable: true
+ *       400:
+ *         description: Erro ao realizar login (token inválido ou conflito de conta)
+ */
+router.post('/google', authController.loginWithGoogle);
+
+/**
  * Rota para solicitar recuperação de senha.
  * @swagger
  * /auth/forgot:

@@ -20,6 +20,7 @@ export class AuthController {
     this.updateAccount = this.updateAccount.bind(this);
     this.updatePassword = this.updatePassword.bind(this);
     this.deleteAccount = this.deleteAccount.bind(this);
+    this.loginWithGoogle = this.loginWithGoogle.bind(this);
   }
 
   /**
@@ -49,7 +50,9 @@ export class AuthController {
   async deleteAccount(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user || !req.user.id) {
-        res.status(401).json({ error: 'Unauthorized: user not found in request' });
+        res
+          .status(401)
+          .json({ error: 'Unauthorized: user not found in request' });
         return;
       }
 
@@ -57,8 +60,9 @@ export class AuthController {
       const data: DeleteAccountDTO = req.body;
 
       await this.authUseCases.deleteAccount(userId, data);
-      res.status(200).json({ 
-        message: 'Conta excluída com sucesso. Seus dados serão mantidos por questões de segurança e conformidade.' 
+      res.status(200).json({
+        message:
+          'Conta excluída com sucesso. Seus dados serão mantidos por questões de segurança e conformidade.',
       });
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -82,6 +86,25 @@ export class AuthController {
       res.status(400).json({ error: errorMessage });
     }
   }
+
+  async loginWithGoogle(req: Request, res: Response): Promise<void> {
+  try {
+    console.log('[LoginGoogle] Recebido idToken:', req.body.idToken?.slice(0, 10), '...');
+
+    const result = await this.authUseCases.loginWithGoogle(req.body.idToken);
+
+    console.log('[LoginGoogle] Resultado gerado:', {
+      userId: result.user.id,
+      email: result.user.email,
+      hasPhone: !!result.user.phone
+    });
+
+    res.status(200).json(result);
+  } catch (err: any) {
+    console.error('[LoginGoogle] Erro:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+}
 
   /**
    * Lida com a solicitação de recuperação de senha.
@@ -148,7 +171,9 @@ export class AuthController {
   async updateAccount(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user || !req.user.id) {
-        res.status(401).json({ error: 'Unauthorized: user not found in request' });
+        res
+          .status(401)
+          .json({ error: 'Unauthorized: user not found in request' });
         return;
       }
       const userId = req.user.id;
@@ -165,7 +190,9 @@ export class AuthController {
   async updatePassword(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user || !req.user.id) {
-        res.status(401).json({ error: 'Unauthorized: user not found in request' });
+        res
+          .status(401)
+          .json({ error: 'Unauthorized: user not found in request' });
         return;
       }
       const userId = req.user.id;

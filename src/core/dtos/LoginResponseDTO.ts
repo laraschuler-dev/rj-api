@@ -30,6 +30,8 @@ export interface LoginResponseDTO {
     /**
      * Telefone do usuário (opcional).
      */
-    phone: string | null;
+    phone?: string | null;
+
+    isSocialLogin: boolean;
   };
 }

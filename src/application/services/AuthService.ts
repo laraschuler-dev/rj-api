@@ -115,15 +115,30 @@ export class AuthService {
       throw new Error('Esta conta já foi excluída');
     }
 
-    // Confirma a senha atual
-    const isPasswordValid = await this.verifyPassword(
-      user.password,
-      data.password
-    );
-    if (!isPasswordValid) {
-      throw new Error(
-        'Senha incorreta. A exclusão da conta requer confirmação da senha atual.'
+    // ✅ VALIDAÇÃO SEGURA: Contas com senha precisam confirmar
+    const hasPassword = user.password && user.password.trim() !== '';
+
+    if (hasPassword) {
+      // Conta tradicional: EXIGE senha
+      if (!data.password) {
+        throw new Error(
+          'Senha é obrigatória para confirmar a exclusão da conta.'
+        );
+      }
+
+      const isPasswordValid = await this.verifyPassword(
+        user.password,
+        data.password
       );
+      if (!isPasswordValid) {
+        throw new Error(
+          'Senha incorreta. A exclusão da conta requer confirmação da senha atual.'
+        );
+      }
+    } else {
+      // Conta social: NÃO precisa de senha, mas pode ter validação extra
+      console.log('🟡 Conta social sendo excluída sem validação de senha');
+      // Opcional: pode adicionar outra validação aqui (ex: confirmação por email)
     }
 
     // Realiza a exclusão lógica
@@ -165,6 +180,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         phone: user.phone,
+        isSocialLogin: false,
       },
     };
   }
@@ -176,7 +192,6 @@ export class AuthService {
    * @throws Erro caso o token do Google seja inválido.
    */
   async loginWithGoogle(idToken: string): Promise<LoginResponseDTO> {
-    // Verifica e decodifica o token do Google
     const ticket = await this.googleClient.verifyIdToken({
       idToken,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -190,26 +205,19 @@ export class AuthService {
     const email = payload.email;
     const name = payload.name || 'Usuário Google';
 
-    // Busca usuário existente pelo e-mail
     let user = await this.userRepository.findByEmail(email);
 
     if (user) {
-      // Já existe usuário
-      if (!user.password) {
-        // Usuário já logou via Google antes → continua normalmente
-      } else {
-        // Usuário tem conta com e-mail/senha → conflito
+      if (user.password) {
         throw new Error(
-          'Já existe uma conta com este e-mail. Use login normal ou vincule sua conta ao Google.'
+          'Já existe uma conta com este e-mail. Faça login com sua senha.'
         );
       }
     } else {
-      // Usuário não existe → cria novo
       const newUser = new User(0, name, email, '', null);
       user = await this.userRepository.create(newUser);
     }
 
-    // Gera JWT
     const token = this.generateToken(user);
 
     return {
@@ -219,6 +227,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         phone: user.phone?.trim() || null,
+        isSocialLogin: !user.password,
       },
     };
   }
@@ -276,28 +285,47 @@ export class AuthService {
       id: user.id,
       email: user.email,
       phone: user.phone,
+      isSocialLogin: !user.password,
     };
 
     return jwt.sign(payload, this.jwtSecret, { expiresIn: '24h' });
   }
 
-  async getAuthenticatedUser(userId: number): Promise<Omit<User, 'password'>> {
+  async getAuthenticatedUser(userId: number): Promise<any> {
     const user = await this.userRepository.findByIdUser(userId);
     if (!user) throw new Error('Usuário não encontrado');
 
-    // Remove o campo de senha antes de retornar
     const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+
+    return {
+      ...userWithoutPassword,
+      isSocialLogin: !user.password, // ← Esta linha resolve o problema
+    };
   }
 
   async updateAccount(userId: number, data: UpdateAccountDTO): Promise<User> {
     try {
-      // ✅ Validações consistentes com o método register
+      // VALIDAÇÃO DE SEGURANÇA PARA CONTAS SOCIAIS
+      const currentUser = await this.userRepository.findByIdUser(userId);
+      if (!currentUser) throw new Error('Usuário não encontrado');
+
+      // Bloqueia alteração de email para contas sociais
+      if (
+        !currentUser.password &&
+        data.email &&
+        data.email !== currentUser.email
+      ) {
+        throw new Error(
+          'Contas vinculadas ao Google não podem alterar o email.'
+        );
+      }
+
+      // Validações consistentes com o método register
       if (data.email && !validator.isEmail(data.email)) {
         throw new Error('Email inválido');
       }
 
-      // ✅ Validação específica para telefone (se fornecido e não nulo)
+      // Validação específica para telefone (se fornecido e não nulo)
       if (
         data.phone !== undefined &&
         data.phone !== null &&
@@ -312,7 +340,7 @@ export class AuthService {
           );
         }
 
-        // ✅ Verificar se o telefone já está em uso por outro usuário
+        // Verificar se o telefone já está em uso por outro usuário
         if (cleanedPhone) {
           const existingUser =
             await this.userRepository.findByEmailOrPhone(cleanedPhone);
@@ -324,7 +352,7 @@ export class AuthService {
         }
       }
 
-      // ✅ Preparar dados para atualização
+      // Preparar dados para atualização
       const updateData: {
         name?: string;
         email?: string;
@@ -333,7 +361,7 @@ export class AuthService {
         ...data,
       };
 
-      // ✅ Formatar telefone (se fornecido)
+      // Formatar telefone (se fornecido)
       if (data.phone !== undefined) {
         if (data.phone === null || data.phone === '') {
           updateData.phone = null;
@@ -342,7 +370,7 @@ export class AuthService {
         }
       }
 
-      // ✅ Verificar duplicata de email (se fornecido)
+      // Verificar duplicata de email (se fornecido)
       if (data.email) {
         const existingUser = await this.userRepository.findByEmail(data.email);
         if (existingUser && existingUser.id !== userId) {
@@ -350,10 +378,10 @@ export class AuthService {
         }
       }
 
-      // ✅ Chamar repository (apenas persistência)
+      // Chamar repository (apenas persistência)
       return await this.userRepository.updateUserData(userId, updateData);
     } catch (error: any) {
-      // ✅ Tratamento de erros de infraestrutura do repository
+      // Tratamento de erros de infraestrutura do repository
       if (error.code === 'P2002') {
         const target = error.meta?.target;
         if (target?.includes('fone')) {

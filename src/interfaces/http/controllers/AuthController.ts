@@ -192,7 +192,6 @@ export class AuthController {
    * @param req - Objeto da requisição HTTP.
    * @param res - Objeto da resposta HTTP.
    * @returns Retorna o token JWT e as informações do usuário autenticado ou um erro caso a operação falhe.
-   * @throws Erro caso o token do Google seja inválido.
    */
   async loginWithGoogle(req: Request, res: Response): Promise<void> {
     try {
@@ -201,6 +200,11 @@ export class AuthController {
         req.body.idToken?.slice(0, 10),
         '...'
       );
+
+      if (!req.body.idToken) {
+        res.status(400).json({ error: 'Token do Google é obrigatório' });
+        return;
+      }
 
       const result = await this.authUseCases.loginWithGoogle(req.body.idToken);
 
@@ -213,7 +217,29 @@ export class AuthController {
       res.status(200).json(result);
     } catch (err: any) {
       console.error('[LoginGoogle] Erro:', err.message);
-      res.status(400).json({ error: err.message });
+
+      // Respostas mais específicas baseadas no tipo de erro
+      if (
+        err.message.includes('token inválido') ||
+        err.message.includes('Google token')
+      ) {
+        res.status(401).json({ error: 'Token do Google inválido ou expirado' });
+      } else if (
+        err.message.includes('excluída') ||
+        err.message.includes('deletada')
+      ) {
+        res.status(403).json({
+          error: err.message,
+          code: 'ACCOUNT_DELETED',
+        });
+      } else if (
+        err.message.includes('não encontrada') ||
+        err.message.includes('não encontrado')
+      ) {
+        res.status(404).json({ error: err.message });
+      } else {
+        res.status(400).json({ error: err.message });
+      }
     }
   }
 
@@ -226,6 +252,11 @@ export class AuthController {
 
       if (!userId) {
         res.status(401).json({ error: 'Usuário não autenticado' });
+        return;
+      }
+
+      if (!req.body.idToken) {
+        res.status(400).json({ error: 'Token do Google é obrigatório' });
         return;
       }
 
@@ -248,10 +279,44 @@ export class AuthController {
         hasGoogle: result.user.hasGoogle,
       });
 
-      res.status(200).json(result);
+      res.status(200).json({
+        ...result,
+        message: 'Conta Google vinculada com sucesso',
+      });
     } catch (err: any) {
       console.error('[LinkGoogleAccount] Erro:', err.message);
-      res.status(400).json({ error: err.message });
+
+      // Respostas específicas para diferentes cenários
+      if (
+        err.message.includes('não autenticado') ||
+        err.message.includes('não encontrado')
+      ) {
+        res.status(401).json({ error: err.message });
+      } else if (err.message.includes('Token Google inválido')) {
+        res.status(401).json({ error: 'Token do Google inválido' });
+      } else if (err.message.includes('já está vinculada')) {
+        res.status(409).json({
+          error: err.message,
+          code: 'ALREADY_LINKED',
+        });
+      } else if (err.message.includes('vinculada a outra conta')) {
+        res.status(409).json({
+          error: err.message,
+          code: 'GOOGLE_ALREADY_LINKED',
+        });
+      } else if (err.message.includes('email deve ser o mesmo')) {
+        res.status(400).json({
+          error: err.message,
+          code: 'EMAIL_MISMATCH',
+        });
+      } else if (err.message.includes('excluída')) {
+        res.status(403).json({
+          error: err.message,
+          code: 'ACCOUNT_DELETED',
+        });
+      } else {
+        res.status(400).json({ error: err.message });
+      }
     }
   }
 
@@ -264,6 +329,11 @@ export class AuthController {
 
       if (!userId) {
         res.status(401).json({ error: 'Usuário não autenticado' });
+        return;
+      }
+
+      if (!req.body.password) {
+        res.status(400).json({ error: 'Senha é obrigatória para desvincular' });
         return;
       }
 
@@ -286,7 +356,36 @@ export class AuthController {
       });
     } catch (err: any) {
       console.error('[UnlinkGoogleAccount] Erro:', err.message);
-      res.status(400).json({ error: err.message });
+
+      // Tratamento específico de erros
+      if (
+        err.message.includes('não autenticado') ||
+        err.message.includes('não encontrado')
+      ) {
+        res.status(401).json({ error: err.message });
+      } else if (err.message.includes('Senha incorreta')) {
+        res.status(401).json({
+          error: err.message,
+          code: 'INVALID_PASSWORD',
+        });
+      } else if (err.message.includes('não está vinculada')) {
+        res.status(404).json({
+          error: err.message,
+          code: 'NOT_LINKED',
+        });
+      } else if (err.message.includes('criar uma senha')) {
+        res.status(400).json({
+          error: err.message,
+          code: 'NO_PASSWORD_SET',
+        });
+      } else if (err.message.includes('excluída')) {
+        res.status(403).json({
+          error: err.message,
+          code: 'ACCOUNT_DELETED',
+        });
+      } else {
+        res.status(400).json({ error: err.message });
+      }
     }
   }
 
@@ -314,7 +413,21 @@ export class AuthController {
       res.status(200).json(connections);
     } catch (err: any) {
       console.error('[GetSocialConnections] Erro:', err.message);
-      res.status(400).json({ error: err.message });
+
+      // Tratamento específico para obtenção de conexões
+      if (
+        err.message.includes('não autenticado') ||
+        err.message.includes('não encontrado')
+      ) {
+        res.status(401).json({ error: err.message });
+      } else if (err.message.includes('excluída')) {
+        res.status(403).json({
+          error: err.message,
+          code: 'ACCOUNT_DELETED',
+        });
+      } else {
+        res.status(400).json({ error: err.message });
+      }
     }
   }
 }

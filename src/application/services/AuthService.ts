@@ -213,9 +213,6 @@ export class AuthService {
       throw new Error('Google token inválido');
     }
 
-    const email = payload.email;
-    const name = payload.name || 'Usuário Google';
-
     // ✅ PRIMEIRO VERIFICA SE EXISTE CONEXÃO GOOGLE
     let socialConnection =
       await this.userSocialConnectionRepository.findByProviderId(
@@ -226,17 +223,29 @@ export class AuthService {
     let user;
 
     if (socialConnection) {
-      // ✅ USUÁRIO JÁ TEM CONEXÃO GOOGLE - busca o user
+      // ✅ USUÁRIO JÁ TEM CONEXÃO GOOGLE - busca o user COM VALIDAÇÃO DE CONTA DELETADA
       user = await this.userRepository.findByIdUser(socialConnection.userId);
       if (!user) {
         throw new Error('Conta vinculada ao Google não encontrada.');
       }
+
+      // ✅ VERIFICA SE A CONTA ESTÁ DELETADA
+      const isDeleted = await this.userRepository.isUserDeleted(user.id);
+      if (isDeleted) {
+        throw new Error('Esta conta foi excluída e não pode ser acessada.');
+      }
     } else {
       // ✅ NÃO TEM CONEXÃO GOOGLE - verifica se existe user pelo email
-      user = await this.userRepository.findByEmail(email);
+      user = await this.userRepository.findByEmail(payload.email);
 
       if (user) {
-        // ✅ USER EXISTE - cria conexão Google (VINCULA)
+        // ✅ VERIFICA SE A CONTA ESTÁ DELETADA
+        const isDeleted = await this.userRepository.isUserDeleted(user.id);
+        if (isDeleted) {
+          throw new Error('Esta conta foi excluída e não pode ser vinculada.');
+        }
+
+        // ✅ USER EXISTE E NÃO ESTÁ DELETADO - cria conexão Google
         socialConnection = new UserSocialConnection(
           0,
           user.id,
@@ -248,7 +257,13 @@ export class AuthService {
         await this.userSocialConnectionRepository.create(socialConnection);
       } else {
         // ✅ USER NÃO EXISTE - cria novo user E conexão
-        const newUser = new User(0, name, email, '', null);
+        const newUser = new User(
+          0,
+          payload.name || 'Usuário Google',
+          payload.email,
+          '',
+          null
+        );
         user = await this.userRepository.create(newUser);
 
         socialConnection = new UserSocialConnection(
@@ -303,6 +318,12 @@ export class AuthService {
     const user = await this.userRepository.findByIdUser(userId);
     if (!user) {
       throw new Error('Usuário não encontrado');
+    }
+
+    // ✅ VERIFICA SE A CONTA ESTÁ DELETADA
+    const isDeleted = await this.userRepository.isUserDeleted(userId);
+    if (isDeleted) {
+      throw new Error('Não é possível vincular Google a uma conta excluída.');
     }
 
     // ✅ VERIFICA SE O EMAIL DO GOOGLE É O MESMO DA CONTA
@@ -370,6 +391,13 @@ export class AuthService {
     const user = await this.userRepository.findByIdUser(userId);
     if (!user) {
       throw new Error('Usuário não encontrado');
+    }
+
+    const isDeleted = await this.userRepository.isUserDeleted(userId);
+    if (isDeleted) {
+      throw new Error(
+        'Não é possível desvincular Google de uma conta excluída.'
+      );
     }
 
     // ✅ VERIFICA SE TEM SENHA (conta tradicional)
@@ -462,6 +490,11 @@ export class AuthService {
     const user = await this.userRepository.findByIdUser(userId);
     if (!user) throw new Error('Usuário não encontrado');
 
+    const isDeleted = await this.userRepository.isUserDeleted(userId);
+    if (isDeleted) {
+      throw new Error('Esta conta foi excluída.');
+    }
+
     // ✅ BUSCA CONEXÕES SOCIAIS DO USUÁRIO
     const socialConnections =
       await this.userSocialConnectionRepository.findByUserId(userId);
@@ -484,15 +517,34 @@ export class AuthService {
       const currentUser = await this.userRepository.findByIdUser(userId);
       if (!currentUser) throw new Error('Usuário não encontrado');
 
-      // Bloqueia alteração de email para contas sociais
+      // ✅ VERIFICA SE A CONTA ESTÁ DELETADA (nova validação)
+      const isDeleted = await this.userRepository.isUserDeleted(userId);
+      if (isDeleted) {
+        throw new Error('Esta conta foi excluída.');
+      }
+
+      // ✅ VERIFICAÇÃO ROBUSTA PARA CONTAS SOCIAIS
+      // Busca conexões sociais do usuário
+      const socialConnections =
+        await this.userSocialConnectionRepository.findByUserId(userId);
+      const hasGoogle = socialConnections.some(
+        (conn) => conn.provider === 'google'
+      );
+
+      // Se tem Google vinculado E está tentando alterar email
+      if (hasGoogle && data.email && data.email !== currentUser.email) {
+        throw new Error(
+          'Contas vinculadas ao Google não podem alterar o email.'
+        );
+      }
+
+      // ✅ VALIDAÇÃO ALTERNATIVA (backup): Se não tem senha E está tentando alterar email
       if (
         !currentUser.password &&
         data.email &&
         data.email !== currentUser.email
       ) {
-        throw new Error(
-          'Contas vinculadas ao Google não podem alterar o email.'
-        );
+        throw new Error('Contas sociais não podem alterar o email.');
       }
 
       // Validações consistentes com o método register
@@ -571,7 +623,7 @@ export class AuthService {
       throw error;
     }
   }
-
+  
   async updatePassword(userId: number, dto: UpdatePasswordDTO): Promise<void> {
     const user = await this.userRepository.findByIdUser(userId);
     if (!user) throw new Error('Usuário não encontrado.');

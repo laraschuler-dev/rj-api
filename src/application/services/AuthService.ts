@@ -14,6 +14,8 @@ import { UpdateAccountDTO } from '../../core/dtos/UpdateAccountDTO';
 import { UpdatePasswordDTO } from '../../core/dtos/UpdatePasswordDTO';
 import { DeleteAccountDTO } from '../../core/dtos/DeleteAccountDTO';
 import { OAuth2Client } from 'google-auth-library';
+import { UserSocialConnectionRepository } from '../../core/repositories/UserSocialConnectionRepository';
+import { UserSocialConnection } from '../../core/entities/UserSocialConnection';
 
 /**
  * Serviço responsável por autenticação e gerenciamento de usuários.
@@ -32,6 +34,7 @@ export class AuthService {
   constructor(
     private userRepository: UserRepository,
     private passwordRecoveryService: PasswordRecoveryService,
+    private userSocialConnectionRepository: UserSocialConnectionRepository,
     jwtSecret: string
   ) {
     this.jwtSecret = jwtSecret;
@@ -170,6 +173,13 @@ export class AuthService {
       throw new Error('Senha incorreta');
     }
 
+    // ✅ BUSCA CONEXÕES SOCIAIS DO USUÁRIO
+    const socialConnections =
+      await this.userSocialConnectionRepository.findByUserId(user.id);
+    const hasGoogle = socialConnections.some(
+      (conn) => conn.provider === 'google'
+    );
+
     // Gera o token JWT
     const token = this.generateToken(user);
 
@@ -181,6 +191,7 @@ export class AuthService {
         email: user.email,
         phone: user.phone,
         isSocialLogin: false,
+        hasGoogle, // ✅ ADICIONAR ESTE CAMPO
       },
     };
   }
@@ -198,24 +209,58 @@ export class AuthService {
     });
 
     const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
+    if (!payload || !payload.email || !payload.sub) {
       throw new Error('Google token inválido');
     }
 
     const email = payload.email;
     const name = payload.name || 'Usuário Google';
 
-    let user = await this.userRepository.findByEmail(email);
+    // ✅ PRIMEIRO VERIFICA SE EXISTE CONEXÃO GOOGLE
+    let socialConnection =
+      await this.userSocialConnectionRepository.findByProviderId(
+        'google',
+        payload.sub
+      );
 
-    if (user) {
-      if (user.password) {
-        throw new Error(
-          'Já existe uma conta com este e-mail. Faça login com sua senha.'
-        );
+    let user;
+
+    if (socialConnection) {
+      // ✅ USUÁRIO JÁ TEM CONEXÃO GOOGLE - busca o user
+      user = await this.userRepository.findByIdUser(socialConnection.userId);
+      if (!user) {
+        throw new Error('Conta vinculada ao Google não encontrada.');
       }
     } else {
-      const newUser = new User(0, name, email, '', null);
-      user = await this.userRepository.create(newUser);
+      // ✅ NÃO TEM CONEXÃO GOOGLE - verifica se existe user pelo email
+      user = await this.userRepository.findByEmail(email);
+
+      if (user) {
+        // ✅ USER EXISTE - cria conexão Google (VINCULA)
+        socialConnection = new UserSocialConnection(
+          0,
+          user.id,
+          'google',
+          payload.sub,
+          payload.email,
+          new Date()
+        );
+        await this.userSocialConnectionRepository.create(socialConnection);
+      } else {
+        // ✅ USER NÃO EXISTE - cria novo user E conexão
+        const newUser = new User(0, name, email, '', null);
+        user = await this.userRepository.create(newUser);
+
+        socialConnection = new UserSocialConnection(
+          0,
+          user.id,
+          'google',
+          payload.sub,
+          payload.email,
+          new Date()
+        );
+        await this.userSocialConnectionRepository.create(socialConnection);
+      }
     }
 
     const token = this.generateToken(user);
@@ -227,9 +272,131 @@ export class AuthService {
         name: user.name,
         email: user.email,
         phone: user.phone?.trim() || null,
-        isSocialLogin: !user.password,
+        isSocialLogin: !user.password, // conta original sem senha
+        hasGoogle: true, // ✅ AGORA SEMPRE TRUE PARA LOGIN GOOGLE
       },
     };
+  }
+
+  /**
+   * Vincula uma conta Google a um usuário existente
+   * @param userId - ID do usuário
+   * @param idToken - Token de autenticação do Google
+   * @returns Token JWT e informações atualizadas do usuário
+   * @throws Erro caso o token seja inválido ou já esteja vinculado
+   */
+  async linkGoogleAccount(
+    userId: number,
+    idToken: string
+  ): Promise<LoginResponseDTO> {
+    // Verifica token Google
+    const ticket = await this.googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email || !payload.sub) {
+      throw new Error('Token Google inválido');
+    }
+
+    const user = await this.userRepository.findByIdUser(userId);
+    if (!user) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    // ✅ VERIFICA SE O EMAIL DO GOOGLE É O MESMO DA CONTA
+    if (payload.email !== user.email) {
+      throw new Error(
+        'O email da conta Google deve ser o mesmo da sua conta atual.'
+      );
+    }
+
+    // ✅ VERIFICA SE JÁ EXISTE CONEXÃO GOOGLE PARA ESTE USUÁRIO
+    const existingConnection =
+      await this.userSocialConnectionRepository.findByUserIdAndProvider(
+        userId,
+        'google'
+      );
+    if (existingConnection) {
+      throw new Error('Sua conta já está vinculada ao Google.');
+    }
+
+    // ✅ VERIFICA SE ESTE GOOGLE ID JÁ ESTÁ VINCULADO A OUTRA CONTA
+    const existingGoogleConnection =
+      await this.userSocialConnectionRepository.findByProviderId(
+        'google',
+        payload.sub
+      );
+    if (existingGoogleConnection) {
+      throw new Error('Esta conta Google já está vinculada a outra conta.');
+    }
+
+    // ✅ CRIA A CONEXÃO SOCIAL
+    const socialConnection = new UserSocialConnection(
+      0, // id será gerado automaticamente
+      userId,
+      'google',
+      payload.sub, // Google ID único
+      payload.email,
+      new Date()
+    );
+
+    await this.userSocialConnectionRepository.create(socialConnection);
+
+    // Gera novo token com informações atualizadas
+    const token = this.generateToken(user);
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        isSocialLogin: false, // Continua sendo conta tradicional
+        hasGoogle: true, // ✅ NOVO CAMPO - indica que tem Google vinculado
+      },
+    };
+  }
+
+  /**
+   * Desvincula a conta Google de um usuário
+   * @param userId - ID do usuário
+   * @param password - Senha para confirmação
+   * @throws Erro caso a senha esteja incorreta ou não tenha Google vinculado
+   */
+  async unlinkGoogleAccount(userId: number, password: string): Promise<void> {
+    const user = await this.userRepository.findByIdUser(userId);
+    if (!user) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    // ✅ VERIFICA SE TEM SENHA (conta tradicional)
+    if (!user.password) {
+      throw new Error(
+        'Você precisa criar uma senha antes de desvincular o Google.'
+      );
+    }
+
+    // ✅ VALIDA SENHA
+    const isPasswordValid = await this.verifyPassword(user.password, password);
+    if (!isPasswordValid) {
+      throw new Error('Senha incorreta.');
+    }
+
+    // ✅ VERIFICA SE TEM GOOGLE VINCULADO
+    const googleConnection =
+      await this.userSocialConnectionRepository.findByUserIdAndProvider(
+        userId,
+        'google'
+      );
+    if (!googleConnection) {
+      throw new Error('Sua conta não está vinculada ao Google.');
+    }
+
+    // ✅ DESVINCULA GOOGLE
+    await this.userSocialConnectionRepository.delete(userId, 'google');
   }
 
   /**
@@ -295,11 +462,19 @@ export class AuthService {
     const user = await this.userRepository.findByIdUser(userId);
     if (!user) throw new Error('Usuário não encontrado');
 
+    // ✅ BUSCA CONEXÕES SOCIAIS DO USUÁRIO
+    const socialConnections =
+      await this.userSocialConnectionRepository.findByUserId(userId);
+    const hasGoogle = socialConnections.some(
+      (conn) => conn.provider === 'google'
+    );
+
     const { password, ...userWithoutPassword } = user;
 
     return {
       ...userWithoutPassword,
-      isSocialLogin: !user.password, // ← Esta linha resolve o problema
+      isSocialLogin: !user.password, // conta criada originalmente sem senha
+      hasGoogle, // ✅ NOVO CAMPO
     };
   }
 
@@ -400,6 +575,27 @@ export class AuthService {
   async updatePassword(userId: number, dto: UpdatePasswordDTO): Promise<void> {
     const user = await this.userRepository.findByIdUser(userId);
     if (!user) throw new Error('Usuário não encontrado.');
+
+    // ✅ VALIDAÇÃO DA NOVA SENHA (para ambos os casos)
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
+    if (!passwordRegex.test(dto.newPassword)) {
+      throw new Error(
+        'A senha deve ter pelo menos 6 caracteres e conter letras e números.'
+      );
+    }
+
+    // ✅ LÓGICA PARA CONTAS SOCIAIS (sem senha atual)
+    if (!user.password || user.password.trim() === '') {
+      // Conta social: não precisa de senha atual, apenas cria a nova
+      const newPasswordHash = await bcrypt.hash(dto.newPassword, 10);
+      await this.userRepository.updatePassword(userId, newPasswordHash);
+      return;
+    }
+
+    // LÓGICA PARA CONTAS TRADICIONAIS (com senha atual)
+    if (!dto.currentPassword) {
+      throw new Error('Senha atual é obrigatória para contas com senha.');
+    }
 
     const passwordMatch = await bcrypt.compare(
       dto.currentPassword,

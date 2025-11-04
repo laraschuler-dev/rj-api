@@ -1,4 +1,4 @@
 export interface UpdatePasswordDTO {
-  currentPassword: string;
+  currentPassword?: string;
   newPassword: string;
 }

@@ -31,7 +31,15 @@ export interface LoginResponseDTO {
      * Telefone do usuário (opcional).
      */
     phone?: string | null;
-
+    
+    /**
+     * Indica se o login foi realizado com uma conta social.
+     */
     isSocialLogin: boolean;
+
+    /**
+     * Indica se tem conta Google vinculada
+     */
+    hasGoogle: boolean;
   };
 }

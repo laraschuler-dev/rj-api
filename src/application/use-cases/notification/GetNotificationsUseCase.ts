@@ -24,7 +24,7 @@ export class GetNotificationsUseCase {
 
   private toDTO(notification: any): NotificationDTO {
 
-    // 👇 Tentar diferentes caminhos para encontrar o actor
+    // Tentar diferentes caminhos para encontrar o actor
     const actorUser =
       notification.user_notification_actor_idTouser || notification.actor;
 

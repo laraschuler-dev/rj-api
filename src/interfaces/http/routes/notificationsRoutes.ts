@@ -51,4 +51,25 @@ router.get(
   notificationController.getUnreadCount
 );
 
+/**
+ * @swagger
+ * /notifications/mark-all-as-read:
+ *   post:
+ *     summary: Marca todas as notificações como lidas
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Notificações marcadas como lidas com sucesso
+ *       204:
+ *         description: Notificações marcadas como lidas com sucesso
+ *       401:
+ *         description: Não autenticado
+ */
+router.post(
+  '/mark-all-as-read',
+  ensureAuthenticated,
+  notificationController.markAllAsRead
+);
+
 export default router;

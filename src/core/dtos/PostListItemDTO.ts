@@ -1,5 +1,6 @@
 import { Post } from '../entities/Post';
 import { User } from '../entities/User';
+import { UnavailablePostDTO } from './UnavailablePostDTO';
 
 // Subtipos auxiliares para clareza
 export interface AuthorDTO {
@@ -101,6 +102,59 @@ export class PostListItemDTO {
       sharedBy,
       eventAttendance,
       attending
+    );
+  }
+
+  static createUnavailablePost(
+    unavailableDTO: UnavailablePostDTO,
+    requestingUserId?: number
+  ): PostListItemDTO {
+    const isShareOwner = unavailableDTO.sharedBy?.id === requestingUserId;
+
+    // 👇 LÓGICA CORRIGIDA: Mostra autor original quando disponível
+    const showOriginalAuthor =
+      unavailableDTO.reason === 'ORIGINAL_POST_DELETED' &&
+      unavailableDTO.originalAuthor;
+
+    const author: AuthorDTO = showOriginalAuthor
+      ? {
+          id: unavailableDTO.originalAuthor.id,
+          name: unavailableDTO.originalAuthor.name,
+          avatarUrl: unavailableDTO.originalAuthor.avatarUrl,
+        }
+      : unavailableDTO.reason === 'ORIGINAL_AUTHOR_DELETED'
+        ? {
+            id: 0,
+            name: 'Usuário Removido',
+            avatarUrl: '/default-avatar.png',
+          }
+        : {
+            id: 0,
+            name: 'Autor Desconhecido',
+            avatarUrl: '/default-avatar.png',
+          };
+
+    return new PostListItemDTO(
+      unavailableDTO.uniqueKey,
+      unavailableDTO.id,
+      'Conteúdo indisponível',
+      0,
+      author, // 👈 AGORA mostra o autor ORIGINAL correto
+      {
+        isUnavailable: true,
+        reason: unavailableDTO.reason,
+        originalPostDeleted: unavailableDTO.reason === 'ORIGINAL_POST_DELETED',
+        originalAuthorDeleted:
+          unavailableDTO.reason === 'ORIGINAL_AUTHOR_DELETED',
+      },
+      [],
+      unavailableDTO.sharedBy?.sharedAt || new Date().toISOString(),
+      false,
+      false,
+      isShareOwner,
+      unavailableDTO.sharedBy,
+      [],
+      false
     );
   }
 }

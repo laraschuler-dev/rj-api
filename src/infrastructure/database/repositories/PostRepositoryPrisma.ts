@@ -127,30 +127,34 @@ export class PostRepositoryPrisma implements PostRepository {
         timestamp: Date;
       }[]
     >`
-    SELECT * FROM (
-      SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
-      FROM post p
-      INNER JOIN user u ON p.user_iduser = u.iduser
-      WHERE p.deleted = false AND u.deleted = false
+  SELECT * FROM (
+    SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
+    FROM post p
+    INNER JOIN user u ON p.user_iduser = u.iduser
+    WHERE p.deleted = false AND u.deleted = false
 
-      UNION ALL
+    UNION ALL
 
-      SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
-      FROM post_share ps
-      INNER JOIN post p ON ps.post_idpost = p.idpost
-      INNER JOIN user share_user ON ps.user_iduser = share_user.iduser
-      INNER JOIN user post_user ON p.user_iduser = post_user.iduser
-      WHERE ps.deleted = false 
-        AND p.deleted = false 
-        AND share_user.deleted = false
-        AND post_user.deleted = false
-    ) AS combined_feed
-    ORDER BY timestamp DESC
-    LIMIT ${limit} OFFSET ${skip};
-  `;
+    SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
+    FROM post_share ps
+    INNER JOIN post p ON ps.post_idpost = p.idpost
+    INNER JOIN user share_user ON ps.user_iduser = share_user.iduser
+    -- 👇 REMOVA o filtro do post original e seu autor aqui
+    -- WHERE ps.deleted = false 
+    --   AND p.deleted = false 
+    --   AND share_user.deleted = false
+    --   AND post_user.deleted = false
+    WHERE ps.deleted = false 
+      AND share_user.deleted = false
+      -- 👆 Mantém apenas o filtro do usuário que compartilhou
+  ) AS combined_feed
+  ORDER BY timestamp DESC
+  LIMIT ${limit} OFFSET ${skip};
+`;
 
     return result;
   }
+
   private async findPostsByIds(
     ids: number[],
     requestingUserId?: number
@@ -212,6 +216,7 @@ export class PostRepositoryPrisma implements PostRepository {
     });
   }
 
+  // PostRepositoryPrisma.ts - método findSharesByIds
   private async findSharesByIds(
     ids: number[],
     requestingUserId?: number
@@ -222,11 +227,9 @@ export class PostRepositoryPrisma implements PostRepository {
       where: {
         id: { in: ids },
         deleted: false,
-        user: { deleted: false }, // FILTRO ADICIONADO: apenas shares de usuários não excluídos
-        post: {
-          deleted: false,
-          user: { deleted: false }, // FILTRO ADICIONADO: apenas posts originais de usuários não excluídos
-        },
+        user: { deleted: false }, // 👈 Mantém apenas usuário do share ativo
+        // 👇 REMOVE os filtros do post original para permitir detectar posts removidos
+        // post: { deleted: false, user: { deleted: false } },
       },
       include: {
         user: { include: { user_profile: true } },
@@ -240,6 +243,7 @@ export class PostRepositoryPrisma implements PostRepository {
             }
           : false,
         post: {
+          // 👈 Continua buscando o post mesmo se estiver deletado
           include: {
             user: { include: { user_profile: true } },
             image: true,
@@ -262,36 +266,13 @@ export class PostRepositoryPrisma implements PostRepository {
     return shares.map((share: any) => {
       const p = share.post;
 
-      // Se o post original foi excluído ou seu autor foi excluído
-      if (!p || p.deleted || !p.user) {
-        return new Post(
-          share.id,
-          '',
-          0,
-          share.user_iduser,
-          { isDeletedOriginal: true } as any,
-          share.shared_at || new Date(),
-          [],
-          undefined,
-          false,
-          {
-            id: share.user_iduser,
-            shareId: share.id,
-            postId: p?.idpost ?? 0,
-            name: share.user.name,
-            avatarUrl: share.user.user_profile?.profile_photo ?? undefined,
-            message: share.message || undefined,
-            sharedAt: share.shared_at ? new Date(share.shared_at) : new Date(),
-          },
-          []
-        );
-      }
-
-      const images = p.image.map((img: any) => img.image);
+      // 👇 AGORA podemos detectar quando o post original foi removido
+      // Mas mantemos a estrutura para o ContentValidationService processar
+      const images = p?.image?.map((img: any) => img.image) || [];
       const liked = requestingUserId ? share.user_like.length > 0 : false;
       const avatarUrl = share.user.user_profile?.profile_photo ?? undefined;
 
-      const eventAttendance = (p.event_attendance ?? [])
+      const eventAttendance = (p?.event_attendance ?? [])
         .filter((a: any) => a.post_share_id === share.id)
         .map((a: any) => ({
           userId: a.user_iduser,
@@ -300,18 +281,18 @@ export class PostRepositoryPrisma implements PostRepository {
 
       return new Post(
         share.id,
-        p.content,
-        p.categoria_idcategoria,
-        p.user_iduser,
-        p.metadata ? JSON.parse(p.metadata) : {},
-        p.time,
+        p?.content || '', // 👈 Conteúdo vazio se post não existir
+        p?.categoria_idcategoria || 0,
+        p?.user_iduser || 0,
+        p?.metadata ? JSON.parse(p.metadata) : {},
+        p?.time || share.shared_at || new Date(),
         images,
-        p.user.user_profile?.profile_photo,
+        p?.user?.user_profile?.profile_photo,
         liked,
         {
           id: share.user_iduser,
           shareId: share.id,
-          postId: p.idpost,
+          postId: p?.idpost || 0, // 👈 Pode ser 0 se post não existir
           name: share.user.name,
           avatarUrl: avatarUrl,
           message: share.message || undefined,
@@ -321,27 +302,27 @@ export class PostRepositoryPrisma implements PostRepository {
       );
     });
   }
+
   private async countValidFeedItems(): Promise<number> {
     const result = await prisma.$queryRaw<{ count: bigint }[]>`
-    SELECT COUNT(*) as count FROM (
-      SELECT p.idpost
-      FROM post p
-      INNER JOIN user u ON p.user_iduser = u.iduser
-      WHERE p.deleted = false AND u.deleted = false
+  SELECT COUNT(*) as count FROM (
+    SELECT p.idpost
+    FROM post p
+    INNER JOIN user u ON p.user_iduser = u.iduser
+    WHERE p.deleted = false AND u.deleted = false
 
-      UNION ALL
+    UNION ALL
 
-      SELECT ps.id
-      FROM post_share ps
-      INNER JOIN post p ON ps.post_idpost = p.idpost
-      INNER JOIN user share_user ON ps.user_iduser = share_user.iduser
-      INNER JOIN user post_user ON p.user_iduser = post_user.iduser
-      WHERE ps.deleted = false 
-        AND p.deleted = false 
-        AND share_user.deleted = false
-        AND post_user.deleted = false
-    ) AS valid_feed
-  `;
+    SELECT ps.id
+    FROM post_share ps
+    INNER JOIN post p ON ps.post_idpost = p.idpost
+    INNER JOIN user share_user ON ps.user_iduser = share_user.iduser
+    -- 👇 REMOVA os filtros do post original aqui também
+    WHERE ps.deleted = false 
+      AND share_user.deleted = false
+      -- 👆 Mantém apenas o filtro do usuário que compartilhou
+  ) AS valid_feed
+`;
 
     return Number(result[0].count);
   }
@@ -413,16 +394,29 @@ export class PostRepositoryPrisma implements PostRepository {
     };
   }
 
-  async getSharedPostByIdWithDetails(shareId: number) {
+  // PostRepositoryPrisma.ts - método getSharedPostByIdWithDetails (COM LOGS DETALHADOS)
+  async getSharedPostByIdWithDetails(
+    shareId: number,
+    includeDeletedPosts: boolean = false
+  ) {
+    console.log(
+      `🔍 getSharedPostByIdWithDetails: shareId=${shareId}, includeDeletedPosts=${includeDeletedPosts}`
+    );
+
     const shared = await prisma.post_share.findUnique({
       where: {
         id: shareId,
-        deleted: false, // FILTRO ADICIONADO
-        user: { deleted: false }, // FILTRO ADICIONADO
-        post: {
-          deleted: false,
-          user: { deleted: false }, // FILTRO ADICIONADO
-        },
+        deleted: false,
+        user: { deleted: false },
+        // 👇 CONDICIONAL: Aplica filtro apenas se NÃO for para incluir deletados
+        ...(includeDeletedPosts
+          ? {}
+          : {
+              post: {
+                deleted: false,
+                user: { deleted: false },
+              },
+            }),
       },
       include: {
         post: {
@@ -443,9 +437,29 @@ export class PostRepositoryPrisma implements PostRepository {
       },
     });
 
-    if (!shared || !shared.post) return null;
+    console.log(`📋 shared encontrado:`, !!shared);
+    console.log(`📋 post encontrado:`, !!shared?.post);
+    console.log(`📋 post deletado:`, shared?.post?.deleted);
+    console.log(`📋 user do post:`, !!shared?.post?.user);
+    console.log(`📋 user deletado:`, shared?.post?.user?.deleted);
 
-    const originalPostId = shared.post.idpost;
+    // 👇 CONDICIONAL: Verifica post apenas se NÃO for para incluir deletados
+    if (!includeDeletedPosts && (!shared || !shared.post)) {
+      console.log(
+        `❌ Retornando null (includeDeletedPosts=${includeDeletedPosts})`
+      );
+      return null;
+    }
+
+    // Se includeDeletedPosts = true, shared pode vir sem post (e isso é ok)
+    if (!shared) {
+      console.log(`❌ Compartilhamento ${shareId} não encontrado`);
+      return null;
+    }
+
+    console.log(`✅ Compartilhamento ${shareId} válido, processando...`);
+
+    const originalPostId = shared.post?.idpost || 0;
 
     const [user_like, comment, event_attendance] = await Promise.all([
       prisma.user_like.findMany({
@@ -471,11 +485,14 @@ export class PostRepositoryPrisma implements PostRepository {
 
     const post = shared.post as any;
 
-    post.user.avatarUrl = shared.post.user.user_profile?.profile_photo ?? null;
+    if (post) {
+      post.user.avatarUrl =
+        shared.post.user.user_profile?.profile_photo ?? null;
+    }
 
     post.sharedBy = {
       shareId: shared.id,
-      postId: shared.post.idpost,
+      postId: shared.post?.idpost || 0,
       id: shared.user.iduser,
       name: shared.user.name,
       avatarUrl: shared.user.user_profile?.profile_photo ?? null,
@@ -487,6 +504,7 @@ export class PostRepositoryPrisma implements PostRepository {
     post.comment = comment;
     post.event_attendance = event_attendance;
 
+    console.log(`✅ Detalhes processados para shareId=${shareId}`);
     return post;
   }
 
@@ -649,17 +667,27 @@ export class PostRepositoryPrisma implements PostRepository {
   }
 
   async findPostShareById(shareId: number): Promise<post_share | null> {
-    return prisma.post_share.findFirst({
-      where: {
-        id: shareId,
-        deleted: false,
-        user: { deleted: false },
-        post: {
-          deleted: false,
-          user: { deleted: false },
-        },
-      },
-    });
+    console.log(`🔍 Buscando post_share com ID: ${shareId} (versão simples)`);
+
+    try {
+      // 👇 Versão mais simples - apenas busca pelo ID sem filtros complexos
+      const share = await prisma.post_share.findUnique({
+        where: { id: shareId },
+      });
+
+      console.log(`📋 Compartilhamento ${shareId} encontrado:`, !!share);
+
+      if (!share) {
+        console.log(`❌ Compartilhamento ${shareId} não existe`);
+        return null;
+      }
+
+      // 👇 As outras verificações (deleted, user) serão feitas no Service
+      return share;
+    } catch (error) {
+      console.error(`❌ Erro ao buscar compartilhamento ${shareId}:`, error);
+      return null;
+    }
   }
 
   async sharePost(userId: number, postId: number, message?: string) {
@@ -1001,6 +1029,7 @@ export class PostRepositoryPrisma implements PostRepository {
     });
   }
 
+  // PostRepositoryPrisma.ts - método findUserFeedItemIdsPaginated (AJUSTE SEGURO)
   private async findUserFeedItemIdsPaginated(
     userId: number,
     requestingUserId: number | undefined,
@@ -1011,61 +1040,65 @@ export class PostRepositoryPrisma implements PostRepository {
     const isOwnProfile = userId === requestingUserId;
 
     if (isOwnProfile) {
-      // Próprio usuário - mostra tudo
+      // Próprio usuário - mostra TUDO (incluindo compartilhamentos de posts deletados)
       return prisma.$queryRaw<
         { type: 'post' | 'share'; id: number; timestamp: Date }[]
       >`
-      SELECT * FROM (
-        SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
-        FROM post p
-        WHERE p.user_iduser = ${userId} AND p.deleted = false
+    SELECT * FROM (
+      SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
+      FROM post p
+      WHERE p.user_iduser = ${userId} AND p.deleted = false
 
-        UNION ALL
+      UNION ALL
 
-        SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
-        FROM post_share ps
-        INNER JOIN post p ON ps.post_idpost = p.idpost
-        WHERE ps.user_iduser = ${userId} AND ps.deleted = false AND p.deleted = false
-      ) AS combined
-      ORDER BY timestamp DESC
-      LIMIT ${limit} OFFSET ${skip};
-    `;
+      SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
+      FROM post_share ps
+      INNER JOIN post p ON ps.post_idpost = p.idpost
+      WHERE ps.user_iduser = ${userId} AND ps.deleted = false
+      -- 👇 REMOVE p.deleted = false para permitir posts indisponíveis
+      -- AND p.deleted = false
+    ) AS combined
+    ORDER BY timestamp DESC
+    LIMIT ${limit} OFFSET ${skip};
+  `;
     } else {
+      // Outro usuário - mantém filtros de anonimato, mas permite posts indisponíveis
       return prisma.$queryRaw<
         { type: 'post' | 'share'; id: number; timestamp: Date }[]
       >`
-      SELECT * FROM (
-        SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
-        FROM post p
-        WHERE p.user_iduser = ${userId} 
-          AND p.deleted = false
-          AND (
-            p.metadata IS NULL 
-            OR p.metadata = '{}'
-            OR p.metadata NOT LIKE '%"isAnonymous":true%'
-            OR JSON_VALUE(p.metadata, '$.isAnonymous') IS NULL
-            OR JSON_VALUE(p.metadata, '$.isAnonymous') = 'false'
-          )
+    SELECT * FROM (
+      SELECT 'post' AS type, p.idpost AS id, p.time AS timestamp
+      FROM post p
+      WHERE p.user_iduser = ${userId} 
+        AND p.deleted = false
+        AND (
+          p.metadata IS NULL 
+          OR p.metadata = '{}'
+          OR p.metadata NOT LIKE '%"isAnonymous":true%'
+          OR JSON_VALUE(p.metadata, '$.isAnonymous') IS NULL
+          OR JSON_VALUE(p.metadata, '$.isAnonymous') = 'false'
+        )
 
-        UNION ALL
+      UNION ALL
 
-        SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
-        FROM post_share ps
-        INNER JOIN post p ON ps.post_idpost = p.idpost
-        WHERE ps.user_iduser = ${userId} 
-          AND ps.deleted = false
-          AND p.deleted = false
-          AND (
-            p.metadata IS NULL 
-            OR p.metadata = '{}'
-            OR p.metadata NOT LIKE '%"isAnonymous":true%'
-            OR JSON_VALUE(p.metadata, '$.isAnonymous') IS NULL
-            OR JSON_VALUE(p.metadata, '$.isAnonymous') = 'false'
-          )
-      ) AS combined
-      ORDER BY timestamp DESC
-      LIMIT ${limit} OFFSET ${skip};
-    `;
+      SELECT 'share' AS type, ps.id AS id, ps.shared_at AS timestamp
+      FROM post_share ps
+      INNER JOIN post p ON ps.post_idpost = p.idpost
+      WHERE ps.user_iduser = ${userId} 
+        AND ps.deleted = false
+        -- 👇 REMOVE p.deleted = false para permitir posts indisponíveis
+        -- AND p.deleted = false
+        AND (
+          p.metadata IS NULL 
+          OR p.metadata = '{}'
+          OR p.metadata NOT LIKE '%"isAnonymous":true%'
+          OR JSON_VALUE(p.metadata, '$.isAnonymous') IS NULL
+          OR JSON_VALUE(p.metadata, '$.isAnonymous') = 'false'
+        )
+    ) AS combined
+    ORDER BY timestamp DESC
+    LIMIT ${limit} OFFSET ${skip};
+  `;
     }
   }
 
@@ -1075,7 +1108,6 @@ export class PostRepositoryPrisma implements PostRepository {
     page: number,
     limit: number
   ): Promise<{ posts: Post[]; totalCount: number }> {
-
     const items = await this.findUserFeedItemIdsPaginated(
       userId,
       requestingUserId,

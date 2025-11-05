@@ -6,6 +6,6 @@ export interface DeleteAccountDTO {
   /**
    * Senha atual do usuário para confirmação.
    */
-  password: string;
+  password?: string;
 
 }

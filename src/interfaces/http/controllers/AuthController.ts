@@ -20,6 +20,10 @@ export class AuthController {
     this.updateAccount = this.updateAccount.bind(this);
     this.updatePassword = this.updatePassword.bind(this);
     this.deleteAccount = this.deleteAccount.bind(this);
+    this.loginWithGoogle = this.loginWithGoogle.bind(this);
+    this.getSocialConnections = this.getSocialConnections.bind(this);
+    this.unlinkGoogleAccount = this.unlinkGoogleAccount.bind(this);
+    this.linkGoogleAccount = this.linkGoogleAccount.bind(this);
   }
 
   /**
@@ -49,7 +53,9 @@ export class AuthController {
   async deleteAccount(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user || !req.user.id) {
-        res.status(401).json({ error: 'Unauthorized: user not found in request' });
+        res
+          .status(401)
+          .json({ error: 'Unauthorized: user not found in request' });
         return;
       }
 
@@ -57,8 +63,9 @@ export class AuthController {
       const data: DeleteAccountDTO = req.body;
 
       await this.authUseCases.deleteAccount(userId, data);
-      res.status(200).json({ 
-        message: 'Conta excluída com sucesso. Seus dados serão mantidos por questões de segurança e conformidade.' 
+      res.status(200).json({
+        message:
+          'Conta excluída com sucesso. Seus dados serão mantidos por questões de segurança e conformidade.',
       });
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -148,7 +155,9 @@ export class AuthController {
   async updateAccount(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user || !req.user.id) {
-        res.status(401).json({ error: 'Unauthorized: user not found in request' });
+        res
+          .status(401)
+          .json({ error: 'Unauthorized: user not found in request' });
         return;
       }
       const userId = req.user.id;
@@ -165,7 +174,9 @@ export class AuthController {
   async updatePassword(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user || !req.user.id) {
-        res.status(401).json({ error: 'Unauthorized: user not found in request' });
+        res
+          .status(401)
+          .json({ error: 'Unauthorized: user not found in request' });
         return;
       }
       const userId = req.user.id;
@@ -173,6 +184,209 @@ export class AuthController {
       res.json({ message: 'Senha atualizada com sucesso.' });
     } catch (err: any) {
       res.status(400).json({ error: err.message });
+    }
+  }
+
+  /**
+   * Realiza o login de um usuário com o Google.
+   * @param req - Objeto da requisição HTTP.
+   * @param res - Objeto da resposta HTTP.
+   * @returns Retorna o token JWT e as informações do usuário autenticado ou um erro caso a operação falhe.
+   */
+  async loginWithGoogle(req: Request, res: Response): Promise<void> {
+    try {
+
+      if (!req.body.idToken) {
+        res.status(400).json({ error: 'Token do Google é obrigatório' });
+        return;
+      }
+
+      const result = await this.authUseCases.loginWithGoogle(req.body.idToken);
+
+      res.status(200).json(result);
+    } catch (err: any) {
+      console.error('[LoginGoogle] Erro:', err.message);
+
+      // Respostas mais específicas baseadas no tipo de erro
+      if (
+        err.message.includes('token inválido') ||
+        err.message.includes('Google token')
+      ) {
+        res.status(401).json({ error: 'Token do Google inválido ou expirado' });
+      } else if (
+        err.message.includes('excluída') ||
+        err.message.includes('deletada')
+      ) {
+        res.status(403).json({
+          error: err.message,
+          code: 'ACCOUNT_DELETED',
+        });
+      } else if (
+        err.message.includes('não encontrada') ||
+        err.message.includes('não encontrado')
+      ) {
+        res.status(404).json({ error: err.message });
+      } else {
+        res.status(400).json({ error: err.message });
+      }
+    }
+  }
+
+  /**
+   * Vincula uma conta Google a um usuário existente
+   */
+  async linkGoogleAccount(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Usuário não autenticado' });
+        return;
+      }
+
+      if (!req.body.idToken) {
+        res.status(400).json({ error: 'Token do Google é obrigatório' });
+        return;
+      }
+
+      const result = await this.authUseCases.linkGoogleAccount(
+        userId,
+        req.body
+      );
+
+      res.status(200).json({
+        ...result,
+        message: 'Conta Google vinculada com sucesso',
+      });
+    } catch (err: any) {
+      console.error('[LinkGoogleAccount] Erro:', err.message);
+
+      // Respostas específicas para diferentes cenários
+      if (
+        err.message.includes('não autenticado') ||
+        err.message.includes('não encontrado')
+      ) {
+        res.status(401).json({ error: err.message });
+      } else if (err.message.includes('Token Google inválido')) {
+        res.status(401).json({ error: 'Token do Google inválido' });
+      } else if (err.message.includes('já está vinculada')) {
+        res.status(409).json({
+          error: err.message,
+          code: 'ALREADY_LINKED',
+        });
+      } else if (err.message.includes('vinculada a outra conta')) {
+        res.status(409).json({
+          error: err.message,
+          code: 'GOOGLE_ALREADY_LINKED',
+        });
+      } else if (err.message.includes('email deve ser o mesmo')) {
+        res.status(400).json({
+          error: err.message,
+          code: 'EMAIL_MISMATCH',
+        });
+      } else if (err.message.includes('excluída')) {
+        res.status(403).json({
+          error: err.message,
+          code: 'ACCOUNT_DELETED',
+        });
+      } else {
+        res.status(400).json({ error: err.message });
+      }
+    }
+  }
+
+  /**
+   * Desvincula a conta Google de um usuário
+   */
+  async unlinkGoogleAccount(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Usuário não autenticado' });
+        return;
+      }
+
+      if (!req.body.password) {
+        res.status(400).json({ error: 'Senha é obrigatória para desvincular' });
+        return;
+      }
+
+      await this.authUseCases.unlinkGoogleAccount(userId, req.body);
+
+      res.status(200).json({
+        message: 'Conta Google desvinculada com sucesso',
+        hasGoogle: false,
+      });
+    } catch (err: any) {
+      console.error('[UnlinkGoogleAccount] Erro:', err.message);
+
+      // Tratamento específico de erros
+      if (
+        err.message.includes('não autenticado') ||
+        err.message.includes('não encontrado')
+      ) {
+        res.status(401).json({ error: err.message });
+      } else if (err.message.includes('Senha incorreta')) {
+        res.status(401).json({
+          error: err.message,
+          code: 'INVALID_PASSWORD',
+        });
+      } else if (err.message.includes('não está vinculada')) {
+        res.status(404).json({
+          error: err.message,
+          code: 'NOT_LINKED',
+        });
+      } else if (err.message.includes('criar uma senha')) {
+        res.status(400).json({
+          error: err.message,
+          code: 'NO_PASSWORD_SET',
+        });
+      } else if (err.message.includes('excluída')) {
+        res.status(403).json({
+          error: err.message,
+          code: 'ACCOUNT_DELETED',
+        });
+      } else {
+        res.status(400).json({ error: err.message });
+      }
+    }
+  }
+
+  /**
+   * Obtém as conexões sociais do usuário
+   */
+  async getSocialConnections(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Usuário não autenticado' });
+        return;
+      }
+
+
+      const connections = await this.authUseCases.getSocialConnections(userId);
+
+
+      res.status(200).json(connections);
+    } catch (err: any) {
+      console.error('[GetSocialConnections] Erro:', err.message);
+
+      // Tratamento específico para obtenção de conexões
+      if (
+        err.message.includes('não autenticado') ||
+        err.message.includes('não encontrado')
+      ) {
+        res.status(401).json({ error: err.message });
+      } else if (err.message.includes('excluída')) {
+        res.status(403).json({
+          error: err.message,
+          code: 'ACCOUNT_DELETED',
+        });
+      } else {
+        res.status(400).json({ error: err.message });
+      }
     }
   }
 }

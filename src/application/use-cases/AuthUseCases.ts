@@ -6,6 +6,8 @@ import { ResetPasswordRequestDTO } from '../../core/dtos/ResetPasswordRequestDTO
 import { UpdatePasswordDTO } from '../../core/dtos/UpdatePasswordDTO';
 import { UpdateAccountDTO } from '../../core/dtos/UpdateAccountDTO';
 import { DeleteAccountDTO } from '../../core/dtos/DeleteAccountDTO';
+import { UnlinkGoogleAccountRequestDTO } from '../../core/dtos/SocialConnections/UnlinkGoogleAccountDTO';
+import { LinkGoogleAccountRequestDTO } from '../../core/dtos/SocialConnections/LinkGoogleAccountDTO';
 
 /**
  * Casos de uso relacionados à autenticação e gerenciamento de usuários.
@@ -83,5 +85,61 @@ export class AuthUseCases {
    */
   async deleteAccount(userId: number, data: DeleteAccountDTO): Promise<void> {
     return this.authService.deleteAccount(userId, data);
+  }
+
+   /**
+   * Realiza o login de um usuário com o Google.
+   * @param idToken - Token de autenticação do Google.
+   * @returns Token JWT e informações do usuário autenticado.
+   */
+  async loginWithGoogle(idToken: string) {
+    return this.authService.loginWithGoogle(idToken);
+  }
+
+  /**
+   * Vincula uma conta Google a um usuário existente
+   * @param userId - ID do usuário autenticado
+   * @param data - Dados contendo o token do Google
+   * @returns Token JWT e informações atualizadas do usuário
+   */
+  async linkGoogleAccount(userId: number, data: LinkGoogleAccountRequestDTO) {
+    if (!data.idToken) {
+      throw new Error('Token do Google é obrigatório');
+    }
+
+    return await this.authService.linkGoogleAccount(userId, data.idToken);
+  }
+
+  /**
+   * Desvincula a conta Google de um usuário
+   * @param userId - ID do usuário autenticado
+   * @param data - Dados contendo a senha para confirmação
+   * @throws Erro caso a senha esteja incorreta ou não tenha Google vinculado
+   */
+  async unlinkGoogleAccount(userId: number, data: UnlinkGoogleAccountRequestDTO): Promise<void> {
+    if (!data.password) {
+      throw new Error('Senha é obrigatória para desvincular o Google');
+    }
+
+    return await this.authService.unlinkGoogleAccount(userId, data.password);
+  }
+
+  /**
+   * Obtém as conexões sociais do usuário
+   * @param userId - ID do usuário autenticado
+   * @returns Objeto com informações das conexões sociais
+   */
+  async getSocialConnections(userId: number) {
+    const user = await this.authService.getAuthenticatedUser(userId);
+    
+    const connectedProviders: string[] = [];
+    if (user.hasGoogle) {
+      connectedProviders.push('google');
+    }
+
+    return {
+      hasGoogle: user.hasGoogle || false,
+      connectedProviders,
+    };
   }
 }

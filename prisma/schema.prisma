@@ -66,25 +66,26 @@ model post {
 }
 
 model user {
-  iduser                                   Int                @id @unique(map: "iduser_UNIQUE") @default(autoincrement()) @db.UnsignedInt
-  name                                     String             @db.VarChar(45)
-  e_mail                                   String             @unique(map: "e_mail") @db.VarChar(60)
-  passwordHash                             String             @db.VarChar(255)
-  fone                                     String?            @unique(map: "unique_fone") @db.VarChar(12)
-  createdAt                                DateTime           @default(now()) @db.DateTime(0)
-  updatedAt                                DateTime           @default(now()) @db.DateTime(0)
-  passwordResetToken                       String?            @db.VarChar(255)
-  passwordResetTokenExpiresAt              DateTime?          @db.DateTime(0)
-  deleted                                  Boolean?           @default(false)
-  deletedAt                                DateTime?          @db.DateTime(0)
+  iduser                                   Int                      @id @unique(map: "iduser_UNIQUE") @default(autoincrement()) @db.UnsignedInt
+  name                                     String                   @db.VarChar(45)
+  e_mail                                   String                   @unique(map: "e_mail") @db.VarChar(60)
+  passwordHash                             String                   @db.VarChar(255)
+  fone                                     String?                  @unique(map: "unique_fone") @db.VarChar(12)
+  createdAt                                DateTime                 @default(now()) @db.DateTime(0)
+  updatedAt                                DateTime                 @default(now()) @db.DateTime(0)
+  passwordResetToken                       String?                  @db.VarChar(255)
+  passwordResetTokenExpiresAt              DateTime?                @db.DateTime(0)
+  deleted                                  Boolean?                 @default(false)
+  deletedAt                                DateTime?                @db.DateTime(0)
   comment                                  comment[]
   event_attendance                         event_attendance[]
-  notification_notification_actor_idTouser notification[]     @relation("notification_actor_idTouser")
-  notification_notification_user_idTouser  notification[]     @relation("notification_user_idTouser")
+  notification_notification_actor_idTouser notification[]           @relation("notification_actor_idTouser")
+  notification_notification_user_idTouser  notification[]           @relation("notification_user_idTouser")
   post                                     post[]
   post_share                               post_share[]
   user_like                                user_like[]
   user_profile                             user_profile?
+  user_social_connection                   user_social_connection[]
 }
 
 model user_like {
@@ -174,6 +175,19 @@ model notification {
   @@index([user_id], map: "fk_notification_user_idx")
   @@index([created_at], map: "idx_notification_created_at")
   @@index([user_id, is_read], map: "idx_notification_user_read")
+}
+
+model user_social_connection {
+  id             Int       @id @default(autoincrement()) @db.UnsignedInt
+  user_id        Int       @db.UnsignedInt
+  provider       String    @db.VarChar(20)
+  provider_id    String    @db.VarChar(255)
+  provider_email String    @db.VarChar(60)
+  created_at     DateTime? @default(now()) @db.DateTime(0)
+  user           user      @relation(fields: [user_id], references: [iduser], onDelete: Cascade, onUpdate: NoAction, map: "user_social_connection_ibfk_1")
+
+  @@unique([provider, provider_id], map: "unique_provider_id")
+  @@unique([user_id, provider], map: "unique_user_provider")
 }
 
 enum user_profile_profile_type {

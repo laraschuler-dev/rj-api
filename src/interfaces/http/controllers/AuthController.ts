@@ -195,11 +195,6 @@ export class AuthController {
    */
   async loginWithGoogle(req: Request, res: Response): Promise<void> {
     try {
-      console.log(
-        '[LoginGoogle] Recebido idToken:',
-        req.body.idToken?.slice(0, 10),
-        '...'
-      );
 
       if (!req.body.idToken) {
         res.status(400).json({ error: 'Token do Google é obrigatório' });
@@ -207,12 +202,6 @@ export class AuthController {
       }
 
       const result = await this.authUseCases.loginWithGoogle(req.body.idToken);
-
-      console.log('[LoginGoogle] Resultado gerado:', {
-        userId: result.user.id,
-        email: result.user.email,
-        hasPhone: !!result.user.phone,
-      });
 
       res.status(200).json(result);
     } catch (err: any) {
@@ -260,24 +249,10 @@ export class AuthController {
         return;
       }
 
-      console.log(
-        '[LinkGoogleAccount] Usuário:',
-        userId,
-        'Token:',
-        req.body.idToken?.slice(0, 10),
-        '...'
-      );
-
       const result = await this.authUseCases.linkGoogleAccount(
         userId,
         req.body
       );
-
-      console.log('[LinkGoogleAccount] Conta vinculada com sucesso:', {
-        userId: result.user.id,
-        email: result.user.email,
-        hasGoogle: result.user.hasGoogle,
-      });
 
       res.status(200).json({
         ...result,
@@ -337,18 +312,7 @@ export class AuthController {
         return;
       }
 
-      console.log(
-        '[UnlinkGoogleAccount] Usuário:',
-        userId,
-        'solicitando desvinculação'
-      );
-
       await this.authUseCases.unlinkGoogleAccount(userId, req.body);
-
-      console.log(
-        '[UnlinkGoogleAccount] Conta desvinculada com sucesso para usuário:',
-        userId
-      );
 
       res.status(200).json({
         message: 'Conta Google desvinculada com sucesso',
@@ -401,14 +365,9 @@ export class AuthController {
         return;
       }
 
-      console.log(
-        '[GetSocialConnections] Buscando conexões para usuário:',
-        userId
-      );
 
       const connections = await this.authUseCases.getSocialConnections(userId);
 
-      console.log('[GetSocialConnections] Conexões encontradas:', connections);
 
       res.status(200).json(connections);
     } catch (err: any) {

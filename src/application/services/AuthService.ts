@@ -141,7 +141,6 @@ export class AuthService {
     } else {
       // Conta social: NÃO precisa de senha, mas pode ter validação extra
       console.log('🟡 Conta social sendo excluída sem validação de senha');
-      // Opcional: pode adicionar outra validação aqui (ex: confirmação por email)
     }
 
     // Realiza a exclusão lógica

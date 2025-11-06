@@ -69,7 +69,6 @@ export class UserProfileController {
         );
         profile_photo = processedImages[0];
 
-        // 🔥🔥🔥 MESMA CORREÇÃO AQUI
         if (
           !profile_photo.startsWith('http') &&
           !profile_photo.startsWith('/uploads/')
@@ -80,7 +79,7 @@ export class UserProfileController {
 
       const dto: UpdateUserProfileDTO = {
         profile_type: req.body.profile_type,
-        profile_photo: profile_photo, // ✅ AGORA CORRETO
+        profile_photo: profile_photo,
         bio: req.body.bio,
         city: req.body.city,
         state: req.body.state,
@@ -98,7 +97,7 @@ export class UserProfileController {
         .json({ error: err.message || 'Erro ao atualizar perfil.' });
     }
   }
-  
+
   async updateProfilePhoto(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user || !req.user.id) {
@@ -112,17 +111,12 @@ export class UserProfileController {
 
       const userId = req.user.id;
 
-      console.log('📁 Arquivo recebido:', req.file);
-
       const processedImages = await SimpleImageService.handleProductionUpload([
         req.file,
       ]);
 
-      console.log('🔄 Imagens processadas:', processedImages);
-
       let profile_photo = processedImages[0];
 
-      // 🔥🔥🔥 ADICIONE ESTA LINHA - GARANTIR /uploads/ NO CAMINHO
       if (
         !profile_photo.startsWith('http') &&
         !profile_photo.startsWith('/uploads/')
@@ -130,14 +124,10 @@ export class UserProfileController {
         profile_photo = `/uploads/${profile_photo}`;
       }
 
-      console.log('💾 Salvando profile_photo:', profile_photo);
-
       const updatedProfile = await this.userProfileService.updateProfile(
         userId,
         { profile_photo }
       );
-
-      console.log('✅ Perfil atualizado:', updatedProfile);
 
       res.json(updatedProfile);
     } catch (err: any) {

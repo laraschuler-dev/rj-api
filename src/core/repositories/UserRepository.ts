@@ -66,7 +66,7 @@ export interface UserRepository {
 
   updateUserData(
     userId: number,
-    data: { name?: string; email?: string; phone?: string }
+    data: { name?: string; email?: string; phone?: string | null }
   ): Promise<User>;
 
   updatePassword(userId: number, newPasswordHash: string): Promise<void>;
@@ -100,4 +100,10 @@ export interface UserRepository {
    * @returns `true` se o usuário estiver excluído, caso contrário `false`.
    */
   isUserDeleted(userId: number): Promise<boolean>;
+
+  /**
+   * Verifica se um usuário existe no banco de dados.
+   * @param userId - ID do usuário.
+   * @returns `true` se o usuário existir, caso contrário `false`.
+   */
 }

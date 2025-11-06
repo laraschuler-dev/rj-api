@@ -1,5 +1,5 @@
 // src/infrastructure/services/SimpleImageService.ts
-import { Client } from 'basic-ftp';
+import { v2 as cloudinary } from 'cloudinary';
 import path from 'path';
 import fs from 'fs';
 
@@ -13,39 +13,49 @@ export class SimpleImageService {
   ];
   private static readonly MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-  // 🔐 PASTA ESPECÍFICA DO SEU SITE - NÃO ALTERE!
-  private static readonly MY_SAFE_FOLDER =
-    'public_html/redefinindojornadas/uploads';
-
-  /**
-   * Processa uploads de forma segura - apenas para produção com FTP
-   */
   static async handleProductionUpload(
     files?: Express.Multer.File[]
   ): Promise<string[]> {
-    // ⚠️ EM DESENVOLVIMENTO: retorna filename normal (comportamento atual)
-    if (process.env.NODE_ENV !== 'production' || !process.env.FTP_HOST) {
+    if (!files || files.length === 0) return [];
+
+    // Em desenvolvimento: apenas retorna os nomes
+    if (
+      process.env.NODE_ENV !== 'production' ||
+      !process.env.CLOUDINARY_CLOUD_NAME
+    ) {
       console.log('🛠️  Modo desenvolvimento - usando filenames locais');
-      return files ? files.map((file) => file.filename) : [];
+      return files.map((file) => file.filename);
     }
 
-    console.log('🚀 Modo produção - iniciando upload FTP seguro');
-    const uploadedUrls: string[] = [];
-    const filesArray = files || [];
+    console.log('🚀 Modo produção - iniciando upload Cloudinary seguro');
 
-    for (const file of filesArray) {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+
+    const uploadedUrls: string[] = [];
+
+    for (const file of files) {
       try {
-        // ✅ VALIDAÇÕES DE SEGURANÇA
         this.validateFile(file);
 
-        // 🔐 UPLOAD SEGURO PARA FTP
-        const ftpUrl = await this.uploadToFTP(file);
-        uploadedUrls.push(ftpUrl);
+        // 🔄 Copia o arquivo para /tmp antes de enviar
+        const tmpPath = await this.ensureTmpCopy(file);
 
-        console.log(`✅ Upload seguro realizado: ${ftpUrl}`);
+        const cloudinaryUrl = await this.uploadToCloudinary(tmpPath);
+        uploadedUrls.push(cloudinaryUrl);
+
+        console.log(`✅ Upload Cloudinary concluído: ${cloudinaryUrl}`);
+
+        // Apaga o arquivo temporário após o upload
+        fs.unlink(tmpPath, () => {});
       } catch (error) {
-        console.error('❌ Erro no upload FTP, usando fallback local:', error);
-        // 🔄 FALLBACK: usa filename normal (mesmo sabendo dos riscos no Render)
+        console.error(
+          '❌ Erro no upload Cloudinary, usando fallback local:',
+          error
+        );
         uploadedUrls.push(file.filename);
       }
     }
@@ -54,92 +64,74 @@ export class SimpleImageService {
   }
 
   /**
-   * 🔐 Validações de segurança rigorosas
+   * Copia o arquivo original para /tmp para garantir leitura no Render
+   */
+  private static async ensureTmpCopy(
+    file: Express.Multer.File
+  ): Promise<string> {
+    const tmpDir = '/tmp';
+    const tmpPath = path.join(tmpDir, path.basename(file.path));
+
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
+
+    await fs.promises.copyFile(file.path, tmpPath);
+    console.log(`📂 Arquivo copiado para temporário: ${tmpPath}`);
+    return tmpPath;
+  }
+
+  /**
+   * Upload seguro via caminho de arquivo
+   */
+  private static async uploadToCloudinary(filePath: string): Promise<string> {
+    console.log('📤 Enviando arquivo para Cloudinary:', filePath);
+
+    return new Promise((resolve, reject) => {
+      cloudinary.uploader.upload(
+        filePath,
+        {
+          folder: 'redefinindojornadas',
+          resource_type: 'auto',
+          quality: 'auto',
+          fetch_format: 'auto',
+        },
+        (error, result) => {
+          if (error) {
+            console.error('❌ Erro no Cloudinary:', error);
+            reject(new Error(`Falha no upload Cloudinary: ${error.message}`));
+          } else {
+            resolve(result!.secure_url);
+          }
+        }
+      );
+    });
+  }
+
+  /**
+   * Validação de segurança
    */
   private static validateFile(file: Express.Multer.File): void {
-    // Verifica extensão
     const ext = path.extname(file.originalname).toLowerCase();
     if (!this.ALLOWED_EXTENSIONS.includes(ext)) {
       throw new Error(`Tipo de arquivo não permitido: ${ext}`);
     }
-
-    // Verifica tamanho
     if (file.size > this.MAX_FILE_SIZE) {
-      throw new Error(
-        `Arquivo muito grande: ${file.size} bytes (max: ${this.MAX_FILE_SIZE})`
-      );
+      throw new Error(`Arquivo muito grande: ${file.size} bytes`);
     }
-
-    // Verifica se é imagem
     if (!file.mimetype.startsWith('image/')) {
       throw new Error('Arquivo não é uma imagem válida');
     }
-
-    // Verifica se o arquivo temporário existe
     if (!fs.existsSync(file.path)) {
       throw new Error('Arquivo temporário não encontrado');
     }
-
     console.log(
       `✅ Arquivo validado: ${file.originalname} (${file.size} bytes)`
     );
   }
 
-  /**
-   * 🔐 Upload seguro para FTP - apenas pasta específica
-   */
-  private static async uploadToFTP(file: Express.Multer.File): Promise<string> {
-    const client = new Client();
-    client.ftp.verbose = true; // 👈 Modo debug para monitoramento
-
-    try {
-      console.log('🔐 Conectando ao FTP de forma segura...');
-
-      await client.access({
-        host: process.env.FTP_HOST!,
-        user: process.env.FTP_USER!,
-        password: process.env.FTP_PASSWORD!,
-        secure: false,
-      });
-
-      console.log(
-        `✅ Conectado. Acessando pasta segura: ${this.MY_SAFE_FOLDER}`
-      );
-
-      // 🔐 NAVEGA DIRETO PARA SUA PASTA SEGURA
-      await client.ensureDir(this.MY_SAFE_FOLDER);
-
-      // 📤 UPLOAD APENAS PARA SUA PASTA
-      const remotePath = `${this.MY_SAFE_FOLDER}/${file.filename}`;
-      await client.uploadFrom(file.path, remotePath);
-
-      console.log(`✅ Upload concluído: ${remotePath}`);
-
-      // 🌐 URL específica do seu subdomínio
-      const imageUrl = `https://redefinindojornadas.infocimol.com.br/uploads/${file.filename}`;
-      console.log(`✅ URL da imagem: ${imageUrl}`);
-
-      return imageUrl;
-    } catch (error) {
-      console.error('❌ Erro detalhado no FTP:', error);
-      if (error instanceof Error) {
-        throw new Error(`Falha segura no upload FTP: ${error.message}`);
-      } else {
-        throw new Error('Falha segura no upload FTP: erro desconhecido');
-      }
-    }
-  }
-
-  /**
-   * Função auxiliar para manter compatibilidade
-   */
   static resolveImageUrl(filenameOrUrl: string): string {
-    // Se já é URL completa (vinda do FTP), usa como está
-    if (filenameOrUrl.startsWith('http')) {
-      return filenameOrUrl;
-    }
-
-    // Se é filename, monta URL local (desenvolvimento)
+    if (filenameOrUrl.startsWith('http')) return filenameOrUrl;
     const baseURL = process.env.API_URL || 'http://localhost:3000';
     return `${baseURL}/uploads/${filenameOrUrl}`;
   }

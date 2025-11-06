@@ -58,8 +58,9 @@ export interface PostRepository {
   ): Promise<{ posts: Post[]; total: number }>;
 
   getSharedPostByIdWithDetails(
-    shareId: number
-  ): Promise<PostWithAllDetails | null>;
+    shareId: number,
+    includeDeletedPosts?: boolean
+  ): Promise<any>;
 
   getPostByIdWithDetails(postId: number): Promise<PostWithAllDetails | null>;
 

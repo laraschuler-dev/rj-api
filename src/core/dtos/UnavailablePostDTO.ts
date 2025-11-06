@@ -6,8 +6,7 @@ export class UnavailablePostDTO {
     public readonly isUnavailable: boolean = true,
     public readonly reason:
       | 'ORIGINAL_POST_DELETED'
-      | 'ORIGINAL_AUTHOR_DELETED'
-      | 'SHARE_DELETED',
+      | 'ORIGINAL_AUTHOR_DELETED',
     public readonly sharedBy?: {
       shareId: number;
       postId: number;
@@ -18,7 +17,6 @@ export class UnavailablePostDTO {
       sharedAt: string;
     },
     public readonly originalAuthor?: {
-      // 👈 NOVO: informações do autor original
       id: number;
       name: string;
       avatarUrl?: string;
@@ -28,7 +26,7 @@ export class UnavailablePostDTO {
   static createForDeletedOriginal(
     shareId: number,
     sharedBy: any,
-    originalAuthor?: { id: number; name: string; avatarUrl?: string } // 👈 NOVO parâmetro
+    originalAuthor?: { id: number; name: string; avatarUrl?: string }
   ): UnavailablePostDTO {
     return new UnavailablePostDTO(
       `unavailable:${shareId}`,
@@ -36,7 +34,7 @@ export class UnavailablePostDTO {
       true,
       'ORIGINAL_POST_DELETED',
       sharedBy,
-      originalAuthor // 👈 Passa autor original
+      originalAuthor
     );
   }
 
@@ -50,7 +48,6 @@ export class UnavailablePostDTO {
       true,
       'ORIGINAL_AUTHOR_DELETED',
       sharedBy
-      // 👈 Não passa originalAuthor porque o autor foi deletado
     );
   }
 }

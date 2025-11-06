@@ -14,16 +14,10 @@ export class ContentValidationService {
    * Valida se um post compartilhado ainda está disponível
    * Retorna o post original se disponível, ou DTO de indisponível se não
    */
-  // ContentValidationService.ts - adicione logs para ver o que está acontecendo
-  // ContentValidationService.ts - método validateSharedPost (VERSÃO CORRIGIDA)
   async validateSharedPost(post: Post): Promise<Post | UnavailablePostDTO> {
     if (!post.sharedBy) {
       return post;
     }
-
-    console.log(
-      `🔍 Validando compartilhamento ${post.sharedBy.shareId} do post ${post.sharedBy.postId}`
-    );
 
     try {
       // PRIMEIRO: Busca informações do autor original (mesmo se post deletado)
@@ -31,22 +25,12 @@ export class ContentValidationService {
         post.sharedBy.postId
       );
 
-      console.log(`👤 Informações do autor original:`, originalAuthorInfo);
-
-      // SEGUNDO: Verifica se o AUTOR está deletado
       if (originalAuthorInfo) {
         const isAuthorDeleted = await this.userRepository.isUserDeleted(
           originalAuthorInfo.id
         );
-        console.log(
-          `❓ Autor ${originalAuthorInfo.id} está deletado:`,
-          isAuthorDeleted
-        );
 
         if (isAuthorDeleted) {
-          console.log(
-            `🚫 Autor ${originalAuthorInfo.id} DELETADO - marcando como ORIGINAL_AUTHOR_DELETED`
-          );
           return UnavailablePostDTO.createForDeletedAuthor(
             post.sharedBy.shareId,
             {
@@ -66,15 +50,8 @@ export class ContentValidationService {
       const originalPost = await this.postRepository.findById(
         post.sharedBy.postId
       );
-      console.log(
-        `📝 Post original ${post.sharedBy.postId} encontrado:`,
-        !!originalPost
-      );
 
       if (!originalPost) {
-        console.log(
-          `🚫 Post original ${post.sharedBy.postId} NÃO encontrado - marcando como ORIGINAL_POST_DELETED`
-        );
         return UnavailablePostDTO.createForDeletedOriginal(
           post.sharedBy.shareId,
           {
@@ -90,7 +67,6 @@ export class ContentValidationService {
         );
       }
 
-      console.log(`✅ Post compartilhado ${post.sharedBy.shareId} válido`);
       return post;
     } catch (error) {
       console.warn(
@@ -112,8 +88,7 @@ export class ContentValidationService {
       );
     }
   }
-  
-  // 👈 ADICIONE ESTE MÉTODO NO ContentValidationService
+
   private async getOriginalAuthorInfo(
     postId: number
   ): Promise<{ id: number; name: string; avatarUrl?: string } | undefined> {

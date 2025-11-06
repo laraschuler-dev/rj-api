@@ -399,16 +399,11 @@ export class PostRepositoryPrisma implements PostRepository {
     shareId: number,
     includeDeletedPosts: boolean = false
   ) {
-    console.log(
-      `🔍 getSharedPostByIdWithDetails: shareId=${shareId}, includeDeletedPosts=${includeDeletedPosts}`
-    );
-
     const shared = await prisma.post_share.findUnique({
       where: {
         id: shareId,
         deleted: false,
         user: { deleted: false },
-        // 👇 CONDICIONAL: Aplica filtro apenas se NÃO for para incluir deletados
         ...(includeDeletedPosts
           ? {}
           : {
@@ -437,27 +432,14 @@ export class PostRepositoryPrisma implements PostRepository {
       },
     });
 
-    console.log(`📋 shared encontrado:`, !!shared);
-    console.log(`📋 post encontrado:`, !!shared?.post);
-    console.log(`📋 post deletado:`, shared?.post?.deleted);
-    console.log(`📋 user do post:`, !!shared?.post?.user);
-    console.log(`📋 user deletado:`, shared?.post?.user?.deleted);
-
-    // 👇 CONDICIONAL: Verifica post apenas se NÃO for para incluir deletados
     if (!includeDeletedPosts && (!shared || !shared.post)) {
-      console.log(
-        `❌ Retornando null (includeDeletedPosts=${includeDeletedPosts})`
-      );
       return null;
     }
 
     // Se includeDeletedPosts = true, shared pode vir sem post (e isso é ok)
     if (!shared) {
-      console.log(`❌ Compartilhamento ${shareId} não encontrado`);
       return null;
     }
-
-    console.log(`✅ Compartilhamento ${shareId} válido, processando...`);
 
     const originalPostId = shared.post?.idpost || 0;
 
@@ -504,7 +486,6 @@ export class PostRepositoryPrisma implements PostRepository {
     post.comment = comment;
     post.event_attendance = event_attendance;
 
-    console.log(`✅ Detalhes processados para shareId=${shareId}`);
     return post;
   }
 
@@ -530,7 +511,6 @@ export class PostRepositoryPrisma implements PostRepository {
 
     if (!post) return null;
 
-    // 👇 ADICIONE ESTA LINHA para mapear o avatarUrl
     (post as any).user.avatarUrl =
       post.user.user_profile?.profile_photo ?? null;
 
@@ -667,18 +647,12 @@ export class PostRepositoryPrisma implements PostRepository {
   }
 
   async findPostShareById(shareId: number): Promise<post_share | null> {
-    console.log(`🔍 Buscando post_share com ID: ${shareId} (versão simples)`);
-
     try {
-      // 👇 Versão mais simples - apenas busca pelo ID sem filtros complexos
       const share = await prisma.post_share.findUnique({
         where: { id: shareId },
       });
 
-      console.log(`📋 Compartilhamento ${shareId} encontrado:`, !!share);
-
       if (!share) {
-        console.log(`❌ Compartilhamento ${shareId} não existe`);
         return null;
       }
 
@@ -704,7 +678,7 @@ export class PostRepositoryPrisma implements PostRepository {
       where: {
         idpost: postId,
         deleted: false,
-        user: { deleted: false }, // FILTRO ADICIONADO
+        user: { deleted: false },
       },
       include: {
         user: {
@@ -1029,7 +1003,6 @@ export class PostRepositoryPrisma implements PostRepository {
     });
   }
 
-  // PostRepositoryPrisma.ts - método findUserFeedItemIdsPaginated (AJUSTE SEGURO)
   private async findUserFeedItemIdsPaginated(
     userId: number,
     requestingUserId: number | undefined,
@@ -1086,8 +1059,6 @@ export class PostRepositoryPrisma implements PostRepository {
       INNER JOIN post p ON ps.post_idpost = p.idpost
       WHERE ps.user_iduser = ${userId} 
         AND ps.deleted = false
-        -- 👇 REMOVE p.deleted = false para permitir posts indisponíveis
-        -- AND p.deleted = false
         AND (
           p.metadata IS NULL 
           OR p.metadata = '{}'
@@ -1347,7 +1318,7 @@ export class PostRepositoryPrisma implements PostRepository {
         where: {
           categoria_idcategoria: categoryId,
           deleted: false,
-          user: { deleted: false }, // FILTRO ADICIONADO: apenas posts de usuários não excluídos
+          user: { deleted: false },
         },
         include: {
           user: { include: { user_profile: true } },

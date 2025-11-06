@@ -31,6 +31,8 @@ import { PostDetailsDTO } from '../../core/dtos/PostDetailsDTO';
 import { EditedPostDTO } from '../../core/dtos/EditedPostDTO';
 import { EditedSharedPostDTO } from '../../core/dtos/EditedSharedPostDTO';
 import { NotificationService } from './NotificationService';
+import { ContentValidationService } from './ContentValidationService';
+import { UnavailablePostDTO } from '../../core/dtos/UnavailablePostDTO';
 
 /**
  * Serviço responsável por gerenciar posts.
@@ -47,7 +49,8 @@ export class PostService {
   constructor(
     private readonly repository: PostRepository,
     private readonly userRepository: UserRepository,
-    private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService,
+    private readonly contentValidationService: ContentValidationService
   ) {}
 
   /**
@@ -123,6 +126,7 @@ export class PostService {
    * @param limit - Número de posts por página.
    * @returns Um objeto contendo um array de posts e o número total de posts.
    */
+  // No PostService - método listPaginatedPosts
   async listPaginatedPosts(
     page: number,
     limit: number,
@@ -137,10 +141,38 @@ export class PostService {
   }> {
     const result = await this.repository.findManyPaginated(page, limit, userId);
 
+    console.log('📦 Posts brutos do repository:', result.posts.length);
+    console.log(
+      '📦 Exemplo de post:',
+      result.posts[0]?.sharedBy ? 'SHARE' : 'ORIGINAL'
+    );
+
+    // 👇 VALIDAÇÃO DE CONTEÚDO
+    const validatedPosts = await this.contentValidationService.validatePosts(
+      result.posts
+    );
+
+    console.log('✅ Posts após validação:', validatedPosts.length);
+    console.log(
+      '✅ Posts indisponíveis:',
+      validatedPosts.filter((p) => p instanceof UnavailablePostDTO).length
+    );
+
     const validPosts = [];
 
-    for (const post of result.posts) {
+    for (const post of validatedPosts) {
       try {
+        if (post instanceof UnavailablePostDTO) {
+          console.log('🚫 Post indisponível detectado:', post.reason);
+          const unavailableDTO = PostListItemDTO.createUnavailablePost(
+            post,
+            userId
+          );
+          validPosts.push(unavailableDTO);
+          continue;
+        }
+
+        // Processamento normal...
         const author = await this.userRepository.findByIdUser(post.user_iduser);
         if (author) {
           const postDTO = PostListItemDTO.fromDomain(
@@ -180,24 +212,68 @@ export class PostService {
     return PostDetailsDTO.fromPrisma(post, userId);
   }
 
+  // PostService.ts - com logs detalhados
   async getSharedPostDetails(shareId: number, userId: number, postId: number) {
-    const post = await this.repository.findById(postId);
-    if (!post) {
-      return null;
-    }
+    console.log('=== GET SHARED POST DETAILS ===');
+    console.log(`Share ID: ${shareId}, Post ID: ${postId}, User ID: ${userId}`);
 
+    // 1. Busca compartilhamento básico
+    console.log(`1. Buscando compartilhamento ${shareId}...`);
     const share = await this.repository.findPostShareById(shareId);
-    if (!share || share.post_idpost !== postId) {
-      return null;
+    console.log(
+      `   Resultado:`,
+      share ? `Encontrado (post_id: ${share.post_idpost})` : 'Não encontrado'
+    );
+
+    if (!share) {
+      throw new Error('Compartilhamento não encontrado');
     }
 
-    const sharedDetails =
-      await this.repository.getSharedPostByIdWithDetails(shareId);
+    // 2. Verifica consistência
+    console.log(
+      `2. Verificando se share ${shareId} pertence ao post ${postId}...`
+    );
+    if (share.post_idpost !== postId) {
+      console.log(
+        `   ❌ Inconsistência: share.post_idpost=${share.post_idpost} != postId=${postId}`
+      );
+      throw new Error('Compartilhamento não pertence ao post informado');
+    }
+    console.log(`   ✅ Consistência OK`);
+
+    // 3. Busca detalhes completos
+    console.log(
+      `3. Buscando detalhes completos do compartilhamento ${shareId}...`
+    );
+    const sharedDetails = await this.repository.getSharedPostByIdWithDetails(
+      shareId,
+      true
+    );
+    console.log(
+      `   Resultado:`,
+      sharedDetails ? 'Encontrado' : 'Não encontrado'
+    );
+    console.log(
+      `   Post original nos detalhes:`,
+      sharedDetails?.post ? 'Sim' : 'Não'
+    );
+    console.log(
+      `   Post deletado:`,
+      sharedDetails?.post?.deleted ? 'Sim' : 'Não'
+    );
+
     if (!sharedDetails) {
-      return null;
+      throw new Error('Post compartilhado não encontrado');
     }
 
-    return SharedPostDetailsDTO.fromPrisma(sharedDetails, userId);
+    // 4. Converte para DTO
+    console.log(`4. Convertendo para DTO...`);
+    const result = SharedPostDetailsDTO.fromPrisma(sharedDetails, userId);
+    console.log(
+      `   ✅ Conversão OK - isUnavailable: ${result.metadata?.isUnavailable}`
+    );
+
+    return result;
   }
 
   /**
@@ -553,6 +629,7 @@ export class PostService {
     return this.repository.getAttendanceStatus({ postId, postShareId, userId });
   }
 
+  // PostService.ts - método getPostsByUser (VERSÃO SEGURA)
   async getPostsByUser(dto: GetUserPostsDTO) {
     const { userId, requestingUserId, page = 1, limit = 10 } = dto;
 
@@ -579,41 +656,71 @@ export class PostService {
       limit
     );
 
-    // 👇 CORREÇÃO: Busca o autor CORRETO para cada post
-    const postDTOs = await Promise.all(
-      posts.map(async (post) => {
-        // Para posts compartilhados, busca o autor do post ORIGINAL
-        let author = userExists;
+    console.log(`📊 Posts encontrados para usuário ${userId}:`, posts.length);
 
-        if (post.sharedBy) {
-          // É um compartilhamento - busca o autor do post original
-          const originalPost = await this.repository.findById(
-            post.sharedBy.postId
-          );
-          if (originalPost) {
-            const originalAuthor = await this.userRepository.findByIdUser(
-              originalPost.user_iduser
+    // 👇 VALIDAÇÃO DE CONTEÚDO - aplicada APÓS o processamento normal
+    const validatedPosts =
+      await this.contentValidationService.validatePosts(posts);
+
+    const postDTOs = await Promise.all(
+      validatedPosts.map(async (post) => {
+        try {
+          // 👇 Se for post indisponível, converte para DTO especial
+          if (post instanceof UnavailablePostDTO) {
+            console.log(
+              `🚫 Post indisponível detectado na listagem de usuário:`,
+              post.reason
             );
-            if (originalAuthor) {
-              author = originalAuthor;
+            const unavailableDTO = PostListItemDTO.createUnavailablePost(
+              post,
+              requestingUserId
+            );
+            return unavailableDTO;
+          }
+
+          // 👇 Processamento NORMAL para posts disponíveis (MANTÉM A LÓGICA ORIGINAL)
+          let author = userExists;
+
+          if (post.sharedBy) {
+            // É um compartilhamento - busca o autor do post original
+            const originalPost = await this.repository.findById(
+              post.sharedBy.postId
+            );
+            if (originalPost) {
+              const originalAuthor = await this.userRepository.findByIdUser(
+                originalPost.user_iduser
+              );
+              if (originalAuthor) {
+                author = originalAuthor;
+              }
             }
           }
-        }
-        // Para posts originais, mantém o userExists como autor
 
-        return PostListItemDTO.fromDomain(
-          post,
-          author, // 👈 Agora usa o autor CORRETO
-          post.images,
-          requestingUserId
-        );
+          return PostListItemDTO.fromDomain(
+            post,
+            author,
+            post.images,
+            requestingUserId
+          );
+        } catch (error) {
+          console.warn(
+            `Post ${post.id} ignorado devido a erro:`,
+            error instanceof Error ? error.message : 'Erro desconhecido'
+          );
+          return null;
+        }
       })
+    );
+
+    // Filtra posts nulos (que deram erro)
+    const validPostDTOs = postDTOs.filter(
+      (post): post is PostListItemDTO => post !== null
     );
 
     const totalPages = Math.ceil(totalCount / limit);
 
     return {
-      data: postDTOs,
+      data: validPostDTOs,
       pagination: {
         currentPage: page,
         limit,
@@ -640,7 +747,7 @@ export class PostService {
       });
 
       const sharedPostDetails =
-        await this.repository.getSharedPostByIdWithDetails(data.shareId);
+        await this.repository.getSharedPostByIdWithDetails(data.shareId, true);
       if (!sharedPostDetails)
         throw new Error('Post compartilhado não encontrado');
 

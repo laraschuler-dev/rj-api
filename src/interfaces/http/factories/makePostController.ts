@@ -7,6 +7,7 @@ import { PostController } from '../controllers/PostController';
 import { UserProfileRepositoryPrisma } from '../../../infrastructure/database/repositories/UserProfileRepositoryPrisma';
 import { NotificationRepositoryPrisma } from '../../../infrastructure/database/repositories/NotificationRepositoryPrisma';
 import { NotificationService } from '../../../application/services/NotificationService';
+import { ContentValidationService } from '../../../application/services/ContentValidationService';
 
 /**
  * Factory responsável por instanciar e injetar as dependências do PostController.
@@ -19,16 +20,21 @@ export function makePostController(): PostController {
   const userRepository = new UserRepositoryPrisma();
   const userProfileRepository = new UserProfileRepositoryPrisma();
 
-  // 👇 NOVO: Criar NotificationService
+  const contentValidationService = new ContentValidationService(
+    userRepository, 
+    postRepository
+  );
+
   const notificationRepository = new NotificationRepositoryPrisma();
   const notificationService = new NotificationService(notificationRepository);
 
-  // 👇 CORRIGIDO: Agora com 3 argumentos
   const postService = new PostService(
     postRepository,
     userRepository,
-    notificationService
+    notificationService,
+    contentValidationService
   );
+
   const postUseCases = new PostUseCases(postService);
 
   return new PostController(

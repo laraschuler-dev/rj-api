@@ -3,5 +3,10 @@
     "name": "20251105_user_social_connection",
     "updated": true,
     "description": "Criação de nova tabela para login social"
+  },
+  {
+    "name": "20251106_adiciona_novos_campos_na_tabela_user",
+    "updated": false,
+    "description": ""
   }
 ]

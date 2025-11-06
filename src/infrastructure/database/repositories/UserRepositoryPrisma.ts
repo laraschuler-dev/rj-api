@@ -4,41 +4,85 @@ import { UserRepository } from '../../../core/repositories/UserRepository';
 
 const prisma = new PrismaClient();
 
-/**
- * Implementação do repositório de usuários utilizando o Prisma.
- * Este repositório realiza operações no banco de dados relacionadas à entidade User.
- */
 export class UserRepositoryPrisma implements UserRepository {
-  /**
-   * Cria um novo usuário no banco de dados.
-   * @param user - Dados do usuário a ser criado.
-   * @returns O usuário criado.
-   */
   async create(user: User): Promise<User> {
     const createdUser = await prisma.user.create({
       data: {
         name: user.name,
-        e_mail: user.email, // Campo no banco de dados
-        passwordHash: user.password, // Campo no banco de dados
-        fone: user.phone || null, // Campo no banco de dados
+        e_mail: user.email,
+        passwordHash: user.password,
+        fone: user.phone || null,
+        emailVerified: user.emailVerified || false,
       },
     });
 
     return new User(
-      createdUser.iduser, // Campo no banco de dados
+      createdUser.iduser,
       createdUser.name,
       createdUser.e_mail,
       createdUser.passwordHash,
-      createdUser.fone
+      createdUser.fone,
+      createdUser.emailVerified || false, // ✅ VÍRGULA ADICIONADA
+      createdUser.passwordResetToken || undefined,
+      createdUser.passwordResetTokenExpiresAt,
+      createdUser.emailVerificationToken || undefined,
+      createdUser.emailVerificationTokenExpiresAt
     );
   }
 
-  /**
-   * Realiza a exclusão lógica de uma conta de usuário.
-   * @param userId - ID do usuário.
-   * @param reason - Motivo opcional para exclusão.
-   * @returns Uma promessa resolvida quando a operação for concluída.
-   */
+  async saveEmailVerificationToken(
+    userId: number,
+    token: string,
+    expiresAt: Date
+  ): Promise<void> {
+    await prisma.user.update({
+      where: { iduser: userId },
+      data: {
+        emailVerificationToken: token,
+        emailVerificationTokenExpiresAt: expiresAt,
+        emailVerified: false,
+      },
+    });
+  }
+
+  async findByEmailVerificationToken(token: string): Promise<User | null> {
+    const user = await prisma.user.findFirst({
+      where: {
+        emailVerificationToken: token,
+        emailVerificationTokenExpiresAt: {
+          gte: new Date(),
+        },
+        deleted: false,
+      },
+    });
+
+    if (!user) return null;
+
+    return new User(
+      user.iduser,
+      user.name,
+      user.e_mail,
+      user.passwordHash,
+      user.fone,
+      user.emailVerified || false, // ✅ CORRIGIDO: user.emailVerified (não foundUser)
+      user.passwordResetToken || undefined,
+      user.passwordResetTokenExpiresAt,
+      user.emailVerificationToken || undefined,
+      user.emailVerificationTokenExpiresAt
+    );
+  }
+
+  async markEmailAsVerified(userId: number): Promise<void> {
+    await prisma.user.update({
+      where: { iduser: userId },
+      data: {
+        emailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationTokenExpiresAt: null,
+      },
+    });
+  }
+
   async softDeleteUser(userId: number, reason?: string): Promise<void> {
     await prisma.user.update({
       where: { iduser: userId },
@@ -49,11 +93,6 @@ export class UserRepositoryPrisma implements UserRepository {
     });
   }
 
-  /**
-   * Verifica se um usuário está marcado como excluído.
-   * @param userId - ID do usuário.
-   * @returns `true` se o usuário estiver excluído, caso contrário `false`.
-   */
   async isUserDeleted(userId: number): Promise<boolean> {
     const user = await prisma.user.findUnique({
       where: { iduser: userId },
@@ -63,16 +102,11 @@ export class UserRepositoryPrisma implements UserRepository {
     return user?.deleted || false;
   }
 
-  /**
-   * Busca um usuário pelo e-mail ou telefone.
-   * @param emailOrPhone - E-mail ou telefone do usuário.
-   * @returns O usuário encontrado ou `null` se não existir.
-   */
   async findByEmailOrPhone(emailOrPhone: string): Promise<User | null> {
     const foundUser = await prisma.user.findFirst({
       where: {
         OR: [{ e_mail: emailOrPhone }, { fone: emailOrPhone }],
-        deleted: false, // Apenas usuários não excluídos
+        deleted: false,
       },
     });
 
@@ -85,20 +119,20 @@ export class UserRepositoryPrisma implements UserRepository {
       foundUser.name,
       foundUser.e_mail,
       foundUser.passwordHash,
-      foundUser.fone
+      foundUser.fone,
+      foundUser.emailVerified || false, // ✅ VÍRGULA ADICIONADA
+      foundUser.passwordResetToken || undefined,
+      foundUser.passwordResetTokenExpiresAt,
+      foundUser.emailVerificationToken || undefined,
+      foundUser.emailVerificationTokenExpiresAt
     );
   }
 
-  /**
-   * Busca um usuário pelo ID.
-   * @param id - ID do usuário.
-   * @returns O usuário encontrado ou `null` se não existir.
-   */
   async findByIdUser(id: number): Promise<User | null> {
     const foundUser = await prisma.user.findUnique({
       where: {
         iduser: id,
-        deleted: false, // Apenas usuários não excluídos (CORREÇÃO AQUI)
+        deleted: false,
       },
     });
 
@@ -111,20 +145,20 @@ export class UserRepositoryPrisma implements UserRepository {
       foundUser.name,
       foundUser.e_mail,
       foundUser.passwordHash,
-      foundUser.fone
+      foundUser.fone,
+      foundUser.emailVerified || false, // ✅ VÍRGULA ADICIONADA
+      foundUser.passwordResetToken || undefined,
+      foundUser.passwordResetTokenExpiresAt,
+      foundUser.emailVerificationToken || undefined,
+      foundUser.emailVerificationTokenExpiresAt
     );
   }
 
-  /**
-   * Busca um usuário pelo e-mail.
-   * @param email - E-mail do usuário.
-   * @returns O usuário encontrado ou `null` se não existir.
-   */
   async findByEmail(email: string): Promise<User | null> {
     const foundUser = await prisma.user.findUnique({
       where: {
         e_mail: email,
-        deleted: false, // Apenas usuários não excluídos (CORREÇÃO AQUI)
+        deleted: false,
       },
     });
 
@@ -137,17 +171,15 @@ export class UserRepositoryPrisma implements UserRepository {
       foundUser.name,
       foundUser.e_mail,
       foundUser.passwordHash,
-      foundUser.fone
+      foundUser.fone,
+      foundUser.emailVerified || false, // ✅ VÍRGULA ADICIONADA
+      foundUser.passwordResetToken || undefined,
+      foundUser.passwordResetTokenExpiresAt,
+      foundUser.emailVerificationToken || undefined,
+      foundUser.emailVerificationTokenExpiresAt
     );
   }
 
-  /**
-   * Salva o token de recuperação de senha para um usuário.
-   * @param userId - ID do usuário.
-   * @param token - Token de recuperação de senha.
-   * @param expiresAt - Data de expiração do token.
-   * @returns Uma promessa resolvida quando o token for salvo.
-   */
   async savePasswordResetToken(
     userId: number,
     token: string,
@@ -162,11 +194,6 @@ export class UserRepositoryPrisma implements UserRepository {
     });
   }
 
-  /**
-   * Busca um usuário pelo token de recuperação de senha.
-   * @param token - Token de recuperação de senha.
-   * @returns O usuário encontrado ou `null` se não existir.
-   */
   async findByPasswordResetToken(token: string): Promise<User | null> {
     const user = await prisma.user.findFirst({
       where: {
@@ -174,30 +201,26 @@ export class UserRepositoryPrisma implements UserRepository {
         passwordResetTokenExpiresAt: {
           gte: new Date(),
         },
-        deleted: false, // Apenas usuários não excluídos (ADICIONADO)
+        deleted: false,
       },
     });
 
     if (!user) return null;
 
-    return {
-      ...new User(
-        user.iduser,
-        user.name,
-        user.e_mail,
-        user.passwordHash,
-        user.fone
-      ),
-      passwordResetTokenExpiresAt: user.passwordResetTokenExpiresAt, // Campo adicional
-    };
+    return new User(
+      user.iduser,
+      user.name,
+      user.e_mail,
+      user.passwordHash,
+      user.fone,
+      user.emailVerified || false, // ✅ ADICIONADO
+      user.passwordResetToken || undefined,
+      user.passwordResetTokenExpiresAt,
+      user.emailVerificationToken || undefined,
+      user.emailVerificationTokenExpiresAt
+    );
   }
 
-  /**
-   * Atualiza a senha de um usuário e remove o token de recuperação.
-   * @param userId - ID do usuário.
-   * @param newPasswordHash - Nova senha criptografada.
-   * @returns Uma promessa resolvida quando a operação for concluída.
-   */
   async updatePasswordAndClearResetToken(
     userId: number,
     newPasswordHash: string
@@ -230,7 +253,12 @@ export class UserRepositoryPrisma implements UserRepository {
       updatedUser.name,
       updatedUser.e_mail,
       updatedUser.passwordHash,
-      updatedUser.fone
+      updatedUser.fone,
+      updatedUser.emailVerified || false, // ✅ ADICIONADO
+      updatedUser.passwordResetToken || undefined,
+      updatedUser.passwordResetTokenExpiresAt,
+      updatedUser.emailVerificationToken || undefined,
+      updatedUser.emailVerificationTokenExpiresAt
     );
   }
 
@@ -241,7 +269,6 @@ export class UserRepositoryPrisma implements UserRepository {
     });
   }
 
-  // Versão com busca mais inteligente
   async searchUsers(
     searchTerm: string,
     page: number,
@@ -265,7 +292,7 @@ export class UserRepositoryPrisma implements UserRepository {
             { name: { startsWith: searchTerm } },
             { name: { contains: searchTerm } },
           ],
-          deleted: false, // Apenas usuários não excluídos (ADICIONADO)
+          deleted: false,
         },
         include: {
           user_profile: {
@@ -286,7 +313,7 @@ export class UserRepositoryPrisma implements UserRepository {
             { name: { startsWith: searchTerm } },
             { name: { contains: searchTerm } },
           ],
-          deleted: false, // Apenas usuários não excluídos (ADICIONADO)
+          deleted: false,
         },
       }),
     ]);

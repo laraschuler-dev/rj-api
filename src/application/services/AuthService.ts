@@ -16,6 +16,7 @@ import { DeleteAccountDTO } from '../../core/dtos/DeleteAccountDTO';
 import { OAuth2Client } from 'google-auth-library';
 import { UserSocialConnectionRepository } from '../../core/repositories/UserSocialConnectionRepository';
 import { UserSocialConnection } from '../../core/entities/UserSocialConnection';
+import { EmailVerificationService } from './EmailVerificationService';
 
 /**
  * Serviço responsável por autenticação e gerenciamento de usuários.
@@ -35,6 +36,7 @@ export class AuthService {
     private userRepository: UserRepository,
     private passwordRecoveryService: PasswordRecoveryService,
     private userSocialConnectionRepository: UserSocialConnectionRepository,
+    private emailVerificationService: EmailVerificationService,
     jwtSecret: string
   ) {
     this.jwtSecret = jwtSecret;
@@ -92,12 +94,33 @@ export class AuthService {
     );
     const createdUser = await this.userRepository.create(newUser);
 
+    this.emailVerificationService.sendVerificationEmail(createdUser.email)
+      .catch(error => {
+        console.error('Erro ao enviar e-mail de verificação:', error);
+        // Não falha o registro se o e-mail não for enviado
+      });
+
     return {
       id: createdUser.id,
       name: createdUser.name,
       email: createdUser.email,
       phone: createdUser.phone,
     };
+  }
+
+  async verifyEmail(token: string): Promise<void> {
+    await this.emailVerificationService.confirmEmail(token);
+  }
+
+  // Método para reenviar verificação
+  async sendNewVerificationEmail(email: string): Promise<void> {
+    await this.emailVerificationService.sendNewVerificationEmail(email);
+  }
+
+  // Método para verificar status
+  async getEmailVerificationStatus(userId: number): Promise<{ verified: boolean }> {
+    const verified = await this.emailVerificationService.isEmailVerified(userId);
+    return { verified };
   }
 
   /**

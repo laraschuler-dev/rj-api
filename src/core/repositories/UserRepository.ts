@@ -101,9 +101,13 @@ export interface UserRepository {
    */
   isUserDeleted(userId: number): Promise<boolean>;
 
-  /**
-   * Verifica se um usuário existe no banco de dados.
-   * @param userId - ID do usuário.
-   * @returns `true` se o usuário existir, caso contrário `false`.
-   */
+  saveEmailVerificationToken(
+    userId: number,
+    token: string,
+    expiresAt: Date
+  ): Promise<void>;
+
+  findByEmailVerificationToken(token: string): Promise<User | null>;
+  
+  markEmailAsVerified(userId: number): Promise<void>;
 }

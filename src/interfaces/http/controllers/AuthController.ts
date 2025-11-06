@@ -24,6 +24,9 @@ export class AuthController {
     this.getSocialConnections = this.getSocialConnections.bind(this);
     this.unlinkGoogleAccount = this.unlinkGoogleAccount.bind(this);
     this.linkGoogleAccount = this.linkGoogleAccount.bind(this);
+    this.verifyEmail = this.verifyEmail.bind(this);
+    this.resendVerification = this.resendVerification.bind(this);
+    this.getVerificationStatus = this.getVerificationStatus.bind(this);
   }
 
   /**
@@ -41,6 +44,41 @@ export class AuthController {
       const errorMessage =
         err instanceof Error ? err.message : 'An unknown error occurred';
       res.status(400).json({ error: errorMessage });
+    }
+  }
+
+  async verifyEmail(req: Request, res: Response): Promise<void> {
+    try {
+      const { token } = req.body;
+      await this.authUseCases.verifyEmail(token);
+      res.status(200).json({ message: 'E-mail verificado com sucesso!' });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  async resendVerification(req: Request, res: Response): Promise<void> {
+    try {
+      const { email } = req.body;
+      await this.authUseCases.sendNewVerificationEmail(email);
+      res.status(200).json({ message: 'E-mail de verificação reenviado!' });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  async getVerificationStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ error: 'Usuário não autenticado' });
+        return;
+      }
+
+      const status = await this.authUseCases.getEmailVerificationStatus(userId);
+      res.status(200).json(status);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
     }
   }
 

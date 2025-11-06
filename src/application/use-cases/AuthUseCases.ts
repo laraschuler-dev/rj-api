@@ -29,6 +29,18 @@ export class AuthUseCases {
     return this.authService.register(data);
   }
 
+  async verifyEmail(token: string): Promise<void> {
+    await this.authService.verifyEmail(token);
+  }
+
+  async sendNewVerificationEmail(email: string): Promise<void> {
+    await this.authService.sendNewVerificationEmail(email);
+  }
+
+  async getEmailVerificationStatus(userId: number): Promise<{ verified: boolean }> {
+    return await this.authService.getEmailVerificationStatus(userId);
+  }
+
   /**
    * Realiza o login de um usuário.
    * @param data - Dados de login (e-mail ou telefone e senha).

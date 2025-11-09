@@ -46,6 +46,54 @@ const router = express.Router();
 router.post('/users', authController.register);
 
 /**
+ * @swagger
+ * /auth/verify-email:
+ *   post:
+ *     summary: Verifica o e-mail do usuário
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               token:
+ *                 type: string
+ *             required:
+ *               - token
+ *     responses:
+ *       200:
+ *         description: E-mail verificado com sucesso
+ *       400:
+ *         description: Token inválido ou expirado
+ */
+router.post('/verify-email', authController.verifyEmail);
+
+/**
+ * @swagger
+ * /auth/resend-verification:
+ *   post:
+ *     summary: Reenvia o e-mail de verificação
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *             required:
+ *               - email
+ *     responses:
+ *       200:
+ *         description: E-mail de verificação reenviado
+ *       400:
+ *         description: Erro ao reenviar e-mail
+ */
+router.post('/resend-verification', authController.sendNewVerificationEmail);
+
+/**
  * Rota para realizar login.
  * @swagger
  * /auth/session:

@@ -77,6 +77,9 @@ model user {
   passwordResetTokenExpiresAt              DateTime?                @db.DateTime(0)
   deleted                                  Boolean?                 @default(false)
   deletedAt                                DateTime?                @db.DateTime(0)
+  emailVerified                            Boolean?                 @default(false)
+  emailVerificationToken                   String?                  @db.VarChar(255)
+  emailVerificationTokenExpiresAt          DateTime?                @db.DateTime(0)
   comment                                  comment[]
   event_attendance                         event_attendance[]
   notification_notification_actor_idTouser notification[]           @relation("notification_actor_idTouser")

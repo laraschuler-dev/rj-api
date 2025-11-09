@@ -94,8 +94,9 @@ export class AuthService {
     );
     const createdUser = await this.userRepository.create(newUser);
 
-    this.emailVerificationService.sendVerificationEmail(createdUser.email)
-      .catch(error => {
+    this.emailVerificationService
+      .sendVerificationEmail(createdUser.email)
+      .catch((error) => {
         console.error('Erro ao enviar e-mail de verificação:', error);
         // Não falha o registro se o e-mail não for enviado
       });
@@ -109,18 +110,22 @@ export class AuthService {
   }
 
   async verifyEmail(token: string): Promise<void> {
-    await this.emailVerificationService.confirmEmail(token);
+    try {
+      await this.emailVerificationService.confirmEmail(token);
+    } catch (error: any) {
+      if (error.message.includes('expirado')) {
+        throw new Error('Link de verificação expirado. Solicite um novo.');
+      }
+      if (error.message.includes('inválido')) {
+        throw new Error('Link de verificação inválido.');
+      }
+      throw error;
+    }
   }
 
   // Método para reenviar verificação
   async sendNewVerificationEmail(email: string): Promise<void> {
     await this.emailVerificationService.sendNewVerificationEmail(email);
-  }
-
-  // Método para verificar status
-  async getEmailVerificationStatus(userId: number): Promise<{ verified: boolean }> {
-    const verified = await this.emailVerificationService.isEmailVerified(userId);
-    return { verified };
   }
 
   /**
@@ -180,13 +185,20 @@ export class AuthService {
     const { emailOrPhone, password } = data;
     const sanitizedInput = emailOrPhone.trim().replace(/\D/g, '');
 
-    // Busca o usuário pelo e-mail ou telefone
+    // Busca o usuário
     const user =
       (await this.userRepository.findByEmailOrPhone(emailOrPhone)) ||
       (await this.userRepository.findByEmailOrPhone(sanitizedInput));
 
     if (!user) {
       throw new Error('Usuário não encontrado');
+    }
+
+    // ✅ VALIDAÇÃO INTELIGENTE PARA USUÁRIOS LEGADOS
+    // Se emailVerified é NULL ou TRUE → permite acesso (usuários legados)
+    // Se emailVerified é FALSE → bloqueia (novos usuários)
+    if (user.emailVerified === false) {
+      throw new Error('E-mail não verificado. Verifique sua caixa de entrada.');
     }
 
     // Verifica a senha
@@ -645,7 +657,7 @@ export class AuthService {
       throw error;
     }
   }
-  
+
   async updatePassword(userId: number, dto: UpdatePasswordDTO): Promise<void> {
     const user = await this.userRepository.findByIdUser(userId);
     if (!user) throw new Error('Usuário não encontrado.');

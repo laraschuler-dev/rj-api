@@ -5,8 +5,13 @@
     "description": "Criação de nova tabela para login social"
   },
   {
-    "name": "20251106_adiciona_novos_campos_na_tabela_user",
-    "updated": false,
-    "description": ""
+    "name": "20251106",
+    "updated": true,
+    "description": "Adiciona novos campos na tabela user"
+  },
+  {
+    "name": "20251109",
+    "updated": true,
+    "description": "Marca TODOS os usuários existentes como verificados"
   }
 ]

@@ -29,16 +29,24 @@ export class AuthUseCases {
     return this.authService.register(data);
   }
 
+  
+  /**
+   * Verifica um e-mail com base em um token de verificação.
+   * @param token - Token de verificação.
+   * @throws Erro caso o token seja inválido ou expirado.
+   */
   async verifyEmail(token: string): Promise<void> {
     await this.authService.verifyEmail(token);
   }
 
+  /**
+   * Envia um novo e-mail de verificação para o usuário.
+   * @param email - E-mail do usuário para quem o e-mail será enviado.
+   * @returns Nenhum valor é retornado.
+   * @throws Erro caso o e-mail seja inválido ou o serviço de e-mail esteja indisponível.
+   */
   async sendNewVerificationEmail(email: string): Promise<void> {
     await this.authService.sendNewVerificationEmail(email);
-  }
-
-  async getEmailVerificationStatus(userId: number): Promise<{ verified: boolean }> {
-    return await this.authService.getEmailVerificationStatus(userId);
   }
 
   /**

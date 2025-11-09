@@ -91,29 +91,7 @@ router.post('/verify-email', authController.verifyEmail);
  *       400:
  *         description: Erro ao reenviar e-mail
  */
-router.post('/resend-verification', authController.resendVerification);
-
-/**
- * @swagger
- * /auth/verification-status:
- *   get:
- *     summary: Obtém o status de verificação do e-mail
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Status obtido com sucesso
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 verified:
- *                   type: boolean
- *       401:
- *         description: Não autenticado
- */
-router.get('/verification-status', ensureAuthenticated, authController.getVerificationStatus);
+router.post('/resend-verification', authController.sendNewVerificationEmail);
 
 /**
  * Rota para realizar login.

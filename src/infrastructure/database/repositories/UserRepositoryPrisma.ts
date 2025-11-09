@@ -22,7 +22,7 @@ export class UserRepositoryPrisma implements UserRepository {
       createdUser.e_mail,
       createdUser.passwordHash,
       createdUser.fone,
-      createdUser.emailVerified || false, // ✅ VÍRGULA ADICIONADA
+      createdUser.emailVerified || false,
       createdUser.passwordResetToken || undefined,
       createdUser.passwordResetTokenExpiresAt,
       createdUser.emailVerificationToken || undefined,
@@ -64,7 +64,7 @@ export class UserRepositoryPrisma implements UserRepository {
       user.e_mail,
       user.passwordHash,
       user.fone,
-      user.emailVerified || false, // ✅ CORRIGIDO: user.emailVerified (não foundUser)
+      user.emailVerified || false,
       user.passwordResetToken || undefined,
       user.passwordResetTokenExpiresAt,
       user.emailVerificationToken || undefined,

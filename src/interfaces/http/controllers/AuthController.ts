@@ -25,8 +25,7 @@ export class AuthController {
     this.unlinkGoogleAccount = this.unlinkGoogleAccount.bind(this);
     this.linkGoogleAccount = this.linkGoogleAccount.bind(this);
     this.verifyEmail = this.verifyEmail.bind(this);
-    this.resendVerification = this.resendVerification.bind(this);
-    this.getVerificationStatus = this.getVerificationStatus.bind(this);
+    this.sendNewVerificationEmail = this.sendNewVerificationEmail.bind(this);
   }
 
   /**
@@ -53,30 +52,27 @@ export class AuthController {
       await this.authUseCases.verifyEmail(token);
       res.status(200).json({ message: 'E-mail verificado com sucesso!' });
     } catch (err: any) {
-      res.status(400).json({ error: err.message });
+      if (err.message.includes('expirado')) {
+        res.status(400).json({
+          error: err.message,
+          code: 'TOKEN_EXPIRED',
+        });
+      } else if (err.message.includes('inválido')) {
+        res.status(400).json({
+          error: err.message,
+          code: 'TOKEN_INVALID',
+        });
+      } else {
+        res.status(400).json({ error: err.message });
+      }
     }
   }
 
-  async resendVerification(req: Request, res: Response): Promise<void> {
+  async sendNewVerificationEmail(req: Request, res: Response): Promise<void> {
     try {
       const { email } = req.body;
       await this.authUseCases.sendNewVerificationEmail(email);
       res.status(200).json({ message: 'E-mail de verificação reenviado!' });
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
-  }
-
-  async getVerificationStatus(req: Request, res: Response): Promise<void> {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        res.status(401).json({ error: 'Usuário não autenticado' });
-        return;
-      }
-
-      const status = await this.authUseCases.getEmailVerificationStatus(userId);
-      res.status(200).json(status);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
     }
@@ -233,7 +229,6 @@ export class AuthController {
    */
   async loginWithGoogle(req: Request, res: Response): Promise<void> {
     try {
-
       if (!req.body.idToken) {
         res.status(400).json({ error: 'Token do Google é obrigatório' });
         return;
@@ -403,9 +398,7 @@ export class AuthController {
         return;
       }
 
-
       const connections = await this.authUseCases.getSocialConnections(userId);
-
 
       res.status(200).json(connections);
     } catch (err: any) {

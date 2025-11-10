@@ -4,18 +4,22 @@ import { UserRepository } from '../../core/repositories/UserRepository';
 import { UpdateUserProfileDTO } from '../../core/dtos/userProfile/UpdateUserProfileDTO';
 import { PublicUserProfileDTO } from '../../core/dtos/userProfile/PublicUserProfileDTO';
 import { GetPublicUserProfileUseCase } from '../use-cases/userProfile/GetUserProfileUseCase';
+import { GetFollowStatsUseCase } from '../use-cases/follow/GetFollowStatsUseCase'; // NOVO
 
 export class UserProfileService {
   private getPublicUserProfileUseCase: GetPublicUserProfileUseCase;
+  private getFollowStatsUseCase: GetFollowStatsUseCase; // NOVO
 
   constructor(
     private userProfileRepository: UserProfileRepository,
-    private userRepository: UserRepository
+    private userRepository: UserRepository,
+    getFollowStatsUseCase: GetFollowStatsUseCase // NOVO - injetar via construtor
   ) {
     this.getPublicUserProfileUseCase = new GetPublicUserProfileUseCase(
       userProfileRepository,
       userRepository
     );
+    this.getFollowStatsUseCase = getFollowStatsUseCase; // NOVO
   }
 
   private translateProfileType(type: string | undefined): string {
@@ -37,12 +41,17 @@ export class UserProfileService {
     if (!user) return null;
 
     const userProfile = await this.userProfileRepository.findByUserId(userId);
+    const followStats = await this.getFollowStatsUseCase.execute(
+      userId,
+      userId
+    ); // NOVO
 
     return {
       id: user.iduser,
       name: user.name,
       email: user.email,
       fone: user.phone,
+      followStats, // NOVO
       profile: {
         ...userProfile,
         translated_type: this.translateProfileType(userProfile?.profile_type),
@@ -51,7 +60,18 @@ export class UserProfileService {
   }
 
   async getPublicProfile(userId: number): Promise<PublicUserProfileDTO | null> {
-    return this.getPublicUserProfileUseCase.execute(userId);
+    const publicProfile =
+      await this.getPublicUserProfileUseCase.execute(userId);
+
+    if (!publicProfile) return null;
+
+    // NOVO: Adicionar estatísticas de follow ao perfil público
+    const followStats = await this.getFollowStatsUseCase.execute(userId);
+
+    return new PublicUserProfileDTO(publicProfile.id, publicProfile.name, {
+      ...publicProfile.profile,
+      followStats, // NOVO
+    });
   }
 
   async updateProfile(userId: number, dto: UpdateUserProfileDTO): Promise<any> {

@@ -66,31 +66,31 @@ model post {
 }
 
 model user {
-  iduser                                     Int                      @id @unique(map: "iduser_UNIQUE") @default(autoincrement()) @db.UnsignedInt
-  name                                       String                   @db.VarChar(45)
-  e_mail                                     String                   @unique(map: "e_mail") @db.VarChar(60)
-  passwordHash                               String                   @db.VarChar(255)
-  fone                                       String?                  @unique(map: "unique_fone") @db.VarChar(12)
-  createdAt                                  DateTime                 @default(now()) @db.DateTime(0)
-  updatedAt                                  DateTime                 @default(now()) @db.DateTime(0)
-  passwordResetToken                         String?                  @db.VarChar(255)
-  passwordResetTokenExpiresAt                DateTime?                @db.DateTime(0)
-  deleted                                    Boolean?                 @default(false)
-  deletedAt                                  DateTime?                @db.DateTime(0)
-  emailVerified                              Boolean?                 @default(false)
-  emailVerificationToken                     String?                  @db.VarChar(255)
-  emailVerificationTokenExpiresAt            DateTime?                @db.DateTime(0)
-  comment                                    comment[]
-  event_attendance                           event_attendance[]
-  notification_notification_actor_idTouser   notification[]           @relation("notification_actor_idTouser")
-  notification_notification_user_idTouser    notification[]           @relation("notification_user_idTouser")
-  post                                       post[]
-  post_share                                 post_share[]
-  followers  user_follow[] @relation("user_follow_follower")
-  following  user_follow[] @relation("user_follow_following")
-  user_like                                  user_like[]
-  user_profile                               user_profile?
-  user_social_connection                     user_social_connection[]
+  iduser                                   Int                      @id @unique(map: "iduser_UNIQUE") @default(autoincrement()) @db.UnsignedInt
+  name                                     String                   @db.VarChar(45)
+  e_mail                                   String                   @unique(map: "e_mail") @db.VarChar(60)
+  passwordHash                             String                   @db.VarChar(255)
+  fone                                     String?                  @unique(map: "unique_fone") @db.VarChar(12)
+  createdAt                                DateTime                 @default(now()) @db.DateTime(0)
+  updatedAt                                DateTime                 @default(now()) @db.DateTime(0)
+  passwordResetToken                       String?                  @db.VarChar(255)
+  passwordResetTokenExpiresAt              DateTime?                @db.DateTime(0)
+  deleted                                  Boolean?                 @default(false)
+  deletedAt                                DateTime?                @db.DateTime(0)
+  emailVerified                            Boolean?                 @default(false)
+  emailVerificationToken                   String?                  @db.VarChar(255)
+  emailVerificationTokenExpiresAt          DateTime?                @db.DateTime(0)
+  comment                                  comment[]
+  event_attendance                         event_attendance[]
+  notification_notification_actor_idTouser notification[]           @relation("notification_actor_idTouser")
+  notification_notification_user_idTouser  notification[]           @relation("notification_user_idTouser")
+  post                                     post[]
+  post_share                               post_share[]
+  followers                                user_follow[]            @relation("user_follow_follower")
+  following                                user_follow[]            @relation("user_follow_following")
+  user_like                                user_like[]
+  user_profile                             user_profile?
+  user_social_connection                   user_social_connection[]
 }
 
 model user_like {
@@ -162,14 +162,14 @@ model notification {
   user_id                          Int               @db.UnsignedInt
   actor_id                         Int               @db.UnsignedInt
   type                             notification_type
-  post_id                          Int               @db.UnsignedInt
+  post_id                          Int?              @db.UnsignedInt
   post_share_id                    Int?              @db.UnsignedInt
   comment_id                       Int?              @db.UnsignedInt
   is_read                          Boolean?          @default(false)
   created_at                       DateTime?         @default(now()) @db.DateTime(0)
   user_notification_actor_idTouser user              @relation("notification_actor_idTouser", fields: [actor_id], references: [iduser], onDelete: Cascade, map: "fk_notification_actor")
   comment                          comment?          @relation(fields: [comment_id], references: [idcomment], onDelete: Cascade, map: "fk_notification_comment")
-  post                             post              @relation(fields: [post_id], references: [idpost], onDelete: Cascade, map: "fk_notification_post")
+  post                             post?             @relation(fields: [post_id], references: [idpost], onDelete: Cascade, onUpdate: NoAction, map: "fk_notification_post")
   post_share                       post_share?       @relation(fields: [post_share_id], references: [id], onDelete: Cascade, map: "fk_notification_post_share")
   user_notification_user_idTouser  user              @relation("notification_user_idTouser", fields: [user_id], references: [iduser], onDelete: Cascade, map: "fk_notification_user")
 
@@ -196,12 +196,13 @@ model user_social_connection {
 }
 
 model user_follow {
-  id                                  Int      @id @default(autoincrement()) @db.UnsignedInt
-  follower_id                         Int      @db.UnsignedInt
-  following_id                        Int      @db.UnsignedInt
-  created_at                          DateTime @default(now()) @db.DateTime(0)
-  follower user @relation("user_follow_follower", fields: [follower_id], references: [iduser], onDelete: Cascade)
-  following user @relation("user_follow_following", fields: [following_id], references: [iduser], onDelete: Cascade)
+  id           Int      @id @default(autoincrement()) @db.UnsignedInt
+  follower_id  Int      @db.UnsignedInt
+  following_id Int      @db.UnsignedInt
+  created_at   DateTime @default(now()) @db.DateTime(0)
+  follower     user     @relation("user_follow_follower", fields: [follower_id], references: [iduser], onDelete: Cascade)
+  following    user     @relation("user_follow_following", fields: [following_id], references: [iduser], onDelete: Cascade)
+
   @@unique([follower_id, following_id], map: "unique_follow_relationship")
   @@index([created_at], map: "idx_created_at")
   @@index([follower_id], map: "idx_follower")
@@ -223,6 +224,7 @@ enum event_attendance_status {
 enum notification_type {
   LIKE
   COMMENT
-  EVENT_ATTENDANCE
   SHARE
+  EVENT_ATTENDANCE
+  FOLLOW
 }

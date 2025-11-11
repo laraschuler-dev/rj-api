@@ -11,7 +11,7 @@ export class NotificationRepositoryPrisma implements NotificationRepository {
         user_id: data.user_id,
         actor_id: data.actor_id,
         type: data.type,
-        post_id: data.post_id,
+        post_id: data.post_id || null,
         post_share_id: data.post_share_id || null,
         comment_id: data.comment_id || null,
       },

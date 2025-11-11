@@ -3,7 +3,8 @@ export type NotificationType =
   | 'LIKE'
   | 'COMMENT'
   | 'EVENT_ATTENDANCE'
-  | 'SHARE';
+  | 'SHARE'
+  | 'FOLLOW';
 
 export class Notification {
   constructor(
@@ -11,7 +12,7 @@ export class Notification {
     public readonly user_id: number,
     public readonly actor_id: number,
     public readonly type: NotificationType,
-    public readonly post_id: number,
+    public readonly post_id: number | null,
     public readonly post_share_id: number | null,
     public readonly comment_id: number | null,
     public readonly is_read: boolean,

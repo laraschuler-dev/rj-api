@@ -1,5 +1,4 @@
 // src/application/use-cases/notification/GetNotificationsUseCase.ts
-
 import { NotificationDTO } from '../../../core/dtos/notification/NotificationDTO';
 import { NotificationRepository } from '../../../core/repositories/NotificationRepository';
 
@@ -23,8 +22,6 @@ export class GetNotificationsUseCase {
   }
 
   private toDTO(notification: any): NotificationDTO {
-
-    // Tentar diferentes caminhos para encontrar o actor
     const actorUser =
       notification.user_notification_actor_idTouser || notification.actor;
 
@@ -32,8 +29,10 @@ export class GetNotificationsUseCase {
     let postPreview = undefined;
 
     if (actorUser) {
-      // Gerar mensagem baseada no tipo
       switch (notification.type) {
+        case 'FOLLOW':
+          message = `${actorUser.name} começou a seguir você`;
+          break;
         case 'LIKE':
           message = `${actorUser.name} curtiu seu post`;
           break;
@@ -46,13 +45,15 @@ export class GetNotificationsUseCase {
         case 'SHARE':
           message = `${actorUser.name} compartilhou seu post`;
           break;
+        default:
+          message = 'Nova notificação';
       }
     } else {
-      message = 'Alguém interagiu com seu post';
+      message = 'Alguém interagiu com você';
     }
 
-    // Preparar preview do post se existir
-    if (notification.post) {
+    // ✅ SÓ MOSTRAR PREVIEW DO POST SE EXISTIR E NÃO FOR FOLLOW
+    if (notification.type !== 'FOLLOW' && notification.post) {
       const contentPreview =
         notification.post.content.length > 50
           ? notification.post.content.substring(0, 50) + '...'

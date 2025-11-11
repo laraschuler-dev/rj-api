@@ -46,6 +46,13 @@ export class UserProfileController {
         return;
       }
 
+      // ✅ Log para debug - verifique se o ID está presente
+      console.log('Public Profile Response:', {
+        id: publicProfile.id,
+        name: publicProfile.name,
+        profile: publicProfile.profile,
+      });
+
       res.json(publicProfile);
     } catch (err: any) {
       res
@@ -53,7 +60,6 @@ export class UserProfileController {
         .json({ error: err.message || 'Erro ao buscar perfil público.' });
     }
   }
-
   async updateProfile(req: Request, res: Response): Promise<void> {
     try {
       if (!req.user || !req.user.id) {

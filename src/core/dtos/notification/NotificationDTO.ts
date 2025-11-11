@@ -11,7 +11,7 @@ export class NotificationDTO {
       avatar_url?: string | null;
     },
     public readonly post?: {
-      id: number;
+      id: number | null;
       content_preview: string;
       image?: string;
     },

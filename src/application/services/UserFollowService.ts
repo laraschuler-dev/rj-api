@@ -1,5 +1,5 @@
 // src/application/services/UserFollowService.ts
-
+// src/application/services/UserFollowService.ts
 import { CreateFollowDTO } from '../../core/dtos/follow/CreateFollowDTO';
 import { FollowResponseDTO } from '../../core/dtos/follow/FollowResponseDTO';
 import { UserFollowerInfoDTO } from '../../core/dtos/follow/UserFollowerInfoDTO';
@@ -10,6 +10,7 @@ import { CheckIsFollowingUseCase } from '../use-cases/follow/CheckIsFollowingUse
 import { GetFollowStatsUseCase } from '../use-cases/follow/GetFollowStatsUseCase';
 import { GetFollowingUseCase } from '../use-cases/follow/GetFollowingUseCase';
 import { GetFollowersUseCase } from '../use-cases/follow/GetFollowersUseCase';
+import { NotificationService } from './NotificationService'; // NOVO IMPORT
 
 export class UserFollowService {
   private createFollowUseCase: CreateFollowUseCase;
@@ -25,7 +26,8 @@ export class UserFollowService {
     getFollowersUseCase: GetFollowersUseCase,
     getFollowingUseCase: GetFollowingUseCase,
     getFollowStatsUseCase: GetFollowStatsUseCase,
-    checkIsFollowingUseCase: CheckIsFollowingUseCase
+    checkIsFollowingUseCase: CheckIsFollowingUseCase,
+    private notificationService: NotificationService // INJETAR NotificationService
   ) {
     this.createFollowUseCase = createFollowUseCase;
     this.deleteFollowUseCase = deleteFollowUseCase;

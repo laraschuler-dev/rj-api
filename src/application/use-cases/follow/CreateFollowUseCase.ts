@@ -1,7 +1,9 @@
+import { NotificationRepositoryPrisma } from '../../../infrastructure/database/repositories/NotificationRepositoryPrisma';
 import { FollowResponseDTO } from '../../../core/dtos/follow/CreateFollowDTO';
 import { CreateFollowDTO } from '../../../core/dtos/follow/CreateFollowDTO';
 import { UserFollowRepository } from '../../../core/repositories/UserFollowRepository';
 import { UserRepository } from '../../../core/repositories/UserRepository';
+import { NotificationService } from '../../../application/services/NotificationService';
 
 // src/core/useCases/follow/CreateFollowUseCase.ts
 export class CreateFollowUseCase {
@@ -54,6 +56,8 @@ export class CreateFollowUseCase {
       data.followingId
     );
 
+    await this.createFollowNotification(followerId, data.followingId);
+
     return {
       id: follow.id,
       followerId: follow.followerId,
@@ -67,5 +71,35 @@ export class CreateFollowUseCase {
           }
         : undefined,
     };
+  }
+
+  private async createFollowNotification(
+    followerId: number,
+    followingId: number
+  ): Promise<void> {
+    try {
+      console.log(
+        `🎯 Criando notificação de FOLLOW: ${followerId} -> ${followingId}`
+      );
+
+      const notificationRepository = new NotificationRepositoryPrisma();
+      const notificationService = new NotificationService(
+        notificationRepository
+      );
+
+      // ✅ AGORA PODE SER null - não precisa de post para follow
+      await notificationService.createNotification({
+        user_id: followingId,
+        actor_id: followerId,
+        type: 'FOLLOW',
+        post_id: null, // ✅ CORRETO - follow não tem post
+        post_share_id: null,
+        comment_id: null,
+      });
+
+      console.log('✅ Notificação de FOLLOW criada com sucesso!');
+    } catch (error) {
+      console.error('❌ Erro ao criar notificação de FOLLOW:', error);
+    }
   }
 }

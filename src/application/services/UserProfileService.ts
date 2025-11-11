@@ -59,6 +59,7 @@ export class UserProfileService {
     };
   }
 
+  // No método getPublicProfile do UserProfileService
   async getPublicProfile(userId: number): Promise<PublicUserProfileDTO | null> {
     const publicProfile =
       await this.getPublicUserProfileUseCase.execute(userId);
@@ -68,10 +69,15 @@ export class UserProfileService {
     // NOVO: Adicionar estatísticas de follow ao perfil público
     const followStats = await this.getFollowStatsUseCase.execute(userId);
 
-    return new PublicUserProfileDTO(publicProfile.id, publicProfile.name, {
-      ...publicProfile.profile,
-      followStats, // NOVO
-    });
+    // ✅ Garantir que o ID está sendo mantido
+    return new PublicUserProfileDTO(
+      publicProfile.id, // Este ID deve vir do use case
+      publicProfile.name,
+      {
+        ...publicProfile.profile,
+        followStats, // NOVO
+      }
+    );
   }
 
   async updateProfile(userId: number, dto: UpdateUserProfileDTO): Promise<any> {

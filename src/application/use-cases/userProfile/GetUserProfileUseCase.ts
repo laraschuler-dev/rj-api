@@ -36,13 +36,18 @@ export class GetPublicUserProfileUseCase {
 
     const userProfile = await this.userProfileRepository.findByUserId(userId);
 
-    return new PublicUserProfileDTO(user.iduser, user.name, {
-      profile_type: userProfile?.profile_type || null,
-      translated_type: this.translateProfileType(userProfile?.profile_type),
-      profile_photo: userProfile?.profile_photo || null,
-      bio: userProfile?.bio || null,
-      city: userProfile?.city || null,
-      state: userProfile?.state || null,
-    });
+    // ✅ Garantir que o ID está sendo passado corretamente
+    return new PublicUserProfileDTO(
+      user.id, 
+      user.name,
+      {
+        profile_type: userProfile?.profile_type || null,
+        translated_type: this.translateProfileType(userProfile?.profile_type),
+        profile_photo: userProfile?.profile_photo || null,
+        bio: userProfile?.bio || null,
+        city: userProfile?.city || null,
+        state: userProfile?.state || null,
+      }
+    );
   }
 }

@@ -23,7 +23,7 @@ export class UserProfileService {
   }
 
   private translateProfileType(type: string | undefined): string {
-    if (!type) return 'Não informado';
+    if (!type) return 'Perfil não informado';
 
     const map: Record<string, string> = {
       psr: 'Pessoa em situação de rua',

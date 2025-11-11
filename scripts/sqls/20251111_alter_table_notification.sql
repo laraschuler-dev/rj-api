@@ -1,0 +1,3 @@
+-- 20251111_alter_table_notification
+MODIFY COLUMN type ENUM('LIKE', 'COMMENT', 'SHARE', 'EVENT_ATTENDANCE', 'FOLLOW') NOT NULL;
+

@@ -13,5 +13,25 @@
     "name": "20251109",
     "updated": true,
     "description": "Marca TODOS os usuários existentes como verificados"
+  },
+  {
+    "name": "20251111_cria_tabela_follow",
+    "updated": true,
+    "description": "comando para criar a tabela user_follow"
+  },
+  {
+    "name": "20251111_alter_table_notification",
+    "updated": true,
+    "description": ""
+  },
+  {
+    "name": "20251111_alterar_a_coluna_post_id_para_permitir_null",
+    "updated": true,
+    "description": ""
+  },
+  {
+    "name": "20251111_recriar_a_foreign_key_mas_permitindo_null",
+    "updated": true,
+    "description": ""
   }
 ]

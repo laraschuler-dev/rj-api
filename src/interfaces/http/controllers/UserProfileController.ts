@@ -46,13 +46,6 @@ export class UserProfileController {
         return;
       }
 
-      // ✅ Log para debug - verifique se o ID está presente
-      console.log('Public Profile Response:', {
-        id: publicProfile.id,
-        name: publicProfile.name,
-        profile: publicProfile.profile,
-      });
-
       res.json(publicProfile);
     } catch (err: any) {
       res

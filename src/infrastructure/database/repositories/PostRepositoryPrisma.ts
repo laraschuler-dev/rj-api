@@ -393,28 +393,25 @@ export class PostRepositoryPrisma implements PostRepository {
       hasNext: page * limit < totalValidItems,
     };
   }
-
-  // PostRepositoryPrisma.ts - método getSharedPostByIdWithDetails (COM LOGS DETALHADOS)
   async getSharedPostByIdWithDetails(
     shareId: number,
     includeDeletedPosts: boolean = false
   ) {
+    console.log('🔍 Repository - Buscando shared post:', {
+      shareId,
+      includeDeletedPosts,
+    });
+
+    // ✅ CORREÇÃO: Query simplificada e correta
     const shared = await prisma.post_share.findUnique({
       where: {
         id: shareId,
         deleted: false,
         user: { deleted: false },
-        ...(includeDeletedPosts
-          ? {}
-          : {
-              post: {
-                deleted: false,
-                user: { deleted: false },
-              },
-            }),
       },
       include: {
         post: {
+          // ✅ SEMPRE inclui o post, independente do deleted status
           include: {
             user: {
               include: {
@@ -432,16 +429,43 @@ export class PostRepositoryPrisma implements PostRepository {
       },
     });
 
-    if (!includeDeletedPosts && (!shared || !shared.post)) {
-      return null;
-    }
+    console.log('📋 Repository - Share encontrado:', {
+      temShare: !!shared,
+      temPost: !!shared?.post,
+      postId: shared?.post?.idpost,
+      postDeletado: shared?.post?.deleted,
+      includeDeletedPosts,
+    });
 
-    // Se includeDeletedPosts = true, shared pode vir sem post (e isso é ok)
     if (!shared) {
+      console.log('❌ Repository - Share não encontrado');
       return null;
     }
 
+    // ✅ CORREÇÃO: Verificação de disponibilidade baseada no parâmetro
+    if (!includeDeletedPosts) {
+      // Se NÃO queremos posts deletados, verifica se o post existe e não está deletado
+      if (!shared.post || shared.post.deleted) {
+        console.log(
+          '❌ Repository - Post não disponível (deletado ou não existe)'
+        );
+        return null;
+      }
+
+      // Também verifica se o autor não está deletado
+      if (shared.post.user?.deleted) {
+        console.log('❌ Repository - Autor do post deletado');
+        return null;
+      }
+    }
+
+    // ✅ Se chegou aqui, o post está disponível (ou includeDeletedPosts = true)
     const originalPostId = shared.post?.idpost || 0;
+
+    console.log(
+      '🔄 Repository - Buscando dados relacionados para postId:',
+      originalPostId
+    );
 
     const [user_like, comment, event_attendance] = await Promise.all([
       prisma.user_like.findMany({
@@ -465,28 +489,38 @@ export class PostRepositoryPrisma implements PostRepository {
       }),
     ]);
 
-    const post = shared.post as any;
-
-    if (post) {
-      post.user.avatarUrl =
-        shared.post.user.user_profile?.profile_photo ?? null;
-    }
-
-    post.sharedBy = {
-      shareId: shared.id,
-      postId: shared.post?.idpost || 0,
-      id: shared.user.iduser,
-      name: shared.user.name,
-      avatarUrl: shared.user.user_profile?.profile_photo ?? null,
-      message: shared.message,
-      sharedAt: shared.shared_at ? new Date(shared.shared_at) : new Date(),
+    // ✅ CORREÇÃO: Estruturação correta dos dados
+    const result = {
+      ...shared.post, // Todas as propriedades do post original
+      sharedBy: {
+        shareId: shared.id,
+        postId: shared.post?.idpost || 0,
+        id: shared.user.iduser,
+        name: shared.user.name,
+        avatarUrl: shared.user.user_profile?.profile_photo ?? null,
+        message: shared.message,
+        sharedAt: shared.shared_at ? new Date(shared.shared_at) : new Date(),
+      },
+      user_like,
+      comment,
+      event_attendance,
     };
 
-    post.user_like = user_like;
-    post.comment = comment;
-    post.event_attendance = event_attendance;
+    // ✅ CORREÇÃO: Ajusta o avatarUrl do autor do post original
+    if (result.user && result.user.user_profile) {
+      (result as any).user.avatarUrl =
+        result.user.user_profile?.profile_photo ?? null;
+    }
 
-    return post;
+    console.log('✅ Repository - Resultado final:', {
+      idpost: result.idpost,
+      content: result.content?.substring(0, 50) + '...',
+      temSharedBy: !!result.sharedBy,
+      likesCount: user_like.length,
+      commentsCount: comment.length,
+    });
+
+    return result;
   }
 
   async getPostByIdWithDetails(postId: number) {
@@ -731,6 +765,7 @@ export class PostRepositoryPrisma implements PostRepository {
     const count = await prisma.post_share.count({
       where: {
         post_idpost: postId,
+        deleted: false,
       },
     });
 
@@ -986,6 +1021,25 @@ export class PostRepositoryPrisma implements PostRepository {
       userStatus: userRecord?.status ?? null,
       confirmedCount,
     };
+  }
+
+  // PostRepository.ts
+  async countTotalAttendanceByPostId(postId: number): Promise<number> {
+    // Busca todos os registros de presença confirmados para este post
+    const attendances = await prisma.event_attendance.findMany({
+      where: {
+        post_idpost: postId,
+        status: 'confirmed',
+      },
+      select: {
+        user_iduser: true,
+      },
+    });
+
+    // Remove duplicatas baseado no user_iduser para contar usuários únicos
+    const uniqueUserIds = new Set(attendances.map((att) => att.user_iduser));
+
+    return uniqueUserIds.size;
   }
 
   async findCategoryById(id: number): Promise<{

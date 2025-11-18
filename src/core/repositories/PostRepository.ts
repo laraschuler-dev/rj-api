@@ -117,6 +117,8 @@ export interface PostRepository {
     data: GetAttendanceStatusDTO
   ): Promise<AttendanceStatusResponseDTO>;
 
+  countTotalAttendanceByPostId(postId: number): Promise<number>;
+
   findCategoryById(id: number): Promise<{
     idcategory: number;
     nome: string;

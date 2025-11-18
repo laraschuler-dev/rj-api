@@ -7,6 +7,10 @@ export class PostDetailsDTO {
         ? JSON.parse(post.metadata)
         : post.metadata;
 
+    const likesCount = post.user_like?.length || 0;
+    const commentsCount = post.comment?.length || 0;
+    const attendanceCount = post.event_attendance?.length || 0;
+
     const isAnonymous = metadata?.isAnonymous === true;
     const isPostOwner = post.user.iduser === userId;
     const isShareOwner = false;
@@ -36,7 +40,11 @@ export class PostDetailsDTO {
         id: img.idimage,
         url: img.image,
       })),
-      likesCount: post.user_like.length,
+      // CONTAGENS ADICIONADAS
+      likesCount: likesCount,
+      commentsCount: commentsCount,
+      attendanceCount: attendanceCount,
+      sharesCount: 0,
       likedByUser: post.user_like.some(
         (like: { user_iduser: number }) => like.user_iduser === userId
       ),

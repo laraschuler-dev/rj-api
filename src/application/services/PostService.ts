@@ -141,7 +141,6 @@ export class PostService {
   }> {
     const result = await this.repository.findManyPaginated(page, limit, userId);
 
-
     const validatedPosts = await this.contentValidationService.validatePosts(
       result.posts
     );
@@ -195,13 +194,21 @@ export class PostService {
       return null;
     }
 
-    // 👇 Converta para DTO aqui mesmo no service
-    return PostDetailsDTO.fromPrisma(post, userId);
+    // ✅ BUSCA CONTAGENS GLOBAIS
+    const sharesCount = await this.repository.countSharesByPostId(id);
+    const attendanceCount =
+      await this.repository.countTotalAttendanceByPostId(id);
+
+    const postDTO = PostDetailsDTO.fromPrisma(post, userId);
+
+    return {
+      ...postDTO,
+      sharesCount: sharesCount,
+      attendanceCount: attendanceCount, // ✅ SOBRESCREVE com o total
+    };
   }
 
-  // PostService.ts - com logs detalhados
   async getSharedPostDetails(shareId: number, userId: number, postId: number) {
-
     const share = await this.repository.findPostShareById(shareId);
 
     if (!share) {
@@ -221,9 +228,18 @@ export class PostService {
       throw new Error('Post compartilhado não encontrado');
     }
 
+    // BUSCA CONTAGEM DE COMPARTILHAMENTOS DO POST ORIGINAL
+    const sharesCount = await this.repository.countSharesByPostId(postId);
+    const attendanceCount =
+      await this.repository.countTotalAttendanceByPostId(postId);
+
     const result = SharedPostDetailsDTO.fromPrisma(sharedDetails, userId);
 
-    return result;
+    return {
+      ...result,
+      sharesCount: sharesCount,
+      attendanceCount: attendanceCount,
+    };
   }
 
   /**
@@ -382,13 +398,20 @@ export class PostService {
       throw new Error('Usuário não encontrado');
     }
 
+    // PostService.ts - método sharePost com logs
     try {
       // LÓGICA DE NOTIFICAÇÃO
       let targetUserId: number;
+      let notificationShareId: number | undefined = undefined;
+
+      console.log('🔍 SHARE POST DEBUG:', {
+        dtoShareId: dto.shareId,
+        postId: dto.postId,
+        userId: dto.userId,
+      });
 
       if (dto.shareId) {
         // É um compartilhamento de um compartilhamento existente
-        // Notifica o autor do COMPARTILHAMENTO que está sendo compartilhado
         const originalShare = await this.repository.findPostShareById(
           dto.shareId
         );
@@ -396,20 +419,41 @@ export class PostService {
           throw new Error('Compartilhamento original não encontrado');
         }
         targetUserId = originalShare.user_iduser;
+        notificationShareId = dto.shareId;
+        console.log(
+          '🔄 SHARE OF SHARE - targetUserId:',
+          targetUserId,
+          'notificationShareId:',
+          notificationShareId
+        );
       } else {
         // É um compartilhamento direto do post original
-        // Notifica o autor do POST ORIGINAL
         targetUserId = originalPost.user.iduser;
+        notificationShareId = undefined;
+        console.log(
+          '🔄 SHARE OF ORIGINAL - targetUserId:',
+          targetUserId,
+          'notificationShareId:',
+          notificationShareId
+        );
       }
 
       // Não notificar a si mesmo
       if (targetUserId && targetUserId !== dto.userId) {
+        console.log('📢 CREATING NOTIFICATION:', {
+          user_id: targetUserId,
+          actor_id: dto.userId,
+          type: 'SHARE',
+          post_id: dto.postId,
+          post_share_id: notificationShareId,
+        });
+
         await this.notificationService.createNotification({
           user_id: targetUserId,
           actor_id: dto.userId,
           type: 'SHARE',
           post_id: dto.postId,
-          post_share_id: shared.id,
+          post_share_id: notificationShareId,
         });
       }
     } catch (error) {
@@ -491,13 +535,12 @@ export class PostService {
           actor_id: userId,
           type: 'COMMENT',
           post_id: postId,
-          post_share_id: shareId,
+          post_share_id: shareId, // ✅ ADICIONAR post_share_id
           comment_id: comment.idcomment,
         });
       }
     } catch (error) {
       console.error('Erro ao criar notificação de comentário:', error);
-      // Não quebra o fluxo principal
     }
   }
 
@@ -640,7 +683,6 @@ export class PostService {
         try {
           // 👇 Se for post indisponível, converte para DTO especial
           if (post instanceof UnavailablePostDTO) {
-            
             const unavailableDTO = PostListItemDTO.createUnavailablePost(
               post,
               requestingUserId

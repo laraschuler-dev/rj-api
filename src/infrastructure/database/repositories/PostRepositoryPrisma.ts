@@ -1023,7 +1023,6 @@ export class PostRepositoryPrisma implements PostRepository {
     };
   }
 
-  // PostRepository.ts
   async countTotalAttendanceByPostId(postId: number): Promise<number> {
     // Busca todos os registros de presença confirmados para este post
     const attendances = await prisma.event_attendance.findMany({
@@ -1041,6 +1040,18 @@ export class PostRepositoryPrisma implements PostRepository {
 
     return uniqueUserIds.size;
   }
+
+  async findAnyAttendanceByUser(postId: number, userId: number): Promise<boolean> {
+  const attendance = await prisma.event_attendance.findFirst({
+    where: {
+      post_idpost: postId,
+      user_iduser: userId,
+      status: 'confirmed'
+    }
+  });
+  
+  return !!attendance;
+}
 
   async findCategoryById(id: number): Promise<{
     idcategory: number;

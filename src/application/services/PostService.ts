@@ -595,6 +595,12 @@ export class PostService {
       throw new Error('Este post não permite confirmação de presença');
     }
 
+    // ✅ VERIFICAR SE JÁ EXISTE PRESENÇA EM QUALQUER COMPARTILHAMENTO DESTE EVENTO
+    const existingAttendance = await this.repository.findAnyAttendanceByUser(
+      data.postId,
+      data.userId
+    );
+
     const currentAttendance = await this.repository.findAttendance(
       data.postId,
       data.userId,
@@ -616,16 +622,20 @@ export class PostService {
       status: 'confirmed',
     });
 
-    // HOOK DE NOTIFICAÇÃO DE CONFIRMAÇÃO EM EVENTO - CORRIGIDO
+    // ✅ NOTIFICAR APENAS SE FOR A PRIMEIRA PRESENÇA DO USUÁRIO NESTE EVENTO
     try {
-      // SEMPRE notifica o autor do EVENTO ORIGINAL
       const originalPost = await this.repository.findById(data.postId);
       if (!originalPost) throw new Error('Post não encontrado');
 
       const eventAuthorId = originalPost.user_iduser;
 
-      // Não notificar a si mesmo
-      if (eventAuthorId && eventAuthorId !== data.userId) {
+      // ✅ SÓ NOTIFICA SE:
+      // 1. Não for o próprio autor
+      // 2. Não existir presença prévia em nenhum share deste evento
+      const shouldNotify =
+        eventAuthorId && eventAuthorId !== data.userId && !existingAttendance;
+
+      if (shouldNotify) {
         await this.notificationService.createNotification({
           user_id: eventAuthorId,
           actor_id: data.userId,
@@ -633,6 +643,14 @@ export class PostService {
           post_id: data.postId,
           post_share_id: data.postShareId,
         });
+
+        console.log(
+          `📢 Notificação de presença enviada para autor do evento: ${eventAuthorId}`
+        );
+      } else if (existingAttendance) {
+        console.log(
+          `🔇 Notificação suprimida - usuário ${data.userId} já tinha presença no evento ${data.postId}`
+        );
       }
     } catch (error) {
       console.error('Erro ao criar notificação de evento:', error);

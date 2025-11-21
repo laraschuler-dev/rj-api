@@ -103,29 +103,17 @@ export class EditedSharedPostDTO {
   // 👇 NOVO MÉTODO: Verifica se o post deveria ser indisponível
   // EditedSharedPostDTO.ts
   private static shouldBeUnavailable(data: any, metadata: any): boolean {
-    console.log('🔍 [EditedSharedPostDTO] Verificando disponibilidade:', {
-      temIdpost: !!data?.idpost,
-      idpost: data?.idpost,
-      temUser: !!data?.user,
-      userDeletado: data?.user?.deleted,
-      dataDeleted: data?.deleted,
-      dataStructure: Object.keys(data || {}),
-    });
 
-    // ✅ CORREÇÃO: A estrutura não tem propriedade 'post', verifica diretamente
     // data já É o post original com propriedades no nível raiz
     if (!data?.idpost || data.deleted) {
-      console.log('❌ [EditedSharedPostDTO] Post original indisponível');
       return true;
     }
 
     // ✅ CORREÇÃO: Verifica se o autor original existe e não está deletado
     if (!data.user || data.user.deleted) {
-      console.log('❌ [EditedSharedPostDTO] Autor original indisponível');
       return true;
     }
 
-    console.log('✅ [EditedSharedPostDTO] Post disponível para edição');
     return false;
   }
 

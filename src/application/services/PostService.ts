@@ -194,7 +194,6 @@ export class PostService {
       return null;
     }
 
-    // ✅ BUSCA CONTAGENS GLOBAIS
     const sharesCount = await this.repository.countSharesByPostId(id);
     const attendanceCount =
       await this.repository.countTotalAttendanceByPostId(id);
@@ -204,7 +203,7 @@ export class PostService {
     return {
       ...postDTO,
       sharesCount: sharesCount,
-      attendanceCount: attendanceCount, // ✅ SOBRESCREVE com o total
+      attendanceCount: attendanceCount,
     };
   }
 
@@ -255,7 +254,7 @@ export class PostService {
   ): Promise<number | null> {
     try {
       if (isShareAction && originalShareId) {
-        // ✅ CASO ESPECIAL: Compartilhamento de um compartilhamento
+        // CASO ESPECIAL: Compartilhamento de um compartilhamento
         // Retorna o autor do compartilhamento que está sendo compartilhado
         const originalShare =
           await this.repository.findPostShareById(originalShareId);
@@ -404,12 +403,6 @@ export class PostService {
       let targetUserId: number;
       let notificationShareId: number | undefined = undefined;
 
-      console.log('🔍 SHARE POST DEBUG:', {
-        dtoShareId: dto.shareId,
-        postId: dto.postId,
-        userId: dto.userId,
-      });
-
       if (dto.shareId) {
         // É um compartilhamento de um compartilhamento existente
         const originalShare = await this.repository.findPostShareById(
@@ -420,33 +413,14 @@ export class PostService {
         }
         targetUserId = originalShare.user_iduser;
         notificationShareId = dto.shareId;
-        console.log(
-          '🔄 SHARE OF SHARE - targetUserId:',
-          targetUserId,
-          'notificationShareId:',
-          notificationShareId
-        );
       } else {
         // É um compartilhamento direto do post original
         targetUserId = originalPost.user.iduser;
         notificationShareId = undefined;
-        console.log(
-          '🔄 SHARE OF ORIGINAL - targetUserId:',
-          targetUserId,
-          'notificationShareId:',
-          notificationShareId
-        );
       }
 
       // Não notificar a si mesmo
       if (targetUserId && targetUserId !== dto.userId) {
-        console.log('📢 CREATING NOTIFICATION:', {
-          user_id: targetUserId,
-          actor_id: dto.userId,
-          type: 'SHARE',
-          post_id: dto.postId,
-          post_share_id: notificationShareId,
-        });
 
         await this.notificationService.createNotification({
           user_id: targetUserId,
@@ -644,9 +618,6 @@ export class PostService {
           post_share_id: data.postShareId,
         });
 
-        console.log(
-          `📢 Notificação de presença enviada para autor do evento: ${eventAuthorId}`
-        );
       } else if (existingAttendance) {
         console.log(
           `🔇 Notificação suprimida - usuário ${data.userId} já tinha presença no evento ${data.postId}`

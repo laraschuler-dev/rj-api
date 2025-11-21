@@ -78,9 +78,6 @@ export class CreateFollowUseCase {
     followingId: number
   ): Promise<void> {
     try {
-      console.log(
-        `🎯 Criando notificação de FOLLOW: ${followerId} -> ${followingId}`
-      );
 
       const notificationRepository = new NotificationRepositoryPrisma();
       const notificationService = new NotificationService(
@@ -92,12 +89,11 @@ export class CreateFollowUseCase {
         user_id: followingId,
         actor_id: followerId,
         type: 'FOLLOW',
-        post_id: null, // ✅ CORRETO - follow não tem post
+        post_id: null,
         post_share_id: null,
         comment_id: null,
       });
 
-      console.log('✅ Notificação de FOLLOW criada com sucesso!');
     } catch (error) {
       console.error('❌ Erro ao criar notificação de FOLLOW:', error);
     }

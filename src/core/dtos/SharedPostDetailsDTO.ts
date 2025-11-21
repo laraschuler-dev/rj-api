@@ -4,14 +4,6 @@ import { UnavailablePostDTO } from './UnavailablePostDTO';
 
 export class SharedPostDetailsDTO {
   static fromPrisma(data: any, userId: number) {
-    console.log('🔍 [SharedPostDetailsDTO] Dados recebidos:', {
-      temData: !!data,
-      temPost: !!data?.post,
-      postDeletado: data?.post?.deleted,
-      temUser: !!data?.user,
-      userDeletado: data?.user?.deleted,
-      dataStructure: Object.keys(data || {}),
-    });
 
     if (!data || !data.idpost || !data.sharedBy) {
       console.error('❌ [SharedPostDetailsDTO] Dados inválidos:', data);
@@ -31,11 +23,10 @@ export class SharedPostDetailsDTO {
     const shouldBeUnavailable = this.shouldBeUnavailable(data);
 
     if (shouldBeUnavailable) {
-      console.log('🚫 [SharedPostDetailsDTO] Criando post indisponível');
       return this.createUnavailablePost(data, userId);
     }
 
-    // 👇 SE NÃO FOR INDISPONÍVEL, processa normalmente (CÓDIGO ORIGINAL)
+    // SE NÃO FOR INDISPONÍVEL, processa normalmente
     const isAnonymous = metadata?.isAnonymous === true;
     const isPostOwner = data.user.iduser === userId;
     const isShareOwner = data.sharedBy.id === userId;

@@ -4,7 +4,6 @@ import { PostRepository } from '../../../core/repositories/PostRepository';
 import { CreateCommentDTO } from '../../../core/dtos/CreateCommentDTO';
 import { AttendEventDTO } from '../../../core/dtos/AttendEvent/AttendEventDTO';
 import { comment as Comment } from '@prisma/client';
-//import { PostMapper } from '../mappers/PostMapper';
 import { CommentDTO } from '@/core/dtos/ComentListDTO';
 import { PostLikeDTO } from '@/core/dtos/PostLikeDTO';
 import { PrismaClient, post_share } from '@prisma/client';
@@ -397,12 +396,6 @@ export class PostRepositoryPrisma implements PostRepository {
     shareId: number,
     includeDeletedPosts: boolean = false
   ) {
-    console.log('🔍 Repository - Buscando shared post:', {
-      shareId,
-      includeDeletedPosts,
-    });
-
-    // ✅ CORREÇÃO: Query simplificada e correta
     const shared = await prisma.post_share.findUnique({
       where: {
         id: shareId,
@@ -411,7 +404,7 @@ export class PostRepositoryPrisma implements PostRepository {
       },
       include: {
         post: {
-          // ✅ SEMPRE inclui o post, independente do deleted status
+          //  SEMPRE inclui o post, independente do deleted status
           include: {
             user: {
               include: {
@@ -429,43 +422,23 @@ export class PostRepositoryPrisma implements PostRepository {
       },
     });
 
-    console.log('📋 Repository - Share encontrado:', {
-      temShare: !!shared,
-      temPost: !!shared?.post,
-      postId: shared?.post?.idpost,
-      postDeletado: shared?.post?.deleted,
-      includeDeletedPosts,
-    });
-
     if (!shared) {
-      console.log('❌ Repository - Share não encontrado');
       return null;
     }
-
     // ✅ CORREÇÃO: Verificação de disponibilidade baseada no parâmetro
     if (!includeDeletedPosts) {
       // Se NÃO queremos posts deletados, verifica se o post existe e não está deletado
       if (!shared.post || shared.post.deleted) {
-        console.log(
-          '❌ Repository - Post não disponível (deletado ou não existe)'
-        );
         return null;
       }
 
       // Também verifica se o autor não está deletado
       if (shared.post.user?.deleted) {
-        console.log('❌ Repository - Autor do post deletado');
         return null;
       }
     }
 
-    // ✅ Se chegou aqui, o post está disponível (ou includeDeletedPosts = true)
     const originalPostId = shared.post?.idpost || 0;
-
-    console.log(
-      '🔄 Repository - Buscando dados relacionados para postId:',
-      originalPostId
-    );
 
     const [user_like, comment, event_attendance] = await Promise.all([
       prisma.user_like.findMany({
@@ -489,7 +462,6 @@ export class PostRepositoryPrisma implements PostRepository {
       }),
     ]);
 
-    // ✅ CORREÇÃO: Estruturação correta dos dados
     const result = {
       ...shared.post, // Todas as propriedades do post original
       sharedBy: {
@@ -506,19 +478,10 @@ export class PostRepositoryPrisma implements PostRepository {
       event_attendance,
     };
 
-    // ✅ CORREÇÃO: Ajusta o avatarUrl do autor do post original
     if (result.user && result.user.user_profile) {
       (result as any).user.avatarUrl =
         result.user.user_profile?.profile_photo ?? null;
     }
-
-    console.log('✅ Repository - Resultado final:', {
-      idpost: result.idpost,
-      content: result.content?.substring(0, 50) + '...',
-      temSharedBy: !!result.sharedBy,
-      likesCount: user_like.length,
-      commentsCount: comment.length,
-    });
 
     return result;
   }
@@ -549,7 +512,6 @@ export class PostRepositoryPrisma implements PostRepository {
       post.user.user_profile?.profile_photo ?? null;
 
     const [user_like, comment, event_attendance] = await Promise.all([
-      // ... resto do código permanece igual
       prisma.user_like.findMany({
         where: {
           post_idpost: postId,
@@ -1041,17 +1003,20 @@ export class PostRepositoryPrisma implements PostRepository {
     return uniqueUserIds.size;
   }
 
-  async findAnyAttendanceByUser(postId: number, userId: number): Promise<boolean> {
-  const attendance = await prisma.event_attendance.findFirst({
-    where: {
-      post_idpost: postId,
-      user_iduser: userId,
-      status: 'confirmed'
-    }
-  });
-  
-  return !!attendance;
-}
+  async findAnyAttendanceByUser(
+    postId: number,
+    userId: number
+  ): Promise<boolean> {
+    const attendance = await prisma.event_attendance.findFirst({
+      where: {
+        post_idpost: postId,
+        user_iduser: userId,
+        status: 'confirmed',
+      },
+    });
+
+    return !!attendance;
+  }
 
   async findCategoryById(id: number): Promise<{
     idcategory: number;

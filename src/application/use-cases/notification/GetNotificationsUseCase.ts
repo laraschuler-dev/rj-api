@@ -23,14 +23,6 @@ export class GetNotificationsUseCase {
 
   // GetNotificationsUseCase.ts - Vamos adicionar logs de debug
   private toDTO(notification: any): NotificationDTO {
-    console.log('🔍 NOTIFICATION RAW DATA:', {
-      id: notification.id,
-      type: notification.type,
-      post_id: notification.post_id,
-      post_share_id: notification.post_share_id, // ← VERIFICAR ESTE VALOR
-      hasPost: !!notification.post,
-      hasPostShare: !!notification.post_share,
-    });
 
     const actorUser =
       notification.user_notification_actor_idTouser || notification.actor;
@@ -70,12 +62,6 @@ export class GetNotificationsUseCase {
     ) {
       const isShare = !!notification.post_share_id;
 
-      console.log('📊 DETECTED SHARE NOTIFICATION:', {
-        type: notification.type,
-        post_share_id: notification.post_share_id,
-        isShare: isShare,
-      });
-
       // ✅ PARA SHARES: Sempre usar o post_share_id da notificação
       let shareIdToReturn: number | undefined = undefined;
       let targetPostId: number | null = notification.post_id;
@@ -83,16 +69,13 @@ export class GetNotificationsUseCase {
       if (notification.type === 'SHARE') {
         // Notificação de SHARE sempre referencia o compartilhamento específico
         shareIdToReturn = notification.post_share_id || undefined;
-        console.log(
-          '🔄 SHARE NOTIFICATION - shareIdToReturn:',
-          shareIdToReturn
-        );
+
       } else {
         // Para outros tipos (LIKE, COMMENT), manter lógica normal
         shareIdToReturn = isShare ? notification.post_share_id : undefined;
       }
 
-      // ✅ DETERMINAR QUAL CONTEÚDO MOSTRAR
+      // DETERMINAR QUAL CONTEÚDO MOSTRAR
       let contentPreview = 'Post';
       let postImage: string | undefined = undefined;
 
@@ -147,12 +130,6 @@ export class GetNotificationsUseCase {
       postPreview,
       message
     );
-
-    console.log('🎉 FINAL NOTIFICATION DTO:', {
-      id: result.id,
-      type: result.type,
-      post: result.post,
-    });
 
     return result;
   }

@@ -185,7 +185,7 @@ export class AuthService {
     const { emailOrPhone, password } = data;
     const sanitizedInput = emailOrPhone.trim().replace(/\D/g, '');
 
-    // Busca o usuário
+    // Busca o usuário por email ou telefone
     const user =
       (await this.userRepository.findByEmailOrPhone(emailOrPhone)) ||
       (await this.userRepository.findByEmailOrPhone(sanitizedInput));
@@ -194,26 +194,31 @@ export class AuthService {
       throw new Error('Usuário não encontrado');
     }
 
-    // ✅ Validação de usuários legados
-    if (user.emailVerified === false) {
+    // BUSCA CONEXÕES SOCIAIS CEDO — importante para não bloquear logins sociais
+    const socialConnections =
+      await this.userSocialConnectionRepository.findByUserId(user.id);
+    const hasGoogle = socialConnections.some(
+      (conn) => conn.provider === 'google'
+    );
+
+    // Só exige email verificado se NÃO tiver login social vinculado
+    if (user.emailVerified === false && !hasGoogle) {
       throw new Error('E-mail não verificado. Verifique sua caixa de entrada.');
     }
 
-    // Verifica senha
+    // Agora verifica se existe senha cadastrada — se não houver, não é possível logar com senha
+    if (!user.password || user.password.trim() === '') {
+      // usuário criado originalmente como social e sem senha ainda
+      throw new Error('Senha incorreta'); // manter mensagem genérica por segurança
+    }
+
+    // Verifica a senha informada
     const isPasswordValid = await this.verifyPassword(user.password, password);
     if (!isPasswordValid) {
       throw new Error('Senha incorreta');
     }
 
-    // ✅ Busca conexões sociais
-    const socialConnections =
-      await this.userSocialConnectionRepository.findByUserId(user.id);
-
-    const hasGoogle = socialConnections.some(
-      (conn) => conn.provider === 'google'
-    );
-
-    // Gera token
+    // Gera o token JWT
     const token = this.generateToken(user);
 
     return {
@@ -223,7 +228,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         phone: user.phone,
-        isSocialLogin: false,
+        isSocialLogin: !user.password,
         hasGoogle,
       },
     };

@@ -1,18 +1,13 @@
 // src/infrastructure/providers/EmailVerificationService.ts
-import nodemailer from 'nodemailer';
+
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
- * Serviço de email de verificação usando Gmail
- * Simples, gratuito e funcional
+ * Serviço de envio de email de verificação usando Resend (HTTP)
+ * Funciona localmente e em produção (Render)
  */
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.VERIFICATION_EMAIL_USERNAME,
-    pass: process.env.VERIFICATION_EMAIL_PASSWORD,
-  },
-});
-
 export const sendVerificationEmail = async ({
   to,
   subject,
@@ -23,20 +18,23 @@ export const sendVerificationEmail = async ({
   html: string;
 }): Promise<void> => {
   try {
-    await transporter.sendMail({
-      from: `"Redefinindo Jornadas" <${process.env.VERIFICATION_EMAIL_USERNAME}>`,
+    const response = await resend.emails.send({
+      from: process.env.VERIFICATION_EMAIL_FROM!, // onboarding@resend.dev
       to,
       subject,
       html,
     });
-    console.log('✅ Email de verificação enviado para:', to);
+
+    console.log('✅ Email de verificação enviado via Resend:', response);
   } catch (error: any) {
-    console.error('❌ Erro ao enviar email:', error.message);
-    throw new Error('Falha ao enviar email de verificação. Tente novamente.');
+    console.error('❌ Erro ao enviar email via Resend:', error);
+    throw new Error('Falha ao enviar email de verificação.');
   }
 };
 
-// Função vazia - não é mais usada, mas mantemos para não quebrar imports
+/**
+ * Mantida apenas para não quebrar imports antigos
+ */
 export const sendVerificationEmailFallback = async (): Promise<void> => {
-  // Não faz nada - mantida apenas para compatibilidade
+  // não utilizado
 };

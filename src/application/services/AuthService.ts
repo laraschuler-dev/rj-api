@@ -194,27 +194,26 @@ export class AuthService {
       throw new Error('Usuário não encontrado');
     }
 
-    // ✅ VALIDAÇÃO INTELIGENTE PARA USUÁRIOS LEGADOS
-    // Se emailVerified é NULL ou TRUE → permite acesso (usuários legados)
-    // Se emailVerified é FALSE → bloqueia (novos usuários)
+    // ✅ Validação de usuários legados
     if (user.emailVerified === false) {
       throw new Error('E-mail não verificado. Verifique sua caixa de entrada.');
     }
 
-    // Verifica a senha
+    // Verifica senha
     const isPasswordValid = await this.verifyPassword(user.password, password);
     if (!isPasswordValid) {
       throw new Error('Senha incorreta');
     }
 
-    // ✅ BUSCA CONEXÕES SOCIAIS DO USUÁRIO
+    // ✅ Busca conexões sociais
     const socialConnections =
       await this.userSocialConnectionRepository.findByUserId(user.id);
+
     const hasGoogle = socialConnections.some(
       (conn) => conn.provider === 'google'
     );
 
-    // Gera o token JWT
+    // Gera token
     const token = this.generateToken(user);
 
     return {
@@ -225,7 +224,7 @@ export class AuthService {
         email: user.email,
         phone: user.phone,
         isSocialLogin: false,
-        hasGoogle, // ✅ ADICIONAR ESTE CAMPO
+        hasGoogle,
       },
     };
   }

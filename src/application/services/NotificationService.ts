@@ -28,8 +28,6 @@ export class NotificationService {
       limit
     );
 
-    // Aqui vamos converter para DTO com mensagens formatadas
-    // (Vamos implementar isso depois)
     return notifications.map((notif) => this.toNotificationDTO(notif));
   }
 

@@ -58,8 +58,9 @@ export interface PostRepository {
   ): Promise<{ posts: Post[]; total: number }>;
 
   getSharedPostByIdWithDetails(
-    shareId: number
-  ): Promise<PostWithAllDetails | null>;
+    shareId: number,
+    includeDeletedPosts?: boolean
+  ): Promise<any>;
 
   getPostByIdWithDetails(postId: number): Promise<PostWithAllDetails | null>;
 
@@ -115,6 +116,10 @@ export interface PostRepository {
   getAttendanceStatus(
     data: GetAttendanceStatusDTO
   ): Promise<AttendanceStatusResponseDTO>;
+
+  countTotalAttendanceByPostId(postId: number): Promise<number>;
+
+  findAnyAttendanceByUser(postId: number, userId: number): Promise<boolean>;
 
   findCategoryById(id: number): Promise<{
     idcategory: number;

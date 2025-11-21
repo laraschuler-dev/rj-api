@@ -46,6 +46,54 @@ const router = express.Router();
 router.post('/users', authController.register);
 
 /**
+ * @swagger
+ * /auth/verify-email:
+ *   post:
+ *     summary: Verifica o e-mail do usuário
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               token:
+ *                 type: string
+ *             required:
+ *               - token
+ *     responses:
+ *       200:
+ *         description: E-mail verificado com sucesso
+ *       400:
+ *         description: Token inválido ou expirado
+ */
+router.post('/verify-email', authController.verifyEmail);
+
+/**
+ * @swagger
+ * /auth/resend-verification:
+ *   post:
+ *     summary: Reenvia o e-mail de verificação
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *             required:
+ *               - email
+ *     responses:
+ *       200:
+ *         description: E-mail de verificação reenviado
+ *       400:
+ *         description: Erro ao reenviar e-mail
+ */
+router.post('/resend-verification', authController.sendNewVerificationEmail);
+
+/**
  * Rota para realizar login.
  * @swagger
  * /auth/session:
@@ -261,5 +309,173 @@ router.put('/account', ensureAuthenticated, authController.updateAccount);
  *         description: Não autenticado
  */
 router.put('/password', ensureAuthenticated, authController.updatePassword);
+
+/**
+ * Rota para login via Google OAuth.
+ * @swagger
+ * /auth/google:
+ *   post:
+ *     summary: Realiza login com conta Google
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               idToken:
+ *                 type: string
+ *                 description: Token de autenticação fornecido pelo Google
+ *             required:
+ *               - idToken
+ *     responses:
+ *       200:
+ *         description: Login realizado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: number
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                       nullable: true
+ *       400:
+ *         description: Erro ao realizar login (token inválido ou conflito de conta)
+ */
+router.post('/google', authController.loginWithGoogle);
+
+/**
+ * @swagger
+ * /auth/google/link:
+ *   post:
+ *     summary: Vincula uma conta Google a um usuário existente
+ *     description: Permite que um usuário com conta tradicional vincule uma conta Google para login social
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               idToken:
+ *                 type: string
+ *                 description: Token de autenticação fornecido pelo Google
+ *                 example: "eyJhbGciOiJSUzI1NiIsImtpZCI6Ij..."
+ *             required:
+ *               - idToken
+ *     responses:
+ *       200:
+ *         description: Conta Google vinculada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                   description: Novo token JWT com informações atualizadas
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: number
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                       nullable: true
+ *                     hasGoogle:
+ *                       type: boolean
+ *                       description: Indica se tem Google vinculado
+ *       400:
+ *         description: Erro ao vincular conta (token inválido, email diferente, etc)
+ *       401:
+ *         description: Usuário não autenticado
+ */
+router.post('/google/link', ensureAuthenticated, authController.linkGoogleAccount);
+
+/**
+ * @swagger
+ * /auth/google/unlink:
+ *   post:
+ *     summary: Desvincula a conta Google de um usuário
+ *     description: Remove a vinculação com o Google (requer confirmação com senha)
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 description: Senha atual para confirmação de segurança
+ *                 example: "minhaSenha123"
+ *             required:
+ *               - password
+ *     responses:
+ *       200:
+ *         description: Conta Google desvinculada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 hasGoogle:
+ *                   type: boolean
+ *       400:
+ *         description: Erro ao desvincular (senha incorreta, não tem Google vinculado, etc)
+ *       401:
+ *         description: Usuário não autenticado
+ */
+router.post('/google/unlink', ensureAuthenticated, authController.unlinkGoogleAccount);
+
+/**
+ * @swagger
+ * /auth/social-connections:
+ *   get:
+ *     summary: Obtém as conexões sociais do usuário
+ *     description: Retorna informações sobre quais provedores sociais estão vinculados à conta
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Conexões sociais obtidas com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 hasGoogle:
+ *                   type: boolean
+ *                   description: Indica se tem Google vinculado
+ *                 connectedProviders:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["google"]
+ *       401:
+ *         description: Usuário não autenticado
+ */
+router.get('/social-connections', ensureAuthenticated, authController.getSocialConnections);
 
 export default router;

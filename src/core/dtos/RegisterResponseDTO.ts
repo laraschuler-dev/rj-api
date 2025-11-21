@@ -22,4 +22,9 @@ export interface RegisterResponseDTO {
    * Telefone do usuário registrado (opcional).
    */
   phone: string | null;
+
+  /**
+   * Indica se o registro foi realizado com uma conta social.
+   */
+  hasGoogle?: boolean;
 }

@@ -30,22 +30,65 @@ export class PasswordRecoveryService {
     const expiration = dayjs().add(1, 'hour').toDate(); // Expira em 1 hora
 
     // Salva o token e a expiração no banco de dados
-    await this.userRepository.savePasswordResetToken(user.id, token, expiration);
+    await this.userRepository.savePasswordResetToken(
+      user.id,
+      token,
+      expiration
+    );
 
     // Gera o link de recuperação
     const recoveryLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
-    // Envia o e-mail de recuperação
+    // Envia o e-mail de recuperação ESTILIZADO
     await sendEmail({
       to: email,
-      subject: 'Recuperação de senha',
-      html: `
-        <p>Você solicitou a recuperação de senha.</p>
-        <p>Clique no link abaixo para redefinir sua senha:</p>
-        <a href="${recoveryLink}">${recoveryLink}</a>
-        <p>Se você não fez essa solicitação, ignore este e-mail.</p>
-      `,
+      subject: 'Redefinir sua senha - Rede Social Solidária',
+      html: this.buildRecoveryEmailHtml(user.name, recoveryLink),
     });
+  }
+
+  private buildRecoveryEmailHtml(
+    userName: string,
+    recoveryLink: string
+  ): string {
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #2563eb; margin: 0;">🌍 Rede Social Solidária</h1>
+          <p style="color: #666; margin: 5px 0;">Conectando pessoas, transformando vidas</p>
+        </div>
+        
+        <h2 style="color: #333;">Olá, ${userName}!</h2>
+        
+        <p>Recebemos uma solicitação para redefinir a senha da sua conta. Para criar uma nova senha, clique no botão abaixo:</p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${recoveryLink}" 
+             style="background-color: #2563eb; color: white; padding: 15px 30px; 
+                    text-decoration: none; border-radius: 8px; font-size: 16px;
+                    display: inline-block; font-weight: bold;">
+            🔑 Redefinir Minha Senha
+          </a>
+        </div>
+        
+        <p style="color: #666; font-size: 14px;">Se o botão não funcionar, copie e cole este link no seu navegador:</p>
+        <p style="background-color: #f5f5f5; padding: 10px; border-radius: 5px; word-break: break-all; font-size: 12px; color: #333;">
+          ${recoveryLink}
+        </p>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+          <p style="color: #666; font-size: 12px;">
+            <strong>Importante:</strong> Este link expira em 1 hora.<br>
+            Se você não solicitou a redefinição de senha, ignore este e-mail.<br>
+            Sua senha atual continuará funcionando normalmente.
+          </p>
+          <p style="color: #999; font-size: 12px; text-align: center;">
+            Time Rede Social Solidária<br>
+            <a href="mailto:redefinindojornadasvalidation@gmail.com" style="color: #2563eb;">redefinindojornadasvalidation@gmail.com</a>
+          </p>
+        </div>
+      </div>
+    `;
   }
 
   /**
@@ -70,10 +113,10 @@ export class PasswordRecoveryService {
     }
 
     // Valida a nova senha
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{6,}$/;
     if (!passwordRegex.test(newPassword)) {
       throw new Error(
-        'A nova senha deve ter pelo menos 8 caracteres, incluindo maiúscula, minúscula, número e caractere especial.'
+        'A senha deve ter pelo menos 6 caracteres e conter letras e números.'
       );
     }
 

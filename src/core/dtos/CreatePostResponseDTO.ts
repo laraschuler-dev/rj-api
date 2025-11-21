@@ -11,8 +11,8 @@ export class CreatedPostDTO {
     public readonly images: string[],
     public readonly createdAt: string,
     public readonly liked: boolean = false,
-    public readonly isPostOwner: boolean = true, // 👈 NOVO - sempre true na criação
-    public readonly isShareOwner: boolean = false, // 👈 NOVO - sempre false
+    public readonly isPostOwner: boolean = true,
+    public readonly isShareOwner: boolean = false,
     public readonly eventAttendance?: EventAttendanceDTO[],
     public readonly attending?: boolean
   ) {}

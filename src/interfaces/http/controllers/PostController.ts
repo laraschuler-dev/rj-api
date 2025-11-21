@@ -269,7 +269,7 @@ export class PostController {
   async sharePost(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const { message } = req.body;
+      const { message, shareId } = req.body; // ✅ RECEBER shareId do body
       const userId = req.user?.id;
 
       if (!userId) {
@@ -281,6 +281,7 @@ export class PostController {
         userId,
         postId: parseInt(id),
         message,
+        shareId: shareId ? parseInt(shareId) : undefined, // ✅ PASSAR shareId se existir
       };
 
       const postItem = await this.postUseCases.sharePost(sharePostDTO);

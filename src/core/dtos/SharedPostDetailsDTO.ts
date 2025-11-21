@@ -4,7 +4,9 @@ import { UnavailablePostDTO } from './UnavailablePostDTO';
 
 export class SharedPostDetailsDTO {
   static fromPrisma(data: any, userId: number) {
+
     if (!data || !data.idpost || !data.sharedBy) {
+      console.error('❌ [SharedPostDetailsDTO] Dados inválidos:', data);
       throw new Error('[SharedPostDetailsDTO] Dados inválidos ou ausentes.');
     }
 
@@ -13,14 +15,18 @@ export class SharedPostDetailsDTO {
         ? JSON.parse(data.metadata)
         : data.metadata;
 
-    // 👇 PRIMEIRO: Verifica se é post indisponível
+    const likesCount = data.user_like?.length || 0;
+    const commentsCount = data.comment?.length || 0;
+    const attendanceCount = data.event_attendance?.length || 0;
+
+    // 👇 DEBUG da verificação de indisponibilidade
     const shouldBeUnavailable = this.shouldBeUnavailable(data);
 
     if (shouldBeUnavailable) {
       return this.createUnavailablePost(data, userId);
     }
 
-    // 👇 SE NÃO FOR INDISPONÍVEL, processa normalmente (CÓDIGO ORIGINAL)
+    // SE NÃO FOR INDISPONÍVEL, processa normalmente
     const isAnonymous = metadata?.isAnonymous === true;
     const isPostOwner = data.user.iduser === userId;
     const isShareOwner = data.sharedBy.id === userId;
@@ -50,7 +56,12 @@ export class SharedPostDetailsDTO {
         id: img.idimage,
         url: img.image,
       })),
-      likesCount: data.user_like.length,
+      // CONTAGENS ADICIONADAS
+      likesCount: likesCount,
+      commentsCount: commentsCount,
+      attendanceCount: attendanceCount,
+      sharesCount: 0,
+
       likedByUser: data.user_like.some(
         (like: { user_iduser: number }) => like.user_iduser === userId
       ),
@@ -84,14 +95,14 @@ export class SharedPostDetailsDTO {
     };
   }
 
-  // 👇 MÉTODO: Verifica se o post deveria ser indisponível
+  // Verifica se o post deveria ser indisponível
   private static shouldBeUnavailable(data: any): boolean {
-    // Verifica se o post original foi deletado
-    if (!data.post || data.post.deleted) {
+    // ✅ CORREÇÃO: Verifica se o post existe (tem idpost) e não está deletado
+    if (!data?.idpost || data.deleted) {
       return true;
     }
 
-    // Verifica se o autor original foi deletado
+    // ✅ Verifica se o autor existe e não está deletado
     if (!data.user || data.user.deleted) {
       return true;
     }
@@ -99,7 +110,6 @@ export class SharedPostDetailsDTO {
     return false;
   }
 
-  // 👇 MÉTODO: Cria DTO para post indisponível
   private static createUnavailablePost(data: any, userId: number) {
     const isShareOwner = data.sharedBy.id === userId;
 
@@ -119,7 +129,6 @@ export class SharedPostDetailsDTO {
       };
     }
 
-    // 👇 USA O UnavailablePostDTO EXISTENTE
     const unavailableDTO =
       reason === 'ORIGINAL_POST_DELETED'
         ? UnavailablePostDTO.createForDeletedOriginal(
@@ -145,7 +154,6 @@ export class SharedPostDetailsDTO {
             sharedAt: data.sharedBy.sharedAt.toISOString(),
           });
 
-    // 👇 CONVERTE para o formato de SharedPostDetailsDTO
     return {
       uniqueKey: unavailableDTO.uniqueKey,
       id: unavailableDTO.id,

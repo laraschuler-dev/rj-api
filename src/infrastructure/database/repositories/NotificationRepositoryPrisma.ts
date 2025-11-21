@@ -12,7 +12,7 @@ export class NotificationRepositoryPrisma implements NotificationRepository {
         actor_id: data.actor_id,
         type: data.type,
         post_id: data.post_id || null,
-        post_share_id: data.post_share_id || null,
+        post_share_id: data.post_share_id || null, // ✅ AGORA INCLUI POST_SHARE_ID
         comment_id: data.comment_id || null,
       },
     });
@@ -40,9 +40,8 @@ export class NotificationRepositoryPrisma implements NotificationRepository {
     const notifications = await prisma.notification.findMany({
       where: {
         user_id: userId,
-        // ✅ FILTRO ÚNICO E CRÍTICO: Só retorna notificações onde o actor ainda existe
         user_notification_actor_idTouser: {
-          deletedAt: null, // Usuário não foi deletado
+          deletedAt: null,
         },
       },
       include: {
@@ -68,6 +67,17 @@ export class NotificationRepositoryPrisma implements NotificationRepository {
         },
         post_share: {
           include: {
+            post: {
+              // ✅ INCLUI O POST ORIGINAL DO COMPARTILHAMENTO
+              include: {
+                image: true,
+                user: {
+                  include: {
+                    user_profile: true,
+                  },
+                },
+              },
+            },
             user: {
               include: {
                 user_profile: true,
@@ -98,7 +108,6 @@ export class NotificationRepositoryPrisma implements NotificationRepository {
       where: {
         user_id: userId,
         is_read: false,
-        // ✅ Mesmo filtro para contar apenas notificações válidas
         user_notification_actor_idTouser: {
           deletedAt: null,
         },
@@ -111,7 +120,6 @@ export class NotificationRepositoryPrisma implements NotificationRepository {
       where: {
         user_id: userId,
         is_read: false,
-        // ✅ Aplica o mesmo filtro ao marcar como lido
         user_notification_actor_idTouser: {
           deletedAt: null,
         },

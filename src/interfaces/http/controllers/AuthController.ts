@@ -238,8 +238,6 @@ export class AuthController {
 
       res.status(200).json(result);
     } catch (err: any) {
-      console.error('[LoginGoogle] Erro:', err.message);
-
       // Respostas mais específicas baseadas no tipo de erro
       if (
         err.message.includes('token inválido') ||

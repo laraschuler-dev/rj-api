@@ -1,4 +1,5 @@
 // src/core/dtos/userProfile/PublicUserProfileDTO.ts
+import { FollowStatsDTO } from '../follow/FollowStatsDTO';
 export class PublicUserProfileDTO {
   constructor(
     public readonly id: number,
@@ -10,6 +11,7 @@ export class PublicUserProfileDTO {
       bio?: string | null;
       city?: string | null;
       state?: string | null;
+      followStats?: FollowStatsDTO;
     }
   ) {}
 }

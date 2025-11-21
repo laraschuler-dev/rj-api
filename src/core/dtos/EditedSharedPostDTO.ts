@@ -26,6 +26,10 @@ export class EditedSharedPostDTO {
     const isPostOwner = data.user.iduser === userId;
     const isShareOwner = data.sharedBy.id === userId;
 
+    // ✅ CORREÇÃO: Normalização do avatar do autor
+    const authorAvatarUrl =
+      data.user.user_profile?.profile_photo ?? data.user.avatarUrl ?? null;
+
     const author = isAnonymous
       ? {
           id: 0,
@@ -35,8 +39,14 @@ export class EditedSharedPostDTO {
       : {
           id: data.user.iduser,
           name: data.user.name,
-          avatarUrl: data.user.avatarUrl ?? null,
+          avatarUrl: authorAvatarUrl, // ✅ Usa a URL normalizada
         };
+
+    // ✅ CORREÇÃO: Normalização do avatar do compartilhador
+    const sharedByAvatarUrl =
+      data.sharedBy.user_profile?.profile_photo ??
+      data.sharedBy.avatarUrl ??
+      null;
 
     const uniqueKey = generateUniqueKey({
       id: data.idpost,
@@ -81,7 +91,7 @@ export class EditedSharedPostDTO {
         postId: data.sharedBy.postId,
         id: data.sharedBy.id,
         name: data.sharedBy.name,
-        avatarUrl: data.sharedBy.avatarUrl ?? null,
+        avatarUrl: sharedByAvatarUrl, // ✅ Avatar normalizado do compartilhador
         message: data.sharedBy.message,
         sharedAt: data.sharedBy.sharedAt,
       },
@@ -91,13 +101,15 @@ export class EditedSharedPostDTO {
   }
 
   // 👇 NOVO MÉTODO: Verifica se o post deveria ser indisponível
+  // EditedSharedPostDTO.ts
   private static shouldBeUnavailable(data: any, metadata: any): boolean {
-    // Verifica se o post original foi deletado
-    if (!data.post || data.post.deleted) {
+
+    // data já É o post original com propriedades no nível raiz
+    if (!data?.idpost || data.deleted) {
       return true;
     }
 
-    // Verifica se o autor original foi deletado
+    // ✅ CORREÇÃO: Verifica se o autor original existe e não está deletado
     if (!data.user || data.user.deleted) {
       return true;
     }

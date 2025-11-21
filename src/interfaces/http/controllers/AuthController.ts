@@ -24,6 +24,8 @@ export class AuthController {
     this.getSocialConnections = this.getSocialConnections.bind(this);
     this.unlinkGoogleAccount = this.unlinkGoogleAccount.bind(this);
     this.linkGoogleAccount = this.linkGoogleAccount.bind(this);
+    this.verifyEmail = this.verifyEmail.bind(this);
+    this.sendNewVerificationEmail = this.sendNewVerificationEmail.bind(this);
   }
 
   /**
@@ -41,6 +43,38 @@ export class AuthController {
       const errorMessage =
         err instanceof Error ? err.message : 'An unknown error occurred';
       res.status(400).json({ error: errorMessage });
+    }
+  }
+
+  async verifyEmail(req: Request, res: Response): Promise<void> {
+    try {
+      const { token } = req.body;
+      await this.authUseCases.verifyEmail(token);
+      res.status(200).json({ message: 'E-mail verificado com sucesso!' });
+    } catch (err: any) {
+      if (err.message.includes('expirado')) {
+        res.status(400).json({
+          error: err.message,
+          code: 'TOKEN_EXPIRED',
+        });
+      } else if (err.message.includes('inválido')) {
+        res.status(400).json({
+          error: err.message,
+          code: 'TOKEN_INVALID',
+        });
+      } else {
+        res.status(400).json({ error: err.message });
+      }
+    }
+  }
+
+  async sendNewVerificationEmail(req: Request, res: Response): Promise<void> {
+    try {
+      const { email } = req.body;
+      await this.authUseCases.sendNewVerificationEmail(email);
+      res.status(200).json({ message: 'E-mail de verificação reenviado!' });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
     }
   }
 
@@ -195,7 +229,6 @@ export class AuthController {
    */
   async loginWithGoogle(req: Request, res: Response): Promise<void> {
     try {
-
       if (!req.body.idToken) {
         res.status(400).json({ error: 'Token do Google é obrigatório' });
         return;
@@ -205,8 +238,6 @@ export class AuthController {
 
       res.status(200).json(result);
     } catch (err: any) {
-      console.error('[LoginGoogle] Erro:', err.message);
-
       // Respostas mais específicas baseadas no tipo de erro
       if (
         err.message.includes('token inválido') ||
@@ -365,9 +396,7 @@ export class AuthController {
         return;
       }
 
-
       const connections = await this.authUseCases.getSocialConnections(userId);
-
 
       res.status(200).json(connections);
     } catch (err: any) {

@@ -3,6 +3,13 @@ export class User {
    * Data de expiração do token de recuperação de senha (opcional).
    */
   passwordResetTokenExpiresAt?: Date | null;
+  /**
+   * Data de expiração do token de verificação de email (opcional).
+   */
+  emailVerificationTokenExpiresAt?: Date | null;
+
+  emailVerified: boolean;
+  
   avatarUrl: string | undefined;
   fone: any;
   iduser: any;
@@ -22,9 +29,14 @@ export class User {
     public readonly email: string,
     public readonly password: string,
     public readonly phone: string | null,
+    emailVerified: boolean = false, 
     public readonly passwordResetToken?: string,
-    passwordResetTokenExpiresAt?: Date | null
+    passwordResetTokenExpiresAt?: Date | null,
+    public readonly emailVerificationToken?: string,
+    emailVerificationTokenExpiresAt?: Date | null
   ) {
     this.passwordResetTokenExpiresAt = passwordResetTokenExpiresAt;
+    this.emailVerificationTokenExpiresAt = emailVerificationTokenExpiresAt;
+    this.emailVerified = emailVerified; 
   }
 }

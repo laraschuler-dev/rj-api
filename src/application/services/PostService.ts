@@ -141,21 +141,8 @@ export class PostService {
   }> {
     const result = await this.repository.findManyPaginated(page, limit, userId);
 
-    console.log('📦 Posts brutos do repository:', result.posts.length);
-    console.log(
-      '📦 Exemplo de post:',
-      result.posts[0]?.sharedBy ? 'SHARE' : 'ORIGINAL'
-    );
-
-    // 👇 VALIDAÇÃO DE CONTEÚDO
     const validatedPosts = await this.contentValidationService.validatePosts(
       result.posts
-    );
-
-    console.log('✅ Posts após validação:', validatedPosts.length);
-    console.log(
-      '✅ Posts indisponíveis:',
-      validatedPosts.filter((p) => p instanceof UnavailablePostDTO).length
     );
 
     const validPosts = [];
@@ -163,7 +150,6 @@ export class PostService {
     for (const post of validatedPosts) {
       try {
         if (post instanceof UnavailablePostDTO) {
-          console.log('🚫 Post indisponível detectado:', post.reason);
           const unavailableDTO = PostListItemDTO.createUnavailablePost(
             post,
             userId
@@ -208,72 +194,51 @@ export class PostService {
       return null;
     }
 
-    // 👇 Converta para DTO aqui mesmo no service
-    return PostDetailsDTO.fromPrisma(post, userId);
+    const sharesCount = await this.repository.countSharesByPostId(id);
+    const attendanceCount =
+      await this.repository.countTotalAttendanceByPostId(id);
+
+    const postDTO = PostDetailsDTO.fromPrisma(post, userId);
+
+    return {
+      ...postDTO,
+      sharesCount: sharesCount,
+      attendanceCount: attendanceCount,
+    };
   }
 
-  // PostService.ts - com logs detalhados
   async getSharedPostDetails(shareId: number, userId: number, postId: number) {
-    console.log('=== GET SHARED POST DETAILS ===');
-    console.log(`Share ID: ${shareId}, Post ID: ${postId}, User ID: ${userId}`);
-
-    // 1. Busca compartilhamento básico
-    console.log(`1. Buscando compartilhamento ${shareId}...`);
     const share = await this.repository.findPostShareById(shareId);
-    console.log(
-      `   Resultado:`,
-      share ? `Encontrado (post_id: ${share.post_idpost})` : 'Não encontrado'
-    );
 
     if (!share) {
       throw new Error('Compartilhamento não encontrado');
     }
 
-    // 2. Verifica consistência
-    console.log(
-      `2. Verificando se share ${shareId} pertence ao post ${postId}...`
-    );
     if (share.post_idpost !== postId) {
-      console.log(
-        `   ❌ Inconsistência: share.post_idpost=${share.post_idpost} != postId=${postId}`
-      );
       throw new Error('Compartilhamento não pertence ao post informado');
     }
-    console.log(`   ✅ Consistência OK`);
 
-    // 3. Busca detalhes completos
-    console.log(
-      `3. Buscando detalhes completos do compartilhamento ${shareId}...`
-    );
     const sharedDetails = await this.repository.getSharedPostByIdWithDetails(
       shareId,
       true
-    );
-    console.log(
-      `   Resultado:`,
-      sharedDetails ? 'Encontrado' : 'Não encontrado'
-    );
-    console.log(
-      `   Post original nos detalhes:`,
-      sharedDetails?.post ? 'Sim' : 'Não'
-    );
-    console.log(
-      `   Post deletado:`,
-      sharedDetails?.post?.deleted ? 'Sim' : 'Não'
     );
 
     if (!sharedDetails) {
       throw new Error('Post compartilhado não encontrado');
     }
 
-    // 4. Converte para DTO
-    console.log(`4. Convertendo para DTO...`);
-    const result = SharedPostDetailsDTO.fromPrisma(sharedDetails, userId);
-    console.log(
-      `   ✅ Conversão OK - isUnavailable: ${result.metadata?.isUnavailable}`
-    );
+    // BUSCA CONTAGEM DE COMPARTILHAMENTOS DO POST ORIGINAL
+    const sharesCount = await this.repository.countSharesByPostId(postId);
+    const attendanceCount =
+      await this.repository.countTotalAttendanceByPostId(postId);
 
-    return result;
+    const result = SharedPostDetailsDTO.fromPrisma(sharedDetails, userId);
+
+    return {
+      ...result,
+      sharesCount: sharesCount,
+      attendanceCount: attendanceCount,
+    };
   }
 
   /**
@@ -283,9 +248,19 @@ export class PostService {
    */
   private async getNotificationTargetUserId(
     postId: number,
-    shareId?: number | null
+    shareId?: number | null,
+    isShareAction: boolean = false, // ✅ NOVO: indica se é uma ação de compartilhamento
+    originalShareId?: number // ✅ NOVO: ID do compartilhamento original (para compartilhamentos de compartilhamentos)
   ): Promise<number | null> {
     try {
+      if (isShareAction && originalShareId) {
+        // CASO ESPECIAL: Compartilhamento de um compartilhamento
+        // Retorna o autor do compartilhamento que está sendo compartilhado
+        const originalShare =
+          await this.repository.findPostShareById(originalShareId);
+        return originalShare?.user_iduser || null;
+      }
+
       const effectiveShareId =
         shareId === null || shareId === undefined ? undefined : shareId;
 
@@ -326,9 +301,8 @@ export class PostService {
     } else {
       await this.repository.likePost(userId, postId, shareId);
 
-      // 👇 HOOK DE NOTIFICAÇÃO DE CURTIDA - CORRIGIDO
       try {
-        // ✅ CORREÇÃO: Usa método auxiliar para determinar quem notificar
+        // Usa método auxiliar para determinar quem notificar
         const targetUserId = await this.getNotificationTargetUserId(
           postId,
           shareId
@@ -423,15 +397,37 @@ export class PostService {
       throw new Error('Usuário não encontrado');
     }
 
+    // PostService.ts - método sharePost com logs
     try {
-      if (originalPost.user.iduser !== dto.userId) {
-        // Não notificar a si mesmo
+      // LÓGICA DE NOTIFICAÇÃO
+      let targetUserId: number;
+      let notificationShareId: number | undefined = undefined;
+
+      if (dto.shareId) {
+        // É um compartilhamento de um compartilhamento existente
+        const originalShare = await this.repository.findPostShareById(
+          dto.shareId
+        );
+        if (!originalShare) {
+          throw new Error('Compartilhamento original não encontrado');
+        }
+        targetUserId = originalShare.user_iduser;
+        notificationShareId = dto.shareId;
+      } else {
+        // É um compartilhamento direto do post original
+        targetUserId = originalPost.user.iduser;
+        notificationShareId = undefined;
+      }
+
+      // Não notificar a si mesmo
+      if (targetUserId && targetUserId !== dto.userId) {
+
         await this.notificationService.createNotification({
-          user_id: originalPost.user.iduser,
+          user_id: targetUserId,
           actor_id: dto.userId,
           type: 'SHARE',
           post_id: dto.postId,
-          post_share_id: shared.id,
+          post_share_id: notificationShareId,
         });
       }
     } catch (error) {
@@ -513,13 +509,12 @@ export class PostService {
           actor_id: userId,
           type: 'COMMENT',
           post_id: postId,
-          post_share_id: shareId,
+          post_share_id: shareId, // ✅ ADICIONAR post_share_id
           comment_id: comment.idcomment,
         });
       }
     } catch (error) {
       console.error('Erro ao criar notificação de comentário:', error);
-      // Não quebra o fluxo principal
     }
   }
 
@@ -564,7 +559,6 @@ export class PostService {
     return CommentCountDTO.fromResult(count);
   }
 
-  // 🔨 SUBSTITUIR O MÉTODO attendEvent EXISTENTE
   async attendEvent(data: AttendEventDTO): Promise<'confirmed' | 'removed'> {
     const postShareId = data.postShareId ?? undefined;
 
@@ -574,6 +568,12 @@ export class PostService {
     if (post.categoria_idcategoria !== 8) {
       throw new Error('Este post não permite confirmação de presença');
     }
+
+    // ✅ VERIFICAR SE JÁ EXISTE PRESENÇA EM QUALQUER COMPARTILHAMENTO DESTE EVENTO
+    const existingAttendance = await this.repository.findAnyAttendanceByUser(
+      data.postId,
+      data.userId
+    );
 
     const currentAttendance = await this.repository.findAttendance(
       data.postId,
@@ -596,27 +596,35 @@ export class PostService {
       status: 'confirmed',
     });
 
-    // 👇 HOOK DE NOTIFICAÇÃO DE CONFIRMAÇÃO EM EVENTO - CORRIGIDO
+    // ✅ NOTIFICAR APENAS SE FOR A PRIMEIRA PRESENÇA DO USUÁRIO NESTE EVENTO
     try {
-      // ✅ CORREÇÃO: Usa método auxiliar para determinar quem notificar
-      const targetUserId = await this.getNotificationTargetUserId(
-        data.postId,
-        postShareId
-      );
+      const originalPost = await this.repository.findById(data.postId);
+      if (!originalPost) throw new Error('Post não encontrado');
 
-      if (targetUserId && targetUserId !== data.userId) {
-        // Não notificar a si mesmo
+      const eventAuthorId = originalPost.user_iduser;
+
+      // ✅ SÓ NOTIFICA SE:
+      // 1. Não for o próprio autor
+      // 2. Não existir presença prévia em nenhum share deste evento
+      const shouldNotify =
+        eventAuthorId && eventAuthorId !== data.userId && !existingAttendance;
+
+      if (shouldNotify) {
         await this.notificationService.createNotification({
-          user_id: targetUserId, // ✅ Agora é o dono CORRETO
-          actor_id: data.userId, // Quem confirmou presença
+          user_id: eventAuthorId,
+          actor_id: data.userId,
           type: 'EVENT_ATTENDANCE',
           post_id: data.postId,
-          post_share_id: postShareId,
+          post_share_id: data.postShareId,
         });
+
+      } else if (existingAttendance) {
+        console.log(
+          `🔇 Notificação suprimida - usuário ${data.userId} já tinha presença no evento ${data.postId}`
+        );
       }
     } catch (error) {
       console.error('Erro ao criar notificação de evento:', error);
-      // Não quebra o fluxo principal
     }
 
     return 'confirmed';
@@ -656,9 +664,6 @@ export class PostService {
       limit
     );
 
-    console.log(`📊 Posts encontrados para usuário ${userId}:`, posts.length);
-
-    // 👇 VALIDAÇÃO DE CONTEÚDO - aplicada APÓS o processamento normal
     const validatedPosts =
       await this.contentValidationService.validatePosts(posts);
 
@@ -667,10 +672,6 @@ export class PostService {
         try {
           // 👇 Se for post indisponível, converte para DTO especial
           if (post instanceof UnavailablePostDTO) {
-            console.log(
-              `🚫 Post indisponível detectado na listagem de usuário:`,
-              post.reason
-            );
             const unavailableDTO = PostListItemDTO.createUnavailablePost(
               post,
               requestingUserId
@@ -678,11 +679,9 @@ export class PostService {
             return unavailableDTO;
           }
 
-          // 👇 Processamento NORMAL para posts disponíveis (MANTÉM A LÓGICA ORIGINAL)
           let author = userExists;
 
           if (post.sharedBy) {
-            // É um compartilhamento - busca o autor do post original
             const originalPost = await this.repository.findById(
               post.sharedBy.postId
             );

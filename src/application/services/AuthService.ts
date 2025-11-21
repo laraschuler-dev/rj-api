@@ -16,6 +16,7 @@ import { DeleteAccountDTO } from '../../core/dtos/DeleteAccountDTO';
 import { OAuth2Client } from 'google-auth-library';
 import { UserSocialConnectionRepository } from '../../core/repositories/UserSocialConnectionRepository';
 import { UserSocialConnection } from '../../core/entities/UserSocialConnection';
+import { EmailVerificationService } from './EmailVerificationService';
 
 /**
  * Serviço responsável por autenticação e gerenciamento de usuários.
@@ -35,6 +36,7 @@ export class AuthService {
     private userRepository: UserRepository,
     private passwordRecoveryService: PasswordRecoveryService,
     private userSocialConnectionRepository: UserSocialConnectionRepository,
+    private emailVerificationService: EmailVerificationService,
     jwtSecret: string
   ) {
     this.jwtSecret = jwtSecret;
@@ -92,12 +94,38 @@ export class AuthService {
     );
     const createdUser = await this.userRepository.create(newUser);
 
+    this.emailVerificationService
+      .sendVerificationEmail(createdUser.email)
+      .catch((error) => {
+        console.error('Erro ao enviar e-mail de verificação:', error);
+        // Não falha o registro se o e-mail não for enviado
+      });
+
     return {
       id: createdUser.id,
       name: createdUser.name,
       email: createdUser.email,
       phone: createdUser.phone,
     };
+  }
+
+  async verifyEmail(token: string): Promise<void> {
+    try {
+      await this.emailVerificationService.confirmEmail(token);
+    } catch (error: any) {
+      if (error.message.includes('expirado')) {
+        throw new Error('Link de verificação expirado. Solicite um novo.');
+      }
+      if (error.message.includes('inválido')) {
+        throw new Error('Link de verificação inválido.');
+      }
+      throw error;
+    }
+  }
+
+  // Método para reenviar verificação
+  async sendNewVerificationEmail(email: string): Promise<void> {
+    await this.emailVerificationService.sendNewVerificationEmail(email);
   }
 
   /**
@@ -157,13 +185,20 @@ export class AuthService {
     const { emailOrPhone, password } = data;
     const sanitizedInput = emailOrPhone.trim().replace(/\D/g, '');
 
-    // Busca o usuário pelo e-mail ou telefone
+    // Busca o usuário
     const user =
       (await this.userRepository.findByEmailOrPhone(emailOrPhone)) ||
       (await this.userRepository.findByEmailOrPhone(sanitizedInput));
 
     if (!user) {
       throw new Error('Usuário não encontrado');
+    }
+
+    // ✅ VALIDAÇÃO INTELIGENTE PARA USUÁRIOS LEGADOS
+    // Se emailVerified é NULL ou TRUE → permite acesso (usuários legados)
+    // Se emailVerified é FALSE → bloqueia (novos usuários)
+    if (user.emailVerified === false) {
+      throw new Error('E-mail não verificado. Verifique sua caixa de entrada.');
     }
 
     // Verifica a senha
@@ -622,7 +657,7 @@ export class AuthService {
       throw error;
     }
   }
-  
+
   async updatePassword(userId: number, dto: UpdatePasswordDTO): Promise<void> {
     const user = await this.userRepository.findByIdUser(userId);
     if (!user) throw new Error('Usuário não encontrado.');

@@ -5,6 +5,7 @@ import { AuthService } from '../../../application/services/AuthService';
 import { AuthUseCases } from '../../../application/use-cases/AuthUseCases';
 import { AuthController } from '../controllers/AuthController';
 import { UserSocialConnectionRepositoryPrisma } from '../../../infrastructure/database/repositories/UserSocialConnectionRepositoryPrisma';
+import { EmailVerificationService } from '../../../application/services/EmailVerificationService';
 
 /**
  * Factory responsável por instanciar e injetar as dependências do AuthController.
@@ -16,12 +17,14 @@ export function makeAuthController(): AuthController {
   const userRepository = new UserRepositoryPrisma();
   const passwordRecoveryService = new PasswordRecoveryService(userRepository);
   const userSocialConnectionRepository = new UserSocialConnectionRepositoryPrisma();
+  const emailVerificationService = new EmailVerificationService(userRepository);
   const jwtSecret = process.env.JWT_SECRET || 'defaultSecret';
 
   const authService = new AuthService(
     userRepository,
     passwordRecoveryService,
     userSocialConnectionRepository,
+    emailVerificationService, // ADICIONE ESTE ARGUMENTO
     jwtSecret
   );
 
